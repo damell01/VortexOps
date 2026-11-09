@@ -36,7 +36,7 @@
         @media(max-width:767px){.vx-dashboard-reference .vx-dashboard-main-grid,.vx-dashboard-reference .vx-dashboard-secondary-grid { grid-template-columns:minmax(0,1fr); }.vx-dashboard-reference .vx-dashboard-main-grid> :first-child,.vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { grid-column:auto; }}
 
         .vx-dashboard-reference .fi-wi-stats-overview-stat{border-radius:1rem;box-shadow:0 3px 12px rgba(30,41,59,.04);min-width:0}
-        .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1rem,1.3vw,1.2rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
+        .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1.1rem,1.5vw,1.5rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}
         .vx-dashboard-reference .fi-section{border-radius:1rem}
         .vx-dashboard-reference .fi-wi{min-width:0}
@@ -81,9 +81,9 @@
         </div>
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-1 text-xs text-gray-500">Current stock status at a glance.</p></div>@if(\App\Filament\Resources\InventoryItemResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl() }}" class="text-xs font-semibold text-primary-600">View inventory →</a>@endif</div>
-            <div class="mt-5 flex flex-wrap items-center justify-center gap-5">
-                <div class="vx-donut relative flex h-36 w-36 shrink-0 items-center justify-center rounded-full" style="--green:{{ $green }}%;--amber:{{ $green + $amber }}%" role="img" aria-label="{{ $healthy }} in stock above reorder level, {{ $low }} low stock, {{ $inventoryHealth['out'] ?? 0 }} out of stock">
-                    <div class="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white dark:bg-gray-900"><strong class="text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($stockTotal) }}</strong><span class="mt-1 text-[10px] text-gray-500">Total items</span></div>
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-4">
+                <div class="vx-donut relative flex h-28 w-28 shrink-0 sm:h-32 sm:w-32 items-center justify-center rounded-full" style="--green:{{ $green }}%;--amber:{{ $green + $amber }}%" role="img" aria-label="{{ $healthy }} in stock above reorder level, {{ $low }} low stock, {{ $inventoryHealth['out'] ?? 0 }} out of stock">
+                    <div class="flex h-20 w-20 flex-col sm:h-24 sm:w-24 items-center justify-center rounded-full bg-white dark:bg-gray-900"><strong class="text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($stockTotal) }}</strong><span class="mt-1 text-[10px] text-gray-500">Total items</span></div>
                 </div>
                 <div class="min-w-[130px] flex-1 space-y-3 text-xs">
                     @foreach([['In stock', $healthy, '#10b981'], ['Low stock', $low, '#f59e0b'], ['Out of stock', $inventoryHealth['out'] ?? 0, '#fb7185']] as [$label,$count,$color])

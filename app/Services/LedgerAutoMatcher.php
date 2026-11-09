@@ -81,12 +81,17 @@ class LedgerAutoMatcher
 
             $primary = $show->streamers()->wherePivot('is_primary', true)->get();
             $streamer = $primary->count() === 1 ? $primary->first() : null;
+            // Verified show does not imply a verified recipient. Hold the
+            // allocation for review until exactly one primary is assigned.
+            $recipientResolved = $streamer !== null;
             $payload = [
                 'category' => $service->suggestedCategory($entry),
                 'target' => 'show', 'show_id' => $show->id,
                 'streamer_id' => $streamer?->id,
                 'business_id' => $streamer?->business_id,
-                'status' => 'approved', 'reason' => 'Automatic verified source livestream/order evidence + channel match',
+                'status' => $recipientResolved ? 'approved' : 'pending', 'reason' => $recipientResolved
+                    ? 'Automatic verified source livestream/order evidence + channel match'
+                    : 'Verified show; awaiting exactly one primary streamer',
                 'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                 'updated_at' => now(),
             ];

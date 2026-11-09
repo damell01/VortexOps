@@ -108,7 +108,8 @@ class ListInventoryItems extends ListRecords
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
-    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or receive inventory without opening each item.'; }
+    public function getHeading(): string { return ''; }
+    public function getSubheading(): ?string { return null; }
     public function getBreadcrumbs(): array { return []; }
 
     protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder

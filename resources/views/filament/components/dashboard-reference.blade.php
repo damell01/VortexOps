@@ -34,12 +34,12 @@
         .vx-dashboard-reference .vx-middle .fi-wi-widget,.vx-dashboard-reference .vx-middle .fi-wi-widget>section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-    <section class="vx-dashboard-hero relative flex min-h-[200px] items-center overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:px-7" style="background-image:linear-gradient(90deg,rgba(23,12,58,.94) 0%,rgba(46,16,101,.78) 45%,rgba(76,29,149,.25) 100%),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center right;">
+    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <section class="vx-dashboard-hero relative flex min-h-[128px] items-center overflow-hidden rounded-2xl bg-gradient-to-r from-violet-950 to-violet-800 p-4 text-white shadow-sm sm:px-6">
         <div class="relative min-w-0 max-w-xl">
             <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
             <p class="mt-1 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
-            <div class="mt-4 flex flex-wrap gap-2">
+            <div class="mt-3 flex flex-wrap gap-2">
                 @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
                 <a href="{{ $link['url'] }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-xs font-semibold transition {{ $loop->first ? 'border-violet-400 bg-violet-600 shadow-lg shadow-violet-900/40 hover:bg-violet-500' : 'border-white/20 bg-white/5 hover:bg-white/15' }}"><x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}</a>
                 @endforeach
@@ -71,7 +71,7 @@
 
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
-    <div class="vx-middle grid gap-4 lg:grid-cols-3">
+    <div class="vx-middle grid gap-3 lg:grid-cols-3">
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-1 text-xs text-gray-500">Current stock status at a glance.</p></div>@if(\App\Filament\Resources\InventoryItemResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl() }}" class="text-xs font-semibold text-primary-600">View inventory →</a>@endif</div>
             <div class="mt-5 flex flex-wrap items-center justify-center gap-5">

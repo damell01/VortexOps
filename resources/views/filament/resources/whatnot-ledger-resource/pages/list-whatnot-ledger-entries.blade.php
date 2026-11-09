@@ -180,6 +180,13 @@
                 </div>
             @endforeach
         </dl>
+        <div class="mt-3 rounded-lg border border-violet-200 bg-white/70 p-3 dark:border-violet-800 dark:bg-gray-900/60">
+            <p class="text-xs font-semibold text-gray-950 dark:text-white">Where does a transaction belong?</p>
+            <p class="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300"><strong>Show:</strong> a verified show, usually with its primary streamer. <strong>Streamer:</strong> directly attributed to a streamer when no show applies. <strong>House:</strong> belongs to the business, such as general marketing, company bonuses or operating fees, rather than a particular show or streamer. <strong>Unassigned:</strong> ownership has not been established. A pending assignment still needs approval.</p>
+            <p class="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">A House destination can have any category. For example, <strong>House + Marketing</strong> is a business advertising expense; <strong>House + Bonus</strong> is a company-level incentive. House is not a separate transaction type.</p>
+        </div>
+        <button type="button" class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-violet-300 bg-white px-3 text-xs font-semibold text-violet-800 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:border-violet-700 dark:bg-gray-900 dark:text-violet-200" wire:click="$set('categoryFilter', 'other')">Review transactions categorized Other</button>
+        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">The category filter searches approved attributions within your current date and channel filters. Entries awaiting attribution appear in the review queue.</p>
         <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">Changing a category does not automatically change payroll or approve a show or streamer attribution.</p>
     </details>
 

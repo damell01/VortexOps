@@ -112,7 +112,7 @@
                 </details>
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
                     <strong>{{ number_format($reviewCount) }} tips need business review</strong>
-                    <p>${{ number_format($reviewNet / 100, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>
+                    <p>${{ number_format($reviewNet / 100, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>
                 </div></div>
             @endif
             <section class="vxw-card">
@@ -155,7 +155,7 @@
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
                     <strong>{{ number_format($unresolved['entries']) }} tip entries need show or streamer attribution</strong>
                     <p>Net ${{ number_format($unresolved['net'], 2) }} remains outside verified per-show and per-streamer totals. Review before payroll allocation.</p>
-                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review ledger attribution</a>
+                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review ledger attribution</a>
                 </div></div>
             @endif
             <section class="vxw-card">

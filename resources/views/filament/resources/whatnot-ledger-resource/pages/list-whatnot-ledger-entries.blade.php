@@ -655,7 +655,10 @@
               </div>
             </template>
         @endif
-    </div>    @php $byStreamer = $this->streamerTotals; @endphp
+    </div>
+    {{-- The inspector does not need report aggregates. Avoid expensive joins on each row click. --}}
+    @if ($selectedId === null)
+    @php $byStreamer = $this->streamerTotals; @endphp
     @if ($byStreamer)
         <details class="mb-4 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
             <summary class="cursor-pointer text-sm font-semibold">By streamer ({{ count($byStreamer) }}) — for the current filters</summary>
@@ -820,6 +823,8 @@
             </tbody>
         </table></div>
     </details>
+
+    @endif
 
 </div>
 </x-filament-panels::page>

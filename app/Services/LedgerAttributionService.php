@@ -110,10 +110,11 @@ class LedgerAttributionService
             $has('payouts?|transfers?|withdrawals?') => 'payouts',
             // Carrier adjustments, label costs and their refunds are shipping, not order refunds.
             $has('shipping|postage|carrier|labels?') => 'shipping',
+            // A refunded promo or bonus is still marketing / bonus money, not an order refund.
+            $has('marketing|promotions?|promoted|advertising|advertisement|ads?') => 'marketing',
+            $has('bonus(?:es)?') => 'bonus',
             $has('refunds?|refunded|chargebacks?') => 'refunds',
             $has('giveaways?') => 'giveaways',
-            $has('bonus(?:es)?') => 'bonus',
-            $has('marketing|promotions?|promoted|advertising|advertisement|ads?') => 'marketing',
             $has('fees?|commissions?') => 'fees',
             $has('sales?|earnings?|auction|buy it now') => 'sales',
             $has('adjustments?|corrections?') => 'correction',

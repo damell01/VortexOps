@@ -29,6 +29,7 @@ final class LedgerCategoryTest extends TestCase
             'payout' => ['Payout', 'payouts'],
             'auction sale' => ['auction', 'sales'],
             'chargeback' => ['Chargeback', 'refunds'],
+            'promotion refund' => ['Promotion refund', 'marketing'],
             'unknown' => ['Unknown', 'other'],
         ];
     }

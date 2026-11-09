@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 class LedgerAutoMatcher
 {
+    /** Categories that are business-level money when no order or livestream is behind them. */
+    public const HOUSE_CATEGORIES = ['marketing', 'bonus'];
+
     public function match(WhatnotLedgerEntry $entry): string
     {
         return DB::transaction(function () use ($entry) {
@@ -19,30 +22,29 @@ class LedgerAutoMatcher
             // merely because a show's primary streamer or business later changed.
             $show = $service->suggestedShow($entry);
             if (! $show) {
-                // Only explicit, orderless, livestream-less promotional charges
-                // can be classified as house overhead without show evidence.
-                // Other fees, refunds and sales remain unmatched for review.
-                $type = strtolower(trim((string) $entry->transaction_type));
+                // Business-level money (marketing, bonuses) with no order and no
+                // livestream behind it belongs to the house: file and approve it
+                // automatically. Anything tied to an order or stream stays out.
                 $raw = is_array($entry->raw_data) ? $entry->raw_data : [];
                 $hasLivestream = collect(['live_id', 'whatnot_live_id', 'livestream_id', 'source_live_id'])
                     ->contains(fn ($key) => filled($raw[$key] ?? null));
-                $houseMarketing = in_array($type, ['marketing', 'promotion', 'promotions', 'advertising', 'advertisement'], true)
-                    && ! filled($entry->whatnot_order_id)
+                $category = $service->suggestedCategory($entry);
+                $house = in_array($category, self::HOUSE_CATEGORIES, true)
+                    && (! filled($entry->whatnot_order_id) || $entry->whatnot_order_id === '-')
                     && ! $hasLivestream
-                    && (float) $entry->amount < 0;
+                    && $entry->amount !== null;
 
                 if ($existing && $existing->status === 'approved') {
-                    return $houseMarketing && $existing->target === 'house'
-                        && $existing->category === 'marketing'
+                    return $house && $existing->target === 'house'
                         && $existing->show_id === null
                         && $existing->streamer_id === null ? 'matched' : 'flagged';
                 }
-                if (! $houseMarketing) {
+                if (! $house) {
                     if ($existing) return 'unmatched';
                     // A category is not evidence of a show or recipient.
                     $payload = [
                         'whatnot_ledger_entry_id' => $entry->id,
-                        'category' => $service->suggestedCategory($entry),
+                        'category' => $category,
                         'target' => 'unassigned', 'show_id' => null,
                         'streamer_id' => null, 'business_id' => null,
                         'status' => 'pending',
@@ -59,24 +61,29 @@ class LedgerAutoMatcher
                     ]);
                     return 'categorized';
                 }
-                if ($existing) return 'unmatched';
+                // A suggestion someone already reviewed (e.g. rejected) is their call.
+                if ($existing && $existing->reviewed_by !== null) return 'manual';
+                // Earlier automatic suggestions (pending, nobody's decision) are upgraded.
                 $payload = [
-                    'whatnot_ledger_entry_id' => $entry->id,
-                    'category' => 'marketing', 'target' => 'house',
-                    'show_id' => null, 'streamer_id' => null, 'business_id' => null,
-                    'status' => 'pending',
-                    'reason' => 'Suggested house marketing expense; requires business assignment and human approval',
-                    'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
-                    'created_at' => now(), 'updated_at' => now(),
+                    'category' => $category, 'target' => 'house',
+                    'show_id' => null, 'streamer_id' => null, 'business_id' => $existing->business_id ?? null,
+                    'status' => 'approved',
+                    'reason' => 'Automatic house rule: '.$category.' with no order or livestream',
+                    'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => now(),
+                    'updated_at' => now(),
                 ];
-                DB::table('ledger_attributions')->insert($payload);
+                if ($existing) {
+                    DB::table('ledger_attributions')->where('id', $existing->id)->update($payload);
+                } else {
+                    DB::table('ledger_attributions')->insert($payload + ['whatnot_ledger_entry_id' => $entry->id, 'created_at' => now()]);
+                }
                 DB::table('ledger_attribution_events')->insert([
                     'whatnot_ledger_entry_id' => $entry->id, 'actor_id' => null,
-                    'action' => 'auto_categorized', 'before' => null,
+                    'action' => 'auto_house', 'before' => $existing ? json_encode($existing) : null,
                     'after' => json_encode($payload), 'reason' => $payload['reason'],
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
-                return 'categorized';
+                return 'matched';
             }
 
             $members = $show->streamers()->get(['streamers.id', 'streamers.business_id']);

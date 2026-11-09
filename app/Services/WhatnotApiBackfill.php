@@ -51,7 +51,7 @@ final class WhatnotApiBackfill
         // A preview must not inherit completion markers from a prior applied run.
         foreach (self::STEPS as $step) {
             if ($only !== null && ! in_array($step, $only, true)) continue;
-            if ($only === null && in_array($step, $state['done'] ?? [], true)) {
+            if (in_array($step, $state['done'] ?? [], true)) {
                 $summary['steps'][$step] = 'already done';
                 continue;
             }

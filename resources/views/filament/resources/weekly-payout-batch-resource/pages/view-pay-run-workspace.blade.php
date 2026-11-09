@@ -112,9 +112,13 @@
 
             <ol class="vxw-stages" aria-label="Pay run progress">
                 @foreach($statusSteps as $key => $label)
-                    @php $i = array_search($key, $statusKeys, true); @endphp
+                    @php
+                        $i = array_search($key, $statusKeys, true);
+                    @endphp
                     <li @class(['vxw-stage', 'is-done' => $i < $statusIndex || $run->status === 'paid', 'is-current' => $i === $statusIndex && $run->status !== 'paid']) @if($i === $statusIndex) aria-current="step" @endif>
-                        <span class="vxw-stage-dot">@if($i < $statusIndex || $run->status === 'paid')<x-filament::icon icon="heroicon-m-check" />@else{{ $i + 1 }}@endif</span>
+                        <span class="vxw-stage-dot">@if($i < $statusIndex || $run->status === 'paid')<x-filament::icon icon="heroicon-m-check" />@else
+                            {{ $i + 1 }}
+                        @endif</span>
                         <span class="vxw-stage-label">{{ $label }}</span>
                     </li>
                 @endforeach
@@ -202,7 +206,9 @@
             </div>
 
             <div class="vxw-rows vx-payroll-people-cards" wire:loading.class="opacity-60" wire:target="peopleSearch,previousPeoplePage,nextPeoplePage" style="transition:opacity 150ms">
-                @php $lastRole = null; @endphp
+                @php
+                    $lastRole = null;
+                @endphp
                 @forelse($visiblePeople as $streamerId => $rows)
                     @php
                         $person = $rows->first()->streamer;
@@ -215,7 +221,9 @@
                         $personShows = $rows->pluck('show_id')->filter()->unique()->count();
                     @endphp
                     @if($role !== $lastRole)
-                        @php $lastRole = $role; @endphp
+                        @php
+                            $lastRole = $role;
+                        @endphp
                         <div class="vx-payroll-role-head" wire:key="pay-role-{{ $role }}" data-payroll-role="{{ $role }}">
                             <span>{{ \App\Support\PayrollRoles::plural($role) }}</span>
                             <span class="vxw-meta">{{ $roleTotals[$role]['people'] ?? 0 }} {{ \Illuminate\Support\Str::plural('person', $roleTotals[$role]['people'] ?? 0) }} · {{ $money($roleTotals[$role]['total'] ?? 0) }}</span>
@@ -351,7 +359,9 @@
                 </div>
             </section>
             @if($transfer = \App\Support\BusinessTransfer::forRun($run))
-            @php $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2); @endphp
+            @php
+                $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2);
+            @endphp
             <section class="vxw-card" data-vx-transfer>
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Business account transfer<x-vx-help topic="payrun.transfer" /></h3>

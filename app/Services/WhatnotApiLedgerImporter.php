@@ -46,51 +46,148 @@ final class WhatnotApiLedgerImporter
         $rows = $this->parse($csv);
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
-            'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
-            'show_via_shipment' => 0, 'matched_to_show' => 0];
+            'ambiguous' => 0, 'resolved_ambiguous' => 0, 'ambiguous_api_id' => 0, 'ambiguous_scraper' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
+            'show_via_shipment' => 0, 'matched_to_show' => 0,
+            'tips_api_with_livestream' => 0, 'tips_api_with_order_id' => 0,
+            'tips_linked' => 0, 'tips_ambiguous' => 0, 'tips_before_start' => 0,
+            'tips_created' => 0, 'tips_unchanged' => 0, 'tips_attributed' => 0,
+            'tips_with_known_show' => 0, 'tips_missing_show' => 0,
+            'tips_nearby_scraper_same_amount' => 0, 'tips_nearby_scraper_other_amount' => 0];
         $matcher = app(LedgerAutoMatcher::class);
         $coveredDays = [];
+        // Load previously reconciled IDs once rather than scanning the JSON
+        // column thousands of times (one full-table scan per report row).
+        $linkedByApiId = [];
+        WhatnotLedgerEntry::query()->where('whatnot_channel_id', $channelId)
+            ->whereNotNull('raw_data')->select(['id', 'raw_data'])
+            ->chunkById(1000, function ($entries) use (&$linkedByApiId) {
+                foreach ($entries as $existing) {
+                    $id = $existing->raw_data['ledger_transaction_id'] ?? null;
+                    if (! is_string($id) || $id === '') continue;
+                    $linkedByApiId[$id] ??= collect();
+                    if ($linkedByApiId[$id]->count() < 2) $linkedByApiId[$id]->push($existing->id);
+                }
+            });
 
-        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, &$counts, &$coveredDays) {
+        $initialCounts = $counts;
+        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, $linkedByApiId, $initialCounts, &$counts, &$coveredDays) {
+            // A deadlock can retry this whole transaction. Reset attempt-local
+            // counters and cached coverage so reported totals stay accurate.
+            $counts = $initialCounts;
+            $coveredDays = [];
             foreach ($rows as $row) {
                 $entry = $this->toEntry($channelId, $row);
                 if ($entry === null) {
                     $counts['invalid']++;
                     continue;
                 }
-                if (strcasecmp($entry['transaction_type'], 'Tip') === 0) $counts['tips']++;
+                $isTip = strcasecmp($entry['transaction_type'], 'Tip') === 0;
+                if ($isTip) {
+                    $counts['tips']++;
+                    if (filled($entry['raw_data']['livestream_id'] ?? null)) $counts['tips_api_with_livestream']++;
+                    if (filled($entry['whatnot_order_id'])) $counts['tips_api_with_order_id']++;
+                    $live = $entry['raw_data']['livestream_id'] ?? null;
+                    if (is_string($live) && preg_match('/^[a-f0-9-]{32,36}$/i', $live)) {
+                        $known = \App\Models\Show::query()->where('whatnot_channel_id', $channelId)
+                            ->whereRaw('LOWER(whatnot_show_id) = ?', [strtolower($live)])->exists();
+                        $counts[$known ? 'tips_with_known_show' : 'tips_missing_show']++;
+                    }
+                }
                 if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
                 $existingApiEntry = WhatnotLedgerEntry::where('whatnot_channel_id', $channelId)
                     ->where('dedup_key', $entry['dedup_key'])->first();
                 if ($existingApiEntry !== null) {
                     $counts['unchanged']++;
+                    if ($isTip) $counts['tips_unchanged']++;
                     // A previous import may have preceded show/order/shipments
                     // backfill. Retry attribution without changing the financial
                     // transaction or overriding a human-approved allocation.
                     if (! $dryRun && $matcher->match($existingApiEntry) === 'matched') {
                         $counts['matched_to_show']++;
+                        if ($isTip) $counts['tips_attributed']++;
                     }
                     continue;
                 }
 
-                $candidates = $this->scraperMatches($channelId, $entry);
-                if ($candidates->count() > 1) {
+                // Prefer an authoritative Seller API transaction ID over any
+                // amount/time heuristic. Scraper imports may already carry
+                // this ID from an earlier reconciliation.
+                $apiId = (string) ($entry['raw_data']['ledger_transaction_id'] ?? '');
+                $idMatches = $apiId !== '' && isset($linkedByApiId[$apiId])
+                    ? $linkedByApiId[$apiId]
+                    : collect();
+                if ($idMatches->count() > 1) {
+                    $counts['ambiguous_api_id']++;
                     $counts['ambiguous']++;
+                    if ($isTip) $counts['tips_ambiguous']++;
+                    continue;
+                }
+                // Forward-only cutover: never reconcile or modify scraper rows from
+                // before the configured API ledger start. Historical duplicates
+                // remain untouched unless an explicit backfill is requested.
+                $completedAt = Carbon::parse($entry['completed_date']);
+                if ($backfillFrom === null && ($start === null || $completedAt->lt($start))
+                    && $idMatches->isEmpty()) {
+                    $counts['before_start']++;
+                    if ($isTip) $counts['tips_before_start']++;
+                    continue;
+                }
+                $candidates = $idMatches->isNotEmpty()
+                    ? WhatnotLedgerEntry::query()->whereKey($idMatches->all())->get()
+                    : $this->scraperMatches($channelId, $entry);
+                if ($isTip && $candidates->isEmpty()) {
+                    // Diagnostic only: do not associate tips by approximate time or
+                    // amount. This reveals scraper/API discrepancies safely.
+                    $at = Carbon::parse($entry['completed_date']);
+                    $nearby = WhatnotLedgerEntry::query()
+                        ->where('whatnot_channel_id', $channelId)
+                        ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                        ->where(fn ($q) => $q->whereNull('dedup_key')->orWhere('dedup_key', 'not like', 'wn_api:%'))
+                        ->where(fn ($q) => $q->whereBetween('completed_date', [$at->copy()->subMinutes(30), $at->copy()->addMinutes(30)])
+                            ->orWhereBetween('created_date', [$at->copy()->subMinutes(30), $at->copy()->addMinutes(30)]))
+                        ->get(['amount']);
+                    if ($nearby->contains(fn ($row) => abs((float) $row->amount - (float) $entry['amount']) < 0.005)) {
+                        $counts['tips_nearby_scraper_same_amount']++;
+                    } elseif ($nearby->isNotEmpty()) {
+                        $counts['tips_nearby_scraper_other_amount']++;
+                    }
+                }
+                if ($candidates->count() > 1) {
+                    // Multiple scraper rows can share an order and amount. Only
+                    // narrow the set when independent type AND time evidence
+                    // identify exactly one record; otherwise require review.
+                    $resolved = $this->uniqueEvidenceMatch($candidates, $entry);
+                    if ($resolved !== null) {
+                        $candidates = collect([$resolved]);
+                        $counts['resolved_ambiguous']++;
+                    }
+                }
+                if ($candidates->count() > 1) {
+                    $counts['ambiguous_scraper']++;
+                    $counts['ambiguous']++;
+                    if ($isTip) $counts['tips_ambiguous']++;
                     continue;
                 }
                 if ($candidates->count() === 1) {
                     $counts['linked']++;
+                    if ($isTip) $counts['tips_linked']++;
                     if (! $dryRun) {
                         $existing = $candidates->first();
                         $raw = is_array($existing->raw_data) ? $existing->raw_data : [];
                         $raw['ledger_transaction_id'] = $entry['raw_data']['ledger_transaction_id'];
+                        if (filled($entry['whatnot_order_id']) && ! filled($existing->whatnot_order_id)) {
+                            $existing->whatnot_order_id = $entry['whatnot_order_id'];
+                        }
                         if (! empty($entry['raw_data']['livestream_id']) && empty($raw['livestream_id'])) {
                             $raw['livestream_id'] = $entry['raw_data']['livestream_id'];
                         }
                         $raw['_seller_api_report'] = $entry['raw_data'];
                         $existing->forceFill(['raw_data' => $raw])->save();
-                        if ($matcher->match($existing) === 'matched') $counts['matched_to_show']++;
+                        if ($matcher->match($existing) === 'matched') {
+                            $counts['matched_to_show']++;
+                            if ($isTip) $counts['tips_attributed']++;
+                        }
                     }
                     continue;
                 }
@@ -111,17 +208,22 @@ final class WhatnotApiLedgerImporter
                     }
                 } elseif ($start === null || $completed->lt($start)) {
                     $counts['before_start']++;
+                    if ($isTip) $counts['tips_before_start']++;
                     continue;
                 }
 
                 $counts['created']++;
+                if ($isTip) $counts['tips_created']++;
                 if (! $dryRun) {
                     // Tie it to its show and streamer now, not at the next hourly match.
-                    if ($matcher->match(WhatnotLedgerEntry::create($entry)) === 'matched') $counts['matched_to_show']++;
+                    if ($matcher->match(WhatnotLedgerEntry::create($entry)) === 'matched') {
+                        $counts['matched_to_show']++;
+                        if ($isTip) $counts['tips_attributed']++;
+                    }
                 }
             }
         };
-        $dryRun ? $run() : DB::transaction($run);
+        $dryRun ? $run() : DB::transaction($run, 5);
 
         return ['counts' => $counts, 'dry_run' => $dryRun];
     }
@@ -159,9 +261,16 @@ final class WhatnotApiLedgerImporter
         }
         try {
             $completed = Carbon::parse((string) $row['transaction_completed_at_utc'], 'UTC')->setTimezone(config('app.timezone'));
-            $placed = filled($row['order_placed_at_utc'] ?? null)
-                ? Carbon::parse((string) $row['order_placed_at_utc'], 'UTC')->setTimezone(config('app.timezone'))
+            $placedRaw = trim((string) ($row['order_placed_at_utc'] ?? ''));
+            $placed = $placedRaw !== ''
+                ? Carbon::parse($placedRaw, 'UTC')->setTimezone(config('app.timezone'))
                 : $completed;
+            // Whatnot sometimes supplies an epoch/zero order timestamp.
+            // Never persist 1970 as a real order placement date; retain the
+            // original value in raw_data for later forensic review.
+            if ($placed->year < 2000 || $placed->gt($completed->copy()->addDay())) {
+                $placed = $completed->copy();
+            }
         } catch (\Throwable) {
             return null;
         }
@@ -208,6 +317,20 @@ final class WhatnotApiLedgerImporter
         $entry['raw_data']['_livestream_via'] = 'shipment';
 
         return true;
+    }
+
+    /** Resolve duplicate candidates only with matching transaction type and close timestamps. */
+    private function uniqueEvidenceMatch($candidates, array $entry): ?WhatnotLedgerEntry
+    {
+        $type = strtolower(trim((string) $entry['transaction_type']));
+        $at = Carbon::parse($entry['completed_date']);
+        $matches = $candidates->filter(function (WhatnotLedgerEntry $candidate) use ($type, $at) {
+            if (strtolower(trim((string) $candidate->transaction_type)) !== $type) return false;
+            $completed = $candidate->completed_date;
+            if ($completed === null) return false;
+            return abs($completed->diffInSeconds($at)) <= 180;
+        });
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /** Scraper rows that are this same transaction. */

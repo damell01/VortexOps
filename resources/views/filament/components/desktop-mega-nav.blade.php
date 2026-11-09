@@ -256,6 +256,45 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     }
     .fi-topbar .vx-mega-channel { min-width: 115px !important; max-width: 140px !important; flex-basis: 130px !important; }
 }
+/* Keep Business and Channel selectors independent in the crowded desktop header.
+   The business picker must not inherit the channel's 130px width at laptop sizes. */
+@media (min-width: 1024px) {
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel {
+        box-sizing: border-box !important;
+        flex-shrink: 1 !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+    }
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business {
+        flex: 0 1 176px !important;
+        width: 176px !important;
+        max-width: 176px !important;
+        min-width: 0 !important;
+    }
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) {
+        flex: 0 1 158px !important;
+        width: 158px !important;
+        max-width: 158px !important;
+        min-width: 0 !important;
+    }
+    .fi-topbar .vx-mega-channel .vx-picker,
+    .fi-topbar .vx-mega-channel .vx-picker-btn,
+    .fi-topbar .vx-mega-channel .vx-picker-text { min-width: 0 !important; max-width: 100% !important; }
+    .fi-topbar .vx-mega-channel .vx-picker-value {
+        display: block !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+    }
+    .fi-topbar .vx-mega-channel .vx-picker-icon,
+    .fi-topbar .vx-mega-channel .vx-picker-chevron { flex: 0 0 auto !important; }
+    .fi-topbar .vx-mega-channel .vx-picker-menu { z-index: 100 !important; }
+}
+@media (min-width: 1024px) and (max-width: 1450px) {
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business { flex-basis: 148px !important; width: 148px !important; max-width: 148px !important; }
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) { flex-basis: 136px !important; width: 136px !important; max-width: 136px !important; }
+    .fi-topbar .vx-mega-channel .vx-picker-btn { gap: 5px !important; padding-inline: 7px !important; }
+}
 @media(max-width:1023px){.vx-search-trigger{display:none!important}}
 </style>
 

@@ -159,7 +159,7 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
         }
-        if (! in_array($this->review, ['all', 'needs_attribution', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
+        if (! in_array($this->review, ['all', 'needs_attribution', 'tips_needs_business', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
         }
         if ($this->categoryFilter !== '' && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
@@ -234,6 +234,39 @@ class ListWhatnotLedgerEntries extends Page
 
         $show = app(LedgerAttributionService::class)->suggestedShow($entry);
         return $show ? ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Verified match · awaiting approval'] : null;
+    }
+
+    /**
+     * Explain the selected transaction's evidence without treating a channel or
+     * an unverified order association as proof of business ownership.
+     */
+    public function selectedReviewEvidence(): array
+    {
+        $entry = $this->selected;
+        if (! $entry) return [];
+
+        $attribution = $this->selectedAttribution();
+        $show = $this->selectedShowDetails();
+        $approved = $attribution?->status === 'approved' && $attribution?->business_id !== null;
+        $order = trim((string) $entry->whatnot_order_id);
+        $reason = match (true) {
+            $approved => 'Approved business attribution exists.',
+            $attribution?->status === 'pending' => 'Assignment submitted; a different administrator must review it.',
+            $attribution?->status === 'rejected' => 'Previous assignment was rejected; inspect the evidence before resubmitting.',
+            $entry->whatnot_channel_id === null => 'Source channel is missing; business cannot be inferred.',
+            $order === '' || $order === '-' => 'Source order ID is missing. Check the imported livestream evidence.',
+            $show === null => 'No uniquely verified show match. An imported order link alone is not sufficient evidence.',
+            default => 'A uniquely verified show is suggested, but the business assignment still requires approval.',
+        };
+
+        return [
+            'status' => $approved ? 'Verified' : ($attribution?->status === 'pending' ? 'Pending approval' : 'Needs review'),
+            'reason' => $reason,
+            'order' => $order !== '' && $order !== '-' ? $order : null,
+            'show' => $show,
+            'business_id' => $attribution?->business_id,
+            'business_approved' => $approved,
+        ];
     }
 
     public function canReconcile(): bool
@@ -327,6 +360,14 @@ class ListWhatnotLedgerEntries extends Page
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
                     ->where('la.status', 'approved');
             }))
+            ->when($this->review === 'tips_needs_business', fn (Builder $q) => $q
+                ->whereRaw('LOWER(TRIM(whatnot_ledger_entries.transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                ->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')->from('ledger_attributions as la')
+                        ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                        ->where('la.status', 'approved')
+                        ->whereNotNull('la.business_id');
+                }))
             ->when($this->review === 'tips_missing_order', fn (Builder $q) => $q
                 ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
                 ->where(fn (Builder $missing) => $missing->whereNull('whatnot_order_id')->orWhereIn('whatnot_order_id', ['', '-'])))
@@ -450,6 +491,27 @@ class ListWhatnotLedgerEntries extends Page
             'processing' => (int) ($row->processing ?? 0),
             'count' => (int) ($row->cnt ?? 0),
         ];
+    }
+
+    /**
+     * Monthly ledger movement for the current filters. Aggregate in SQL rather
+     * than loading individual transactions into Livewire.
+     */
+    public function getLedgerTrendProperty(): array
+    {
+        $rows = $this->filteredQuery()->toBase()->reorder()
+            ->selectRaw("DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
+            ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits')
+            ->selectRaw('ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) as debits')
+            ->selectRaw('SUM(amount) as net')
+            ->groupBy('bucket')->orderByDesc('bucket')->limit(12)->get()->reverse()->values();
+
+        return $rows->map(fn ($row) => [
+            'label' => (string) $row->bucket,
+            'credits' => round((float) $row->credits, 2),
+            'debits' => round((float) $row->debits, 2),
+            'net' => round((float) $row->net, 2),
+        ])->all();
     }
 
     /** Attribution status for the currently filtered ledger rows, without bypassing channel scope. */

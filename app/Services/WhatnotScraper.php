@@ -306,6 +306,17 @@ class WhatnotScraper
 
     private function persistLedgerRow(?WhatnotChannel $channel,array $row):bool
     {
+        // API financial ledger owns transactions completed on/after the
+        // configured cutover date. Keep historical scraper imports intact.
+        $cutover = config('services.whatnot_seller.ledger_start');
+        if (is_string($cutover) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $cutover)) {
+            $completedRaw = $row['completed_date'] ?? $row['created_date'] ?? null;
+            $completed = $this->parseWnDateTime(is_string($completedRaw) ? $completedRaw : null);
+            // Unknown dates cannot be safely assigned to either source.
+            if ($completed === null || Carbon::parse($completed)->gte(Carbon::parse($cutover)->startOfDay())) {
+                return false;
+            }
+        }
         $amountRaw=$row['amount']??null;$amount=($amountRaw!==null&&$amountRaw!=='')?(float)str_replace(['$',',',' '],'',$amountRaw):null;$dedup=md5(implode('|',[$channel?->id??'',$row['order_id']??'',$row['listing_id']??'',$row['created_date']??'',$amountRaw??'',$row['transaction_type']??'']));if(WhatnotLedgerEntry::where('dedup_key',$dedup)->exists())return false;WhatnotLedgerEntry::create(['whatnot_channel_id'=>$channel?->id,'created_date'=>$this->parseWnDateTime($row['created_date']??null),'completed_date'=>$this->parseWnDateTime($row['completed_date']??null),'amount'=>$amount,'listing_id'=>$row['listing_id']??null,'whatnot_order_id'=>$row['order_id']??null,'order_hash'=>$row['order_hash']??null,'message'=>$row['message']??null,'status'=>$row['status']??null,'transaction_type'=>$row['transaction_type']??null,'dedup_key'=>$dedup,'raw_data'=>$row]);return true;
     }
     private function parseWnDateTime(?string $s):?string{if(!$s)return null;try{return Carbon::parse($s)->toDateTimeString();}catch(\Throwable){return null;}}

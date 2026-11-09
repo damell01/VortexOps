@@ -19,6 +19,35 @@
 
 <style>
     .vxled { grid-template-columns: minmax(0, 1fr); }
+    .vxled-visuals { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr); gap:12px; margin:12px 0; }
+    .vxled-visual { min-width:0; padding:16px; border:1px solid var(--vxw-border); border-radius:16px; background:var(--vxw-surface); }
+    .vxled-visual h2 { font-weight:750; font-size:15px; color:var(--vxw-text); }
+    .vxled-trend-legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--vxw-muted); }
+    .vxled-legend-dot { display:inline-block; height:9px; width:9px; border-radius:100%; margin-right:5px; }
+    .vxled-donut { width:150px; height:150px; flex:none; border-radius:50%; display:grid; place-items:center; }
+    .vxled-donut-hole { width:102px; height:102px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--vxw-surface); color:var(--vxw-text); }
+    .vxled-category-list { min-width:0; display:grid; gap:8px; flex:1; }
+    .vxled-category-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+    .vxled-category-row span:first-child { min-width:0; overflow-wrap:anywhere; }
+    @media (max-width:960px) { .vxled-visuals { grid-template-columns:minmax(0,1fr); } }
+    @media (max-width:480px) { .vxled-visual { padding:12px; } .vxled-category-layout { flex-direction:column; align-items:center; } }
+
+    /* Ledger workspace: compact, responsive controls with Vortex purple accents. */
+    .vxled .vxr-head { padding: 18px 20px; border: 1px solid var(--vxw-border); border-radius: 18px; background: linear-gradient(110deg,rgba(95,39,180,.14),rgba(128,71,245,.04) 65%,transparent); }
+    .vxled .vxr-stats { margin-block: 12px; }
+    .vxled-workspace { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,300px); gap: 12px; margin-bottom: 14px; }
+    .vxled-workspace-card { min-width: 0; border: 1px solid var(--vxw-border); background: var(--vxw-surface); border-radius: 16px; padding: 16px; }
+    .vxled-workspace-title { font-size: 15px; font-weight: 750; margin-bottom: 10px; color: var(--vxw-text); }
+    .vxled-actions { display: grid; gap: 8px; }
+    .vxled-action { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; width: 100%; padding: 8px 12px; border: 1px solid var(--vxw-border); border-radius: 10px; background: var(--vxw-surface); font-weight: 650; font-size: 13px; color: var(--vxw-text); text-align: left; }
+    .vxled-action:hover, .vxled-action:focus-visible { border-color: var(--vxw-accent); outline-offset: 2px; }
+    .vxled-action-count { font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 8px; background: var(--vxw-warn-soft); color: var(--vxw-warn); }
+    .vxled-review-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 3px 0 10px; scrollbar-width: thin; }
+    .vxled-review-tab { flex: none; padding: 9px 13px; min-height: 40px; border-radius: 11px; border: 1px solid var(--vxw-border); background: var(--vxw-surface); color: var(--vxw-text); font-size: 13px; font-weight: 650; }
+    .vxled-review-tab[aria-pressed="true"] { background: var(--vxw-accent); color: white; border-color: var(--vxw-accent); }
+    @media (max-width: 900px) { .vxled-workspace { grid-template-columns: minmax(0,1fr); } }
+    @media (max-width: 640px) { .vxled .vxr-head { padding: 14px; } .vxled-workspace-card { padding: 12px; } .vxled-review-tab { padding-inline: 10px; } }
+
     /* The phone select picker (mobile-controls.js) sits inside our control; let the control be the box. */
     @media (max-width: 767px) {
         .vxled .vxr-control { height: auto; min-height: 48px; }
@@ -57,16 +86,27 @@
     <div class="mb-3" style="display:flex;justify-content:flex-end">
         <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="vxr-btn vxr-btn--outline">Streamer tip totals &amp; show breakdown</a>
     </div>
+    @if($review === 'tips_needs_business')
+        <section class="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-gray-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-gray-100" aria-label="Tip business attribution review">
+            <h2 class="font-bold">Tips awaiting business verification</h2>
+            <p class="mt-1">Only tip transactions without an approved business assignment are shown. Open a row to inspect its source order, any verified show suggestion, and the attribution approval controls. A channel alone does not prove business ownership.</p>
+            <p class="mt-1 text-xs">Submitting an attribution requires a reason and a separate administrator's approval. This review does not post payroll.</p>
+            <button type="button" class="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40" wire:click="$set('review', 'all')">Show all ledger entries</button>
+        </section>
+    @endif
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
-        @foreach([
-            ['label'=>'Unmatched', 'key'=>'unmatched'],
-            ['label'=>'Pending review', 'key'=>'pending'],
-            ['label'=>'Rejected', 'key'=>'rejected'],
-            ['label'=>'Assigned to shows', 'key'=>'shows'],
-            ['label'=>'Assigned to streamers', 'key'=>'streamers'],
-            ['label'=>'House / business', 'key'=>'house'],
-        ] as $metric)
+        @php
+            $coverageMetrics = [
+                ['label'=>'Unmatched', 'key'=>'unmatched'],
+                ['label'=>'Pending review', 'key'=>'pending'],
+                ['label'=>'Rejected', 'key'=>'rejected'],
+                ['label'=>'Assigned to shows', 'key'=>'shows'],
+                ['label'=>'Assigned to streamers', 'key'=>'streamers'],
+                ['label'=>'House / business', 'key'=>'house'],
+            ];
+        @endphp
+        @foreach ($coverageMetrics as $metric)
             <div class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
                 <div class="text-xs" style="color:var(--vxw-muted)">{{ $metric['label'] }}</div>
                 <div class="mt-1 text-xl font-bold tabular-nums">{{ number_format($allocation[$metric['key']] ?? 0) }}</div>
@@ -114,6 +154,42 @@
         </div>
     </div>
 
+    @php
+        $ledgerCategoryHelp = [
+            'tips' => 'Tips paid by buyers during a livestream. Attribute to the verified show, which determines the primary streamer; never House.',
+            'sales' => 'Sales and order earnings from Whatnot transactions.',
+            'refunds' => 'Refunds and chargebacks that reverse or reduce previous earnings.',
+            'fees' => 'Whatnot commissions, processing fees, and other platform fees.',
+            'shipping' => 'Postage, shipping charges, carrier adjustments, and shipping refunds.',
+            'giveaways' => 'Giveaway-related transactions and charges.',
+            'bonus' => 'Bonuses or incentive payments.',
+            'marketing' => 'Promotion, advertising, or marketing-related charges.',
+            'correction' => 'Adjustments and corrections to earlier ledger activity.',
+            'payouts' => 'Transfers or withdrawals of funds. These are not necessarily new sales revenue.',
+            'other' => 'Fallback for entries whose source transaction type does not clearly fit another category. Review the original transaction details before reclassifying.',
+        ];
+    @endphp
+    <details class="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-gray-800 shadow-sm dark:border-violet-800 dark:bg-violet-950/20 dark:text-gray-100">
+        <summary class="cursor-pointer font-semibold text-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:text-violet-200">What do the Ledger categories mean? <span class="font-normal text-gray-600 dark:text-gray-300">— Includes Other</span></summary>
+        <p class="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Categories describe the transaction type. Attribution separately identifies the show, streamer, business, or house account. An Other entry is not automatically an unmatched or incorrect entry. Category suggestions come from Whatnot transaction types; review supporting evidence before changing them.</p>
+        <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
+                <div class="rounded-lg border border-violet-100 bg-white/80 p-3 dark:border-violet-900 dark:bg-gray-900/60">
+                    <dt class="font-semibold text-gray-950 dark:text-white">{{ ucfirst($category) }}</dt>
+                    <dd class="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">{{ $ledgerCategoryHelp[$category] ?? 'Review the transaction details to determine its meaning.' }}</dd>
+                </div>
+            @endforeach
+        </dl>
+        <div class="mt-3 rounded-lg border border-violet-200 bg-white/70 p-3 dark:border-violet-800 dark:bg-gray-900/60">
+            <p class="text-xs font-semibold text-gray-950 dark:text-white">Where does a transaction belong?</p>
+            <p class="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300"><strong>Show:</strong> a verified show, usually with its primary streamer. <strong>Streamer:</strong> directly attributed to a streamer when no show applies. <strong>House:</strong> belongs to the business, such as general marketing, company bonuses or operating fees, rather than a particular show or streamer. <strong>Unassigned:</strong> ownership has not been established. A pending assignment still needs approval.</p>
+            <p class="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">House is for non-tip business transactions. For example, <strong>House + Marketing</strong> is a business advertising expense; <strong>House + Bonus</strong> is a company-level incentive. House is not a separate transaction type. <strong>Buyer tips must never go to House:</strong> they belong to the verified show and its primary streamer. If the show is not verified, leave the tip unassigned for review.</p>
+        </div>
+        <button type="button" class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-violet-300 bg-white px-3 text-xs font-semibold text-violet-800 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:border-violet-700 dark:bg-gray-900 dark:text-violet-200" wire:click="$set('categoryFilter', 'other')">Review transactions categorized Other</button>
+        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">The category filter searches approved attributions within your current date and channel filters. Entries awaiting attribution appear in the review queue.</p>
+        <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">Changing a category does not automatically change payroll or approve a show or streamer attribution.</p>
+    </details>
+
     <div class="vxled-chips" role="tablist" aria-label="Channel">
         @foreach ($chips as $chip)
             <button type="button" role="tab" wire:key="chip-{{ $chip['key'] }}"
@@ -121,7 +197,9 @@
                 aria-selected="{{ $channel === $chip['key'] ? 'true' : 'false' }}"
                 wire:click="setChannel('{{ $chip['key'] }}')">
                 {{ $chip['label'] }}
-                @if ($chip['count'])<span class="vxr-count">{{ $chip['count'] }}</span>@endif
+                @if ($chip['count'])
+                    <span class="vxr-count">{{ $chip['count'] }}</span>
+                @endif
             </button>
         @endforeach
     </div>
@@ -204,7 +282,7 @@
         </label>
     </div>
 
-    @php($unallocated = $this->unallocatedAmounts)
+    @php $unallocated = $this->unallocatedAmounts; @endphp
     @if ($unallocated['entries'] > 0)
         <div class="rounded-xl border p-3 mb-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)" role="status">
             <strong>Unallocated ledger value: {{ $signed($unallocated['net']) }}</strong>
@@ -217,11 +295,11 @@
         <x-vxr.stat label="Debits" :value="$money($stats['debits'])" icon="heroicon-o-arrow-down" tone="bad" />
         <x-vxr.stat label="Net Activity" :value="$money($stats['net'])" icon="heroicon-o-equals" tone="accent"
             :value-class="$stats['net'] < 0 ? 'vxr-val-bad' : ''" />
-        <x-vxr.stat label="Processing" :value="number_format($stats['processing']).' '.Str::plural('transaction', $stats['processing'])"
-            icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
+        <x-vxr.stat label="Transactions" :value="number_format($stats['count'])"
+            icon="heroicon-o-rectangle-stack" tone="accent" :note="number_format($stats['processing']).' processing or pending'" />
     </div>
 
-    @php($allocation = $this->attributionSummary)
+    @php $allocation = $this->attributionSummary; @endphp
     @if (($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0) > 0)
         <div class="vxw-alert vxw-alert--warn" role="status">
             <div>
@@ -232,8 +310,119 @@
         </div>
     @endif
 
-    <div class="vxr-card" style="margin-bottom:1rem">
-        <div class="vxr-card-head"><strong>Approved allocations by category</strong></div>
+    @php
+        $trend = $this->ledgerTrend;
+        $categoryRows = collect($this->categoryBreakdown)->groupBy('category')->map(fn ($items, $category) => ['label' => ucfirst((string) $category), 'count' => $items->sum('entries')])->sortByDesc('count')->values();
+        $categoryCount = $categoryRows->sum('count');
+        $chartColors = ['#8b5cf6','#38bdf8','#10b981','#f59e0b','#f472b6','#6366f1','#a3e635','#f97316'];
+        $donutParts = [];
+        $position = 0;
+        foreach ($categoryRows as $index => $category) {
+            $next = $position + ($categoryCount ? $category['count'] / $categoryCount * 100 : 0);
+            $donutParts[] = $chartColors[$index % count($chartColors)].' '.$position.'% '.$next.'%';
+            $position = $next;
+        }
+        $chartWidth = 640; $chartHeight = 180;
+        $plotTop = 12; $plotBottom = 148;
+        $trendMax = max(1, ...array_merge([1], collect($trend)->flatMap(fn ($row) => [$row['credits'], $row['debits'], abs($row['net'])])->all()));
+        $trendPoints = function ($key) use ($trend, $trendMax, $plotTop, $plotBottom) {
+            $count = count($trend);
+            return collect($trend)->map(function ($row, $i) use ($key, $count, $trendMax, $plotTop, $plotBottom) {
+                $x = 34 + ($count <= 1 ? 286 : $i * (572 / ($count - 1)));
+                $y = $plotBottom - (max(0, (float) $row[$key]) / $trendMax) * ($plotBottom - $plotTop);
+                return round($x, 1).','.round($y, 1);
+            })->implode(' ');
+        };
+    @endphp
+    <div class="vxled-visuals">
+        <section class="vxled-visual" aria-label="Monthly ledger trend">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2>Ledger trend</h2>
+                <div class="vxled-trend-legend">
+                    <span><i class="vxled-legend-dot" style="background:#8b5cf6"></i>Credits</span>
+                    <span><i class="vxled-legend-dot" style="background:#f472b6"></i>Debits</span>
+                    <span><i class="vxled-legend-dot" style="background:#10b981"></i>Positive net</span>
+                </div>
+            </div>
+            @if (count($trend))
+                <svg viewBox="0 0 640 180" class="mt-3 w-full" role="img" aria-label="Monthly ledger credits, debits and positive net for up to twelve months">
+                    @foreach ([0, .5, 1] as $fraction)
+                        <line x1="34" y1="{{ $plotBottom - $fraction * ($plotBottom - $plotTop) }}" x2="606" y2="{{ $plotBottom - $fraction * ($plotBottom - $plotTop) }}" stroke="currentColor" opacity=".12" />
+                    @endforeach
+                    <polyline points="{{ $trendPoints('credits') }}" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    <polyline points="{{ $trendPoints('debits') }}" fill="none" stroke="#f472b6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    <polyline points="{{ $trendPoints('net') }}" fill="none" stroke="#10b981" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    @foreach ($trend as $i => $point)
+                        @if ($i % max(1, (int) ceil(count($trend) / 6)) === 0 || $i === count($trend) - 1)
+                            <text x="{{ 34 + (count($trend) <= 1 ? 286 : $i * (572 / (count($trend) - 1))) }}" y="169" text-anchor="middle" font-size="11" fill="currentColor">{{ substr($point['label'], 2) }}</text>
+                        @endif
+                    @endforeach
+                </svg>
+                <p class="mt-1 text-xs" style="color:var(--vxw-muted)">Monthly totals · up to 12 latest months · negative net is shown at the baseline, not as a positive amount. Uses current ledger filters.</p>
+                <details class="mt-2 text-xs">
+                    <summary class="cursor-pointer font-semibold">View exact monthly figures</summary>
+                    <div class="mt-2 overflow-x-auto"><table class="w-full text-left"><thead><tr><th class="p-2">Month</th><th class="p-2">Credits</th><th class="p-2">Debits</th><th class="p-2">Net</th></tr></thead><tbody>
+                        @foreach ($trend as $point)
+                            <tr class="border-t" style="border-color:var(--vxw-border)"><td class="p-2">{{ $point['label'] }}</td><td class="p-2">{{ $money($point['credits']) }}</td><td class="p-2">{{ $money($point['debits']) }}</td><td class="p-2">{{ $signed($point['net']) }}</td></tr>
+                        @endforeach
+                    </tbody></table></div>
+                </details>
+            @else
+                <p class="mt-4 text-sm" style="color:var(--vxw-muted)">No transactions match the selected filters.</p>
+            @endif
+        </section>
+        <section class="vxled-visual" aria-label="Approved allocations by category">
+            <h2>Approved category mix</h2>
+            @if ($categoryCount)
+                <div class="vxled-category-layout mt-4 flex items-center gap-4">
+                    <div class="vxled-donut" style="background:conic-gradient({{ implode(',', $donutParts) }})" role="img" aria-label="Approved transactions grouped by category">
+                        <div class="vxled-donut-hole"><strong class="text-xl tabular-nums">{{ number_format($categoryCount) }}</strong><span class="text-xs">Approved</span></div>
+                    </div>
+                    <div class="vxled-category-list">
+                        @foreach ($categoryRows as $index => $category)
+                            <div class="vxled-category-row">
+                                <span><i class="vxled-legend-dot" style="background:{{ $chartColors[$index % count($chartColors)] }}"></i>{{ $category['label'] }}</span>
+                                <strong class="tabular-nums">{{ number_format($category['count']) }} <span style="color:var(--vxw-muted)">({{ number_format($category['count'] / $categoryCount * 100, 1) }}%)</span></strong>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                <p class="mt-3 text-xs" style="color:var(--vxw-muted)">Approved allocations only. Unmatched and pending items are excluded.</p>
+            @else
+                <p class="mt-4 text-sm" style="color:var(--vxw-muted)">No approved allocations in these filters.</p>
+            @endif
+        </section>
+    </div>
+    <div class="vxled-workspace" aria-label="Ledger reconciliation workspace">
+        <section class="vxled-workspace-card">
+            <h2 class="vxled-workspace-title">Allocation overview</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                @foreach ([
+                    ['Unmatched', $allocation['unmatched'] ?? 0],
+                    ['Pending', $allocation['pending'] ?? 0],
+                    ['Rejected', $allocation['rejected'] ?? 0],
+                    ['Assigned to shows', $allocation['shows'] ?? 0],
+                ] as [$label, $value])
+                    <div class="rounded-xl border p-3" style="border-color:var(--vxw-border)">
+                        <p class="text-xs" style="color:var(--vxw-muted)">{{ $label }}</p>
+                        <p class="mt-1 text-xl font-bold tabular-nums">{{ number_format($value) }}</p>
+                    </div>
+                @endforeach
+            </div>
+            <p class="mt-3 text-xs" style="color:var(--vxw-muted)">Automatic matching requires verified order or livestream evidence and one primary streamer. Uncertain matches remain reviewable; historical approvals are protected.</p>
+        </section>
+        <section class="vxled-workspace-card">
+            <h2 class="vxled-workspace-title">Quick actions</h2>
+            <div class="vxled-actions">
+                <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_needs_business')"><span>Tips needing business</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
+                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
+            </div>
+        </section>
+    </div>
+    <details class="vxr-card" style="margin-bottom:1rem">
+        <summary class="vxr-card-head cursor-pointer"><strong>Approved allocations by category</strong><span class="text-xs" style="color:var(--vxw-muted)">Expand breakdown ▾</span></summary>
         <div class="vxr-table-wrap"><table class="vxr-table">
             <thead><tr><th>Category</th><th>Assigned to</th><th class="num">Transactions</th><th class="num">Net amount</th></tr></thead>
             <tbody>
@@ -244,8 +433,18 @@
                 @endforelse
             </tbody>
         </table></div>
-    </div>
-
+    </details>
+    <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
+        @foreach ([
+            'all' => 'All transactions',
+            'needs_attribution' => 'Needs review',
+            'tips_needs_business' => 'Unverified tips',
+            'tips_missing_streamer' => 'Missing streamer',
+            'tips_missing_order' => 'Missing order',
+        ] as $reviewKey => $reviewLabel)
+            <button type="button" class="vxled-review-tab" aria-pressed="{{ $review === $reviewKey ? 'true' : 'false' }}" wire:click="$set('review', '{{ $reviewKey }}')">{{ $reviewLabel }}</button>
+        @endforeach
+    </nav>
     <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">
@@ -265,7 +464,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($entries as $entry)
+                        @if ($entries->isNotEmpty())
+                        @foreach ($entries as $entry)
                             @php $amt = (float) $entry->amount; @endphp
                             <tr wire:key="led-{{ $entry->id }}" class="is-click {{ $selectedId === $entry->id ? 'is-selected' : '' }}"
                                 wire:click="select({{ $entry->id }})">
@@ -301,7 +501,9 @@
                                 <td><div class="vxled-details" title="{{ $entry->message }}">{{ Str::limit((string) $entry->message, 120) ?: '—' }}</div></td>
                                 <td style="white-space:nowrap">{{ $entry->channel?->name ?? '—' }}</td>
                             </tr>
-                        @empty
+                        @endforeach
+                        @else
+
                             <tr>
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
@@ -315,7 +517,7 @@
                                     </div>
                                 </td>
                             </tr>
-                        @endforelse
+                        @endif
                     </tbody>
                 </table>
             </div>
@@ -332,13 +534,15 @@
                         @foreach ([10, 25, 50] as $n)
                             <option value="{{ $n }}">{{ $n }} per page</option>
                         @endforeach
-                        @if (! in_array($perPage, [10, 25, 50], true))<option value="{{ $perPage }}">{{ $perPage }} per page</option>@endif
+                        @if (! in_array($perPage, [10, 25, 50], true))
+                            <option value="{{ $perPage }}">{{ $perPage }} per page</option>
+                        @endif
                     </select>
                     @if ($lastPage > 1)
                         <nav class="vxled-pages" aria-label="Pages">
                             <button type="button" wire:click="goToPage({{ $this->pageNo - 1 }})" @disabled($this->pageNo <= 1) aria-label="Previous page"><x-filament::icon icon="heroicon-m-chevron-left" /></button>
                             @foreach ($pages as $p)
-                                <button type="button" wire:click="goToPage({{ $p }})" class="{{ $p === $this->pageNo ? 'is-active' : '' }}" @if($p === $this->pageNo) aria-current="page" @endif>{{ $p }}</button>
+                                <button type="button" wire:click="goToPage({{ $p }})" class="{{ $p === $this->pageNo ? 'is-active' : '' }}" aria-current="{{ $p === $this->pageNo ? 'page' : 'false' }}">{{ $p }}</button>
                             @endforeach
                             <button type="button" wire:click="goToPage({{ $this->pageNo + 1 }})" @disabled($this->pageNo >= $lastPage) aria-label="Next page"><x-filament::icon icon="heroicon-m-chevron-right" /></button>
                         </nav>
@@ -374,6 +578,20 @@
                         $attribution = $this->selectedAttribution();
                         $linkedShow = $this->selectedShowDetails();
                     @endphp
+                    @php $evidence = $this->selectedReviewEvidence(); @endphp
+                    <section class="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm dark:border-violet-800 dark:bg-violet-950/30" aria-label="Attribution evidence">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="font-bold">Business verification</h3>
+                            <span class="rounded-full border border-violet-300 px-2 py-1 text-xs font-semibold dark:border-violet-700">{{ $evidence['status'] ?? 'Needs review' }}</span>
+                        </div>
+                        <p class="mt-2">{{ $evidence['reason'] ?? 'Inspect this transaction before assigning it.' }}</p>
+                        <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div><dt class="text-xs font-semibold text-gray-500">Source order</dt><dd class="break-all">{{ $evidence['order'] ?? 'Not provided' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Candidate show</dt><dd>{{ $evidence['show']['title'] ?? 'No verified suggestion' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Business assignment</dt><dd>{{ !empty($evidence['business_approved']) ? 'Approved' : 'Not yet approved' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Review policy</dt><dd>Separate administrator approval required</dd></div>
+                        </dl>
+                    </section>
                     <section class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
                         <h3 style="font-weight:700;margin-bottom:10px">Show & allocation</h3>
                         <dl class="vxr-dl">

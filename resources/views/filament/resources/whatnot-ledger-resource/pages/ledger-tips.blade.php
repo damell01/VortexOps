@@ -103,6 +103,13 @@
                 @endforeach
             </div>
             @if($reviewCount > 0)
+                <details class="vxw-card" style="margin-bottom:1rem">
+                    <summary style="cursor:pointer;padding:1rem;font-weight:650">What does business attribution mean? <span aria-hidden="true">⌄</span></summary>
+                    <div class="vxw-card-body">
+                        <p>A tip is business-attributed only after its ledger assignment is approved. Channel, business, show and streamer are separate fields. Unverified tips remain visible but are not automatically allocated or paid.</p>
+                        <p class="vxw-meta">Start with the linked Whatnot order or livestream ID. Review ambiguous, shared or conflicting matches manually. Approval is separate from payroll posting.</p>
+                    </div>
+                </details>
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
                     <strong>{{ number_format($reviewCount) }} tips need business review</strong>
                     <p>${{ number_format($reviewNet / 100, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>

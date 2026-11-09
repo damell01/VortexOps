@@ -12,6 +12,7 @@
     $done = (int) ($run?->completed_packages ?? 0);
     $pct = $expected ? min(100, round($done / max(1, $expected) * 100)) : ($buyers->count() ? round($packedBuyers / $buyers->count() * 100) : 0);
 @endphp
+@include('fulfillment.dev-banner')
 <div class="vxf">
 @if (! $run)
     {{-- Choose a station or a show --}}

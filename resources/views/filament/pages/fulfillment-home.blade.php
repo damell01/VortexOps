@@ -5,6 +5,7 @@
     $tz = \App\Support\BusinessTime::zone();
     $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
 @endphp
+@include('fulfillment.dev-banner')
 <div class="vxf" wire:poll.20s>
     <div class="vxf-head">
         <div>

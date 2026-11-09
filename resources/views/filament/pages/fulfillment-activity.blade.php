@@ -5,6 +5,7 @@
     $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
     $pill = fn ($s) => ['packing' => 'packing', 'ready' => 'ready', 'paused' => 'paused', 'completed' => 'completed', 'approved' => 'approved'][$s] ?? '';
 @endphp
+@include('fulfillment.dev-banner')
 <div class="vxf">
     <div class="vxf-head">
         <div>

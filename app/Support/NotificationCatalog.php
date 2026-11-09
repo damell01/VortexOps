@@ -98,6 +98,11 @@ class NotificationCatalog
             ],
 
             // ── Inventory ────────────────────────────────────────────────
+            'ledger_unassigned' => [
+                'group' => 'Payroll', 'label' => 'Ledger entries not tied to a show', 'level' => 'action',
+                'description' => 'Daily: Whatnot ledger entries from the last 30 days that still have no approved show, streamer or house assignment.',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
             'low_stock' => [
                 'group' => 'Inventory', 'label' => 'Low stock', 'level' => 'alert',
                 'description' => 'An item dropped to or below its reorder level.',

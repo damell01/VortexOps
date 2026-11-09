@@ -29,6 +29,7 @@
             <button type="button" id="vxf-fullscreen">Full screen</button>
         </div>
     </header>
+    @include('fulfillment.dev-banner')
 
     <section id="vxf-board" class="{{ $station ? '' : 'vxf-tv__grid' }}" aria-live="polite" aria-label="Stations"></section>
     <div class="vxf-tv__offline" id="vxf-offline" hidden role="status">Reconnecting…</div>

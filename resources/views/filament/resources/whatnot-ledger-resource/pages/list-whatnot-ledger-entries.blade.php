@@ -108,6 +108,19 @@
     @media(max-width:900px){.vxled-quick-actions .vxled-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:540px){.vxled-quick-actions .vxled-actions{grid-template-columns:minmax(0,1fr)}}
     .vxled .vxr-stats{margin-block:8px}
+    .vxled .vxr-head{background:linear-gradient(115deg,rgba(109,40,217,.11),rgba(167,139,250,.035));border-radius:18px}
+    .vxled-coverage > div{box-shadow:0 2px 7px rgba(38,15,83,.055);border-radius:14px;padding:10px 12px}
+    .vxled-coverage > div > div:last-child{font-size:clamp(18px,1.55vw,24px);font-weight:800;letter-spacing:-.025em}
+    .vxled .vxr-stats{gap:8px}
+    .vxled .vxr-toolbar{gap:8px}
+    .vxled .vxr-table th,.vxled .vxr-table td{padding-top:9px;padding-bottom:9px}
+    .vxled-review-tabs{margin:8px 0 4px}
+    .vxled-review-tab[aria-pressed="true"]{box-shadow:0 3px 9px rgba(109,40,217,.22)}
+    .vxled-quick-actions{padding:8px 12px}
+    .vxled-quick-actions > summary{margin:0}
+    .vxled-quick-actions[open] > summary{margin-bottom:10px}
+    @media(min-width:1280px){.vxled-coverage{grid-template-columns:repeat(6,minmax(0,1fr))}}
+    @media(max-width:640px){.vxled-coverage > div{padding:9px}.vxled .vxr-table th,.vxled .vxr-table td{padding:9px 10px}}
     .vxled .vxled-workspace{gap:8px;margin-bottom:8px}
     .vxled .vxled-visuals{margin:8px 0}
     .vxled .vxr-table-wrap{overflow-x:auto}
@@ -147,7 +160,7 @@
     </div>
 
     @php $allocation = $this->attributionSummary; @endphp
-    <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
+    <div class="vxled-coverage mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @php
             $coverageMetrics = [
                 ['label'=>'Unmatched', 'key'=>'unmatched'],
@@ -182,7 +195,6 @@
             icon="heroicon-o-rectangle-stack" tone="accent" :note="number_format($stats['processing']).' processing or pending'" />
     </div>
 
-    @php $allocation = $this->attributionSummary; @endphp
     @if (($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0) > 0)
         <div class="vxw-alert vxw-alert--warn" role="status">
             <div>
@@ -207,6 +219,19 @@
         @endforeach
     </div>
 
+    <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
+        @foreach ([
+            'all' => 'All transactions',
+            'needs_attribution' => 'Needs review',
+            'unverified_tips' => 'Unverified tips',
+            'pending_approval' => 'Pending approval',
+            'rejected_attribution' => 'Rejected',
+            'tips_missing_streamer' => 'Missing streamer',
+            'tips_missing_order' => 'Missing order',
+        ] as $reviewKey => $reviewLabel)
+            <button type="button" class="vxled-review-tab" aria-pressed="{{ $review === $reviewKey ? 'true' : 'false' }}" wire:click="$set('review', '{{ $reviewKey }}')">{{ $reviewLabel }}</button>
+        @endforeach
+    </nav>
     <div class="vxr-toolbar vxr-toolbar--card vxled-toolbar">
         <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-calendar-days" />
@@ -290,28 +315,15 @@
         </div>
     </details>
 
-    <section class="vxled-workspace-card vxled-quick-actions">
-            <h2 class="vxled-workspace-title">Review shortcuts</h2>
+    <details class="vxled-workspace-card vxled-quick-actions">
+            <summary class="vxled-workspace-title cursor-pointer">Quick actions &amp; review shortcuts</summary>
             <div class="vxled-actions">
                 <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
                 <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
             </div>
-        </section>
-    <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
-        @foreach ([
-            'all' => 'All transactions',
-            'needs_attribution' => 'Needs review',
-            'unverified_tips' => 'Unverified tips',
-            'pending_approval' => 'Pending approval',
-            'rejected_attribution' => 'Rejected',
-            'tips_missing_streamer' => 'Missing streamer',
-            'tips_missing_order' => 'Missing order',
-        ] as $reviewKey => $reviewLabel)
-            <button type="button" class="vxled-review-tab" aria-pressed="{{ $review === $reviewKey ? 'true' : 'false' }}" wire:click="$set('review', '{{ $reviewKey }}')">{{ $reviewLabel }}</button>
-        @endforeach
-    </nav>
+        </details>
     <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">

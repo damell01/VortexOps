@@ -236,6 +236,39 @@ class ListWhatnotLedgerEntries extends Page
         return $show ? ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Verified match · awaiting approval'] : null;
     }
 
+    /**
+     * Explain the selected transaction's evidence without treating a channel or
+     * an unverified order association as proof of business ownership.
+     */
+    public function selectedReviewEvidence(): array
+    {
+        $entry = $this->selected;
+        if (! $entry) return [];
+
+        $attribution = $this->selectedAttribution();
+        $show = $this->selectedShowDetails();
+        $approved = $attribution?->status === 'approved' && $attribution?->business_id !== null;
+        $order = trim((string) $entry->whatnot_order_id);
+        $reason = match (true) {
+            $approved => 'Approved business attribution exists.',
+            $attribution?->status === 'pending' => 'Assignment submitted; a different administrator must review it.',
+            $attribution?->status === 'rejected' => 'Previous assignment was rejected; inspect the evidence before resubmitting.',
+            $entry->whatnot_channel_id === null => 'Source channel is missing; business cannot be inferred.',
+            $order === '' || $order === '-' => 'Source order ID is missing. Check the imported livestream evidence.',
+            $show === null => 'No uniquely verified show match. An imported order link alone is not sufficient evidence.',
+            default => 'A uniquely verified show is suggested, but the business assignment still requires approval.',
+        };
+
+        return [
+            'status' => $approved ? 'Verified' : ($attribution?->status === 'pending' ? 'Pending approval' : 'Needs review'),
+            'reason' => $reason,
+            'order' => $order !== '' && $order !== '-' ? $order : null,
+            'show' => $show,
+            'business_id' => $attribution?->business_id,
+            'business_approved' => $approved,
+        ];
+    }
+
     public function canReconcile(): bool
     {
         return WhatnotLedgerResource::canAccess() && (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin());

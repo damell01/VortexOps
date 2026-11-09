@@ -130,7 +130,7 @@
     @media(max-width:767px){.vxled .vxled-workspace{grid-template-columns:minmax(0,1fr)}.vxled .vxled-visuals{grid-template-columns:minmax(0,1fr)}}
     /* Compact ledger inspector: a narrow right rail, not a page-covering modal.
        Use !important to beat shared .vxr-card / .vxr-drawer modal rules. */
-    .vxled .vxled-panel {
+    .vxled-portal .vxled-panel {
         position: fixed !important;
         inset: 182px 0 0 auto !important;
         top: 182px !important;
@@ -149,31 +149,33 @@
         box-shadow: -12px 0 38px rgba(24, 12, 55, .18) !important;
         z-index: 1001 !important;
     }
-    .vxled .vxled-backdrop {
+    .vxled-portal .vxled-backdrop {
         position: fixed;
         inset: 182px 0 0 0;
         background: rgba(17, 12, 37, .13) !important;
         z-index: 1000;
     }
-    .vxled .vxled-panel .vxr-drawer-head {
+    .vxled-portal .vxled-panel .vxr-drawer-head {
         position: sticky; top: 0; z-index: 3;
         padding: 12px 16px !important;
         border-bottom: 1px solid var(--vxw-border) !important;
         background: var(--vxw-surface) !important;
     }
-    .vxled .vxled-panel .vxr-card-body { padding: 12px 16px 28px !important; gap: 10px !important; }
-    .vxled .vxled-panel .vxled-panel-amt { font-size: 25px; }
-    .vxled .vxled-panel .vxr-dl > div { gap: 8px; }
-    .vxled .vxled-panel .vxr-dl dd { max-width: 65%; }
+    .vxled-portal .vxled-panel .vxr-card-body { padding: 12px 16px 28px !important; gap: 10px !important; }
+    .vxled-portal .vxled-panel .vxled-panel-amt { font-size: 25px; }
+    .vxled-portal .vxled-panel .vxr-dl > div { gap: 8px; }
+    .vxled-portal .vxled-panel .vxr-dl dd { max-width: 65%; }
     @media (max-width: 767px) {
-        .vxled .vxled-panel {
+        .vxled-portal .vxled-panel {
             inset: 0 0 0 auto !important; top: 0 !important; bottom: 0 !important;
             width: min(440px, 100vw) !important; min-width: 0;
             max-width: 100vw !important; height: 100dvh !important;
             max-height: 100dvh !important; border-radius: 0 !important;
         }
-        .vxled .vxled-backdrop { inset: 0; }
+        .vxled-portal .vxled-backdrop { inset: 0; }
     }
+    .vxled-portal { position: relative; z-index: 1100; }
+    .vxled-portal .vxled-panel { margin: 0 !important; }
 </style>
 
 <div class="vxr vxled">
@@ -484,6 +486,8 @@
                 $orderUrl = $this::orderUrl($selected);
                 $tone = $this::statusTone($selected->status);
             @endphp
+            <template x-teleport="body">
+              <div class="vxled-portal">
             <div class="vxr-drawer-backdrop vxled-backdrop" wire:click="select(null)"></div>
             <aside class="vxr-card vxled-panel" aria-label="Transaction details" wire:key="panel-{{ $selected->id }}"
                 x-data="{ copied: false, copy(v) { navigator.clipboard?.writeText(v); this.copied = true; setTimeout(() => this.copied = false, 1500) } }"
@@ -648,6 +652,8 @@
                     </div>
                 @endif
             </aside>
+              </div>
+            </template>
         @endif
     </div>    @php $byStreamer = $this->streamerTotals; @endphp
     @if ($byStreamer)

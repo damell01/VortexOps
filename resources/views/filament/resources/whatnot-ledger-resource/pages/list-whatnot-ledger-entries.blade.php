@@ -19,6 +19,22 @@
 
 <style>
     .vxled { grid-template-columns: minmax(0, 1fr); }
+    /* Ledger workspace: compact, responsive controls with Vortex purple accents. */
+    .vxled .vxr-head { padding: 18px 20px; border: 1px solid var(--vxw-border); border-radius: 18px; background: linear-gradient(110deg,rgba(95,39,180,.14),rgba(128,71,245,.04) 65%,transparent); }
+    .vxled .vxr-stats { margin-block: 12px; }
+    .vxled-workspace { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,300px); gap: 12px; margin-bottom: 14px; }
+    .vxled-workspace-card { min-width: 0; border: 1px solid var(--vxw-border); background: var(--vxw-surface); border-radius: 16px; padding: 16px; }
+    .vxled-workspace-title { font-size: 15px; font-weight: 750; margin-bottom: 10px; color: var(--vxw-text); }
+    .vxled-actions { display: grid; gap: 8px; }
+    .vxled-action { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; width: 100%; padding: 8px 12px; border: 1px solid var(--vxw-border); border-radius: 10px; background: var(--vxw-surface); font-weight: 650; font-size: 13px; color: var(--vxw-text); text-align: left; }
+    .vxled-action:hover, .vxled-action:focus-visible { border-color: var(--vxw-accent); outline-offset: 2px; }
+    .vxled-action-count { font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 8px; background: var(--vxw-warn-soft); color: var(--vxw-warn); }
+    .vxled-review-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 3px 0 10px; scrollbar-width: thin; }
+    .vxled-review-tab { flex: none; padding: 9px 13px; min-height: 40px; border-radius: 11px; border: 1px solid var(--vxw-border); background: var(--vxw-surface); color: var(--vxw-text); font-size: 13px; font-weight: 650; }
+    .vxled-review-tab[aria-pressed="true"] { background: var(--vxw-accent); color: white; border-color: var(--vxw-accent); }
+    @media (max-width: 900px) { .vxled-workspace { grid-template-columns: minmax(0,1fr); } }
+    @media (max-width: 640px) { .vxled .vxr-head { padding: 14px; } .vxled-workspace-card { padding: 12px; } .vxled-review-tab { padding-inline: 10px; } }
+
     /* The phone select picker (mobile-controls.js) sits inside our control; let the control be the box. */
     @media (max-width: 767px) {
         .vxled .vxr-control { height: auto; min-height: 48px; }
@@ -245,8 +261,36 @@
         </div>
     @endif
 
-    <div class="vxr-card" style="margin-bottom:1rem">
-        <div class="vxr-card-head"><strong>Approved allocations by category</strong></div>
+    <div class="vxled-workspace" aria-label="Ledger reconciliation workspace">
+        <section class="vxled-workspace-card">
+            <h2 class="vxled-workspace-title">Allocation overview</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                @foreach ([
+                    ['Unmatched', $allocation['unmatched'] ?? 0],
+                    ['Pending', $allocation['pending'] ?? 0],
+                    ['Rejected', $allocation['rejected'] ?? 0],
+                    ['Assigned to shows', $allocation['shows'] ?? 0],
+                ] as [$label, $value])
+                    <div class="rounded-xl border p-3" style="border-color:var(--vxw-border)">
+                        <p class="text-xs" style="color:var(--vxw-muted)">{{ $label }}</p>
+                        <p class="mt-1 text-xl font-bold tabular-nums">{{ number_format($value) }}</p>
+                    </div>
+                @endforeach
+            </div>
+            <p class="mt-3 text-xs" style="color:var(--vxw-muted)">Automatic matching requires verified order or livestream evidence and one primary streamer. Uncertain matches remain reviewable; historical approvals are protected.</p>
+        </section>
+        <section class="vxled-workspace-card">
+            <h2 class="vxled-workspace-title">Quick actions</h2>
+            <div class="vxled-actions">
+                <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_needs_business')"><span>Tips needing business</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
+                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
+            </div>
+        </section>
+    </div>
+    <details class="vxr-card" style="margin-bottom:1rem">
+        <summary class="vxr-card-head cursor-pointer"><strong>Approved allocations by category</strong><span class="text-xs" style="color:var(--vxw-muted)">Expand breakdown ▾</span></summary>
         <div class="vxr-table-wrap"><table class="vxr-table">
             <thead><tr><th>Category</th><th>Assigned to</th><th class="num">Transactions</th><th class="num">Net amount</th></tr></thead>
             <tbody>
@@ -257,8 +301,18 @@
                 @endforelse
             </tbody>
         </table></div>
-    </div>
-
+    </details>
+    <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
+        @foreach ([
+            'all' => 'All transactions',
+            'needs_attribution' => 'Needs review',
+            'tips_needs_business' => 'Unverified tips',
+            'tips_missing_streamer' => 'Missing streamer',
+            'tips_missing_order' => 'Missing order',
+        ] as $reviewKey => $reviewLabel)
+            <button type="button" class="vxled-review-tab" aria-pressed="{{ $review === $reviewKey ? 'true' : 'false' }}" wire:click="$set('review', '{{ $reviewKey }}')">{{ $reviewLabel }}</button>
+        @endforeach
+    </nav>
     <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">

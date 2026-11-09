@@ -360,7 +360,8 @@
             </section>
             @if($transfer = \App\Support\BusinessTransfer::forRun($run))
             @php
-                $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '
+                $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2);
+            @endphp
             <section class="vxw-card" data-vx-transfer>
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Business account transfer<x-vx-help topic="payrun.transfer" /></h3>

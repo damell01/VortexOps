@@ -81,9 +81,9 @@
         </section>
         @if ($report)
             @php
-                $reviewRows = collect($report['rows'])->filter(fn ($row) => $row['business'] === 'Unassigned business');
-                $reviewCount = $reviewRows->sum('entries') + ($report['unassigned_total']['entries'] ?? 0);
-                $reviewNet = $reviewRows->sum('net') + ($report['unassigned_total']['net'] ?? 0);
+                $businessReview = $this->businessReviewTotals();
+                $reviewCount = $businessReview['entries'];
+                $reviewNet = $businessReview['net'];
             @endphp
             <div class="vxw-meta" style="margin: .5rem 0 1rem">Overview · All amounts are imported ledger totals, not automatic payroll payouts.</div>
             <div class="vxt-stats" aria-label="Tip totals">
@@ -112,7 +112,7 @@
                 </details>
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
                     <strong>{{ number_format($reviewCount) }} tips need business review</strong>
-                    <p>${{ number_format($reviewNet / 100, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>
+                    <p>${{ number_format($reviewNet, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>
                 </div></div>
             @endif
             <section class="vxw-card">

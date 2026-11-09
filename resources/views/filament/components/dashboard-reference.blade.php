@@ -15,6 +15,15 @@
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}
         .vx-dashboard-reference .fi-section{border-radius:1rem}
         .vx-dashboard-reference .fi-wi{min-width:0}
+        .vx-dashboard-reference .vx-interactive-tile{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+        .vx-dashboard-reference .vx-interactive-tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(40,32,90,.09);border-color:rgb(196 181 253)}
+        .vx-dashboard-reference .vx-interactive-tile:focus-within{outline:2px solid #7c3aed;outline-offset:2px}
+        .vx-dashboard-reference details.vx-interactive-tile>summary{list-style:none}
+        .vx-dashboard-reference details.vx-interactive-tile>summary::-webkit-details-marker{display:none}
+        .vx-dashboard-reference details.vx-interactive-tile[open] .vx-expand-chevron{transform:rotate(180deg)}
+        .vx-dashboard-reference .vx-expand-chevron{transition:transform .16s ease}
+        @media(prefers-reduced-motion:reduce){.vx-dashboard-reference .vx-interactive-tile,.vx-dashboard-reference .vx-expand-chevron{transition:none!important}.vx-dashboard-reference .vx-interactive-tile:hover{transform:none}}
+
         
         .vx-dashboard-reference .vx-donut{background:conic-gradient(#10b981 0 var(--green),#f59e0b var(--green) var(--amber),#fb7185 var(--amber) 100%)}
         .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:100%}
@@ -51,7 +60,7 @@
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
     <div class="vx-middle grid gap-4 lg:grid-cols-3">
-        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-1 text-xs text-gray-500">Current stock status at a glance.</p></div>@if(\App\Filament\Resources\InventoryItemResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl() }}" class="text-xs font-semibold text-primary-600">View inventory →</a>@endif</div>
             <div class="mt-5 flex flex-wrap items-center justify-center gap-5">
                 <div class="vx-donut relative flex h-36 w-36 shrink-0 items-center justify-center rounded-full" style="--green:{{ $green }}%;--amber:{{ $green + $amber }}%" role="img" aria-label="{{ $healthy }} in stock above reorder level, {{ $low }} low stock, {{ $inventoryHealth['out'] ?? 0 }} out of stock">
@@ -65,7 +74,7 @@
             </div>
             @if(!$stockTotal)<p class="mt-4 text-xs text-gray-500">No active inventory items yet.</p>@endif
         </section>
-        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-1 text-xs text-gray-500">Latest stock changes.</p></div>@if(\App\Filament\Resources\InventoryMovementResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryMovementResource::getUrl() }}" class="shrink-0 text-xs font-semibold text-primary-600">View all →</a>@endif</div>
             <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse(($recentInventoryActivity ?? []) as $activity)
@@ -81,5 +90,5 @@
         @include('filament.components.dashboard-channel-performance')
     </div>
     @if (\App\Livewire\StreamerLeaderboard::canView())@vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'admin-dashboard-leaderboard'" />@endif
-    <details class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Recent shows</summary><div class="mt-4"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\RecentShowsWidget::class]" :columns="1" /></div></details>
+    <details class="vx-interactive-tile rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"><summary class="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-gray-900 dark:text-white">Recent shows <x-heroicon-o-chevron-down class="vx-expand-chevron h-4 w-4 text-gray-500" /></summary><div class="mt-4"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\RecentShowsWidget::class]" :columns="1" /></div></details>
 </div>

@@ -29,6 +29,7 @@ class FulfillmentWhiteboardController extends Controller
 
         return view('fulfillment.whiteboard', [
             'station' => $station,
+            'stationList' => FulfillmentStation::query()->where('active', true)->orderBy('sort')->orderBy('id')->get(['id', 'name']),
             'density' => in_array($request->query('density'), ['compact', 'comfortable', 'large'], true) ? $request->query('density') : 'comfortable',
             'feedUrl' => route('fulfillment.whiteboard.feed', array_filter(['station' => $station])),
             'initial' => $this->payload($station),

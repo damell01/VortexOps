@@ -53,7 +53,10 @@
                     <article class="vxf-card vxf-station {{ $state === 'packing' ? 'vxf-station--packing' : '' }}" wire:key="station-{{ $row['station']->id }}">
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
-                            <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}</span>
+                            <span style="display:inline-flex;gap:6px;align-items:center">
+                                <a class="vxf-station__tv" href="{{ route('fulfillment.whiteboard', ['station' => $row['station']->id]) }}" target="_blank" rel="noopener" title="Open {{ $row['station']->name }} on the TV whiteboard" aria-label="Open {{ $row['station']->name }} on the TV whiteboard"><x-heroicon-o-tv /></a>
+                                <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}</span>
+                            </span>
                         </div>
                         @if ($run && $show)
                             <p class="vxf-station__show">{{ $show->title }}</p>

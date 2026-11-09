@@ -19,12 +19,19 @@
         </div>
         <div class="vxf-tv__tools">
             <span class="vxf-tv__clock" id="vxf-clock" aria-live="off">{{ $initial['now'] }}</span>
+            <label class="sr-only" for="vxf-station-pick">Show station</label>
+            <select id="vxf-station-pick" class="vxf-tv__pick">
+                <option value="{{ route('fulfillment.whiteboard', ['density' => $density]) }}" @selected(! $station)>All stations</option>
+                @foreach ($stationList as $s)
+                    <option value="{{ route('fulfillment.whiteboard', ['station' => $s->id, 'density' => $density]) }}" @selected($station === $s->id)>{{ $s->name }}</option>
+                @endforeach
+            </select>
             @if (! $station)
                 @foreach (['compact' => 'S', 'comfortable' => 'M', 'large' => 'L'] as $key => $label)
                     <a href="{{ route('fulfillment.whiteboard', ['density' => $key]) }}" aria-label="{{ ucfirst($key) }} density" @if ($density === $key) aria-current="true" style="border-color:#8b5cf6;color:#fff" @endif>{{ $label }}</a>
                 @endforeach
             @else
-                <a href="{{ route('fulfillment.whiteboard') }}">All stations</a>
+                <a href="{{ route('fulfillment.whiteboard', ['density' => $density]) }}">All stations</a>
             @endif
             <button type="button" id="vxf-fullscreen">Full screen</button>
         </div>
@@ -41,6 +48,9 @@
     const feed = @json($feedUrl);
     const board = document.getElementById('vxf-board');
     const offline = document.getElementById('vxf-offline');
+    // Each card opens that station on its own; the picker switches views.
+    const stationUrl = @json(route('fulfillment.whiteboard', ['station' => '__ID__', 'density' => $density]));
+    document.getElementById('vxf-station-pick').addEventListener('change', (e) => { location.href = e.target.value; });
     const statusLabel = { packing: 'Packing', ready: 'Ready', paused: 'Paused', completed: 'Completed', idle: 'Idle' };
 
     // Build nodes with textContent only: nothing from the feed is ever parsed as HTML.
@@ -48,7 +58,9 @@
     const meta = (label, value) => { const p = el('div'); p.append(label + ': '); p.append(el('strong', null, value || '—')); return p; };
 
     function card(s) {
-        const c = el('article', 'vxf-tv__card' + (s.status === 'packing' ? ' vxf-tv__card--packing' : '') + (s.status === 'paused' ? ' vxf-tv__card--paused' : '') + (s.issue ? ' vxf-tv__card--issue' : ''));
+        const c = el('a', 'vxf-tv__card' + (s.status === 'packing' ? ' vxf-tv__card--packing' : '') + (s.status === 'paused' ? ' vxf-tv__card--paused' : '') + (s.issue ? ' vxf-tv__card--issue' : ''));
+        c.href = stationUrl.replace('__ID__', s.id);
+        c.setAttribute('aria-label', s.name + ': open this station full screen');
         const head = el('div', 'vxf-tv__station');
         head.append(el('span', null, s.name));
         head.append(el('span', 'vxf-tv__status vxf-tv__status--' + s.status, (s.issue && s.status !== 'idle' ? 'Issue · ' : '') + (statusLabel[s.status] || s.status)));

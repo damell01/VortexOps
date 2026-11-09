@@ -260,3 +260,15 @@ button.vxf-shift{cursor:pointer}button.vxf-shift:hover{border-color:var(--vxf-br
 .vxf-devbanner strong{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;background:#7c3aed;color:#fff;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
 .dark .vxf-devbanner,.vxf-dark .vxf-devbanner,.vxf-tv .vxf-devbanner{background:#1e1636;color:#ddd6fe;border-color:#6d28d9}
 .vxf-tv .vxf-devbanner{margin:0 0 12px;font-size:15px}
+
+/* Whiteboard station picker and clickable cards */
+.vxf-tv__pick{background:#151b3d;border:1px solid #2c3462;color:#e5e7f5;border-radius:10px;min-height:38px;padding:0 10px;font-weight:700;font-size:14px;max-width:220px}
+.vxf-tv__pick:focus-visible,a.vxf-tv__card:focus-visible{outline:3px solid #a78bfa;outline-offset:3px}
+a.vxf-tv__card{color:inherit;text-decoration:none;cursor:pointer;transition:border-color .15s,transform .15s}
+a.vxf-tv__card:hover{border-color:#8b5cf6;transform:translateY(-2px)}
+.vxf-tv__tools{flex-wrap:wrap;justify-content:flex-end}
+.vxf-station__tv{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;color:#6d28d9;border:1px solid #ddd6fe}
+.vxf-station__tv svg{width:16px;height:16px}
+.vxf-station__tv:hover{background:#f5f3ff}
+.dark .vxf-station__tv{color:#c4b5fd;border-color:#4c1d95}
+.dark .vxf-station__tv:hover{background:#2e1065}

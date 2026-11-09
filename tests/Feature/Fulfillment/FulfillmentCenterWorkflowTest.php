@@ -330,6 +330,24 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->actingAs($outsider)->get(route('fulfillment.whiteboard'))->assertForbidden();
     }
 
+    public function test_whiteboard_offers_all_stations_or_one_and_cards_open_their_station(): void
+    {
+        $this->started();
+        $other = \App\Models\FulfillmentStation::query()->where('id', '!=', $this->station->id)->where('active', true)->firstOrFail();
+
+        $this->actingAs($this->packer)->get(route('fulfillment.whiteboard'))->assertOk()
+            ->assertSee('id="vxf-station-pick"', false)->assertSee('All stations')->assertSee($other->name)
+            ->assertSee(e(route('fulfillment.whiteboard', ['station' => $other->id, 'density' => 'comfortable'])), false);
+
+        $single = $this->actingAs($this->packer)->get(route('fulfillment.whiteboard', ['station' => $this->station->id]))->assertOk()
+            ->assertSee('Station whiteboard');
+        $this->assertMatchesRegularExpression('/<option value="[^"]*station=' . $this->station->id . '[^"]*" selected/', $single->getContent());
+        $this->actingAs($this->packer)->get(route('fulfillment.whiteboard', ['station' => 999999]))->assertNotFound();
+
+        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
+            ->assertSee(route('fulfillment.whiteboard', ['station' => $this->station->id]), false);
+    }
+
     public function test_pages_render_for_a_manager_and_a_member(): void
     {
         $run = $this->started();

@@ -57,6 +57,18 @@
     </aside>
     </div>
 
+    @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
+        <section class="vx-interactive-tile rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/30" aria-label="Ledger tip review shortcut">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <h2 class="text-sm font-bold text-gray-950 dark:text-white">Tip attribution review</h2>
+                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Review imported tips without an approved business assignment. No automatic payroll changes.</p>
+                </div>
+                <a class="inline-flex min-h-10 items-center rounded-xl bg-violet-700 px-4 text-xs font-bold text-white hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business']) }}">Review tips →</a>
+            </div>
+        </section>
+    @endif
+
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
     <div class="vx-middle grid gap-4 lg:grid-cols-3">

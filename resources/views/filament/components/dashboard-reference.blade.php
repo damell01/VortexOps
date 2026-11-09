@@ -10,6 +10,16 @@
 @endphp
 <div class="vx-dashboard-reference space-y-4" data-vx-page="admin-dashboard">
     <style>
+        .vx-dashboard-reference .vx-dashboard-main-grid > *, .vx-dashboard-reference .vx-dashboard-secondary-grid > * { min-width:0; }
+        .vx-dashboard-reference .vx-dashboard-main-grid .fi-wi, .vx-dashboard-reference .vx-dashboard-main-grid .fi-section { height:100%; }
+        .vx-dashboard-reference .vx-dashboard-action:first-child { background:linear-gradient(135deg,#7c3aed,#a21caf);color:white;border-color:#a855f7; }
+        .vx-dashboard-reference .fi-wi-stats-overview { gap:.75rem; }
+        .vx-dashboard-reference .fi-wi-stats-overview-stat { border:1px solid rgba(139,92,246,.2); }
+        .dark .vx-dashboard-reference .fi-wi-stats-overview-stat { border-color:rgba(167,139,250,.25); }
+        .vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { height:100%; }
+        @media(max-width:1279px){.vx-dashboard-reference .vx-dashboard-main-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.vx-dashboard-reference .vx-dashboard-main-grid> :first-child { grid-column:1/-1; }.vx-dashboard-reference .vx-dashboard-secondary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { grid-column:1/-1; }}
+        @media(max-width:767px){.vx-dashboard-reference .vx-dashboard-main-grid,.vx-dashboard-reference .vx-dashboard-secondary-grid { grid-template-columns:minmax(0,1fr); }.vx-dashboard-reference .vx-dashboard-main-grid> :first-child,.vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { grid-column:auto; }}
+
         .vx-dashboard-reference .fi-wi-stats-overview-stat{border-radius:1rem;box-shadow:0 3px 12px rgba(30,41,59,.04);min-width:0}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1rem,1.3vw,1.2rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}
@@ -34,44 +44,26 @@
         .vx-dashboard-reference .vx-middle .fi-wi-widget,.vx-dashboard-reference .vx-middle .fi-wi-widget>section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
-    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-    <section class="vx-dashboard-hero relative flex min-h-[128px] items-center overflow-hidden rounded-2xl bg-gradient-to-r from-violet-950 to-violet-800 p-4 text-white shadow-sm sm:px-6">
-        <div class="relative min-w-0 max-w-xl">
-            <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
-            <p class="mt-1 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-                @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
-                <a href="{{ $link['url'] }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-xs font-semibold transition {{ $loop->first ? 'border-violet-400 bg-violet-600 shadow-lg shadow-violet-900/40 hover:bg-violet-500' : 'border-white/20 bg-white/5 hover:bg-white/15' }}"><x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}</a>
-                @endforeach
-            </div>
-            @if($guide)<a href="{{ $guide['url'] }}" class="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-medium text-indigo-100 hover:text-white"><x-heroicon-o-book-open class="h-4 w-4" />Inventory guide →</a>@endif
+    <header class="vx-dashboard-heading flex flex-wrap items-center justify-between gap-4 rounded-2xl px-1 py-2">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white sm:text-3xl">Operations Dashboard</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">Manage inventory, shows, and performance across your Vortex channels.</p>
         </div>
-    </section>
-    <aside class="vx-today rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Today at a glance">
-                <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300"><x-heroicon-o-calendar-days class="h-5 w-5" /></span><div><div class="text-xs font-medium text-gray-500 dark:text-gray-400">Today at a glance</div><div class="text-base font-bold text-gray-950 dark:text-white">{{ $overview['date'] }}</div></div></div>
-                <div class="mt-3 space-y-0.5">
-                    @foreach($overview['today'] as $row)
-                    <a href="{{ $row['url'] }}" class="flex min-h-8 items-center gap-3 rounded-lg px-1.5 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-white/5"><strong class="w-7 text-right text-base tabular-nums text-gray-950 dark:text-white">{{ number_format($row['count']) }}</strong><span class="flex-1">@if($row['live'] ?? false)<span class="vx-live-dot" aria-hidden="true"></span> @endif{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3.5 w-3.5 text-gray-400" /></a>
-                    @endforeach
-                </div>
-    </aside>
-    </div>
-
-    @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
-        <section class="vx-interactive-tile rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/30" aria-label="Ledger tip review shortcut">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <h2 class="text-sm font-bold text-gray-950 dark:text-white">Tip attribution review</h2>
-                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Review imported tips without an approved business assignment. No automatic payroll changes.</p>
-                </div>
-                <a class="inline-flex min-h-10 items-center rounded-xl bg-violet-700 px-4 text-xs font-bold text-white hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business']) }}">Review tips →</a>
-            </div>
-        </section>
-    @endif
+        <nav class="flex flex-wrap items-center gap-2" aria-label="Dashboard quick actions">
+            @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
+                <a href="{{ $link['url'] }}" class="vx-dashboard-action inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 text-xs font-semibold text-violet-900 shadow-sm hover:border-violet-400 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:border-violet-800 dark:bg-gray-900 dark:text-violet-100 dark:hover:bg-violet-950">
+                    <x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}
+                </a>
+            @endforeach
+            @if($guide)<a href="{{ $guide['url'] }}" class="vx-dashboard-action inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 text-xs font-semibold text-violet-900 shadow-sm hover:bg-violet-50 dark:border-violet-800 dark:bg-gray-900 dark:text-violet-100"><x-heroicon-o-book-open class="h-4 w-4" />Inventory guide</a>@endif
+        </nav>
+    </header>
 
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
-    <div class="vx-middle grid gap-3 lg:grid-cols-3">
+    <div class="vx-dashboard-main-grid grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div class="min-w-0">        @include('filament.components.dashboard-channel-performance')
+        </div>
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-1 text-xs text-gray-500">Current stock status at a glance.</p></div>@if(\App\Filament\Resources\InventoryItemResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl() }}" class="text-xs font-semibold text-primary-600">View inventory →</a>@endif</div>
             <div class="mt-5 flex flex-wrap items-center justify-center gap-5">
@@ -86,6 +78,10 @@
             </div>
             @if(!$stockTotal)<p class="mt-4 text-xs text-gray-500">No active inventory items yet.</p>@endif
         </section>
+        <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardNeedsAttentionWidget::class]" :columns="1" /></div>
+    </div>
+    <div class="vx-dashboard-secondary-grid grid items-start gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(240px,.65fr)]">
+        <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\UpcomingShowsWidget::make(['limit'=>3])]" :columns="1" /></div>
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-1 text-xs text-gray-500">Latest stock changes.</p></div>@if(\App\Filament\Resources\InventoryMovementResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryMovementResource::getUrl() }}" class="shrink-0 text-xs font-semibold text-primary-600">View all →</a>@endif</div>
             <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
@@ -94,13 +90,32 @@
                 @empty<p class="py-5 text-center text-xs text-gray-500">No recent inventory activity.</p>@endforelse
             </div>
         </section>
-        <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardNeedsAttentionWidget::class]" :columns="1" /></div>
+    <aside class="vx-today rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Today at a glance">
+                <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300"><x-heroicon-o-calendar-days class="h-5 w-5" /></span><div><div class="text-xs font-medium text-gray-500 dark:text-gray-400">Today at a glance</div><div class="text-base font-bold text-gray-950 dark:text-white">{{ $overview['date'] }}</div></div></div>
+                <div class="mt-3 space-y-0.5">
+                    @foreach($overview['today'] as $row)
+                    <a href="{{ $row['url'] }}" class="flex min-h-8 items-center gap-3 rounded-lg px-1.5 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-white/5"><strong class="w-7 text-right text-base tabular-nums text-gray-950 dark:text-white">{{ number_format($row['count']) }}</strong><span class="flex-1">@if($row['live'] ?? false)<span class="vx-live-dot" aria-hidden="true"></span> @endif{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3.5 w-3.5 text-gray-400" /></a>
+                    @endforeach
+                </div>
+    </aside>
     </div>
+    @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
+        <section class="vx-interactive-tile rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm dark:border-violet-800 dark:bg-violet-950/30" aria-label="Ledger tip review shortcut">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <h2 class="text-sm font-bold text-gray-950 dark:text-white">Tip attribution review</h2>
+                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Review imported tips without an approved business assignment. No automatic payroll changes.</p>
+                </div>
+                <a class="inline-flex min-h-10 items-center rounded-xl bg-violet-700 px-4 text-xs font-bold text-white hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business']) }}">Review tips →</a>
+            </div>
+            <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_needs_business']) }}" class="rounded-xl border border-violet-200 bg-white p-3 text-xs font-semibold text-gray-800 hover:border-violet-400 dark:border-violet-800 dark:bg-gray-900 dark:text-gray-100">Unverified business tips <span class="block mt-1 text-violet-600 dark:text-violet-300">Review assignments →</span></a>
+                <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'tips_missing_streamer']) }}" class="rounded-xl border border-violet-200 bg-white p-3 text-xs font-semibold text-gray-800 hover:border-violet-400 dark:border-violet-800 dark:bg-gray-900 dark:text-gray-100">Tips missing streamer <span class="block mt-1 text-violet-600 dark:text-violet-300">Review show matches →</span></a>
+                <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="rounded-xl border border-violet-200 bg-white p-3 text-xs font-semibold text-gray-800 hover:border-violet-400 dark:border-violet-800 dark:bg-gray-900 dark:text-gray-100">Streamer tip totals <span class="block mt-1 text-violet-600 dark:text-violet-300">Open breakdown →</span></a>
+            </div>
+        </section>
+    @endif
 
-    <div class="grid items-start gap-4 lg:grid-cols-[.9fr_1.1fr]">
-        <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\UpcomingShowsWidget::make(['limit'=>3])]" :columns="1" /></div>
-        @include('filament.components.dashboard-channel-performance')
-    </div>
     @if (\App\Livewire\StreamerLeaderboard::canView())@vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'admin-dashboard-leaderboard'" />@endif
     <details class="vx-interactive-tile rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"><summary class="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-gray-900 dark:text-white">Recent shows <x-heroicon-o-chevron-down class="vx-expand-chevron h-4 w-4 text-gray-500" /></summary><div class="mt-4"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\RecentShowsWidget::class]" :columns="1" /></div></details>
 </div>

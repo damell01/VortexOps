@@ -154,6 +154,35 @@
         </div>
     </div>
 
+    @php
+        $ledgerCategoryHelp = [
+            'tips' => 'Tips paid by buyers during a livestream. Assign to the verified show and its streamer when evidence is available.',
+            'sales' => 'Sales and order earnings from Whatnot transactions.',
+            'refunds' => 'Refunds and chargebacks that reverse or reduce previous earnings.',
+            'fees' => 'Whatnot commissions, processing fees, and other platform fees.',
+            'shipping' => 'Postage, shipping charges, carrier adjustments, and shipping refunds.',
+            'giveaways' => 'Giveaway-related transactions and charges.',
+            'bonus' => 'Bonuses or incentive payments.',
+            'marketing' => 'Promotion, advertising, or marketing-related charges.',
+            'correction' => 'Adjustments and corrections to earlier ledger activity.',
+            'payouts' => 'Transfers or withdrawals of funds. These are not necessarily new sales revenue.',
+            'other' => 'Fallback for entries whose source transaction type does not clearly fit another category. Review the original transaction details before reclassifying.',
+        ];
+    @endphp
+    <details class="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-gray-800 shadow-sm dark:border-violet-800 dark:bg-violet-950/20 dark:text-gray-100">
+        <summary class="cursor-pointer font-semibold text-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 dark:text-violet-200">What do the Ledger categories mean? <span class="font-normal text-gray-600 dark:text-gray-300">— Includes Other</span></summary>
+        <p class="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">Categories describe the transaction type. Attribution separately identifies the show, streamer, business, or house account. An Other entry is not automatically an unmatched or incorrect entry. Category suggestions come from Whatnot transaction types; review supporting evidence before changing them.</p>
+        <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
+                <div class="rounded-lg border border-violet-100 bg-white/80 p-3 dark:border-violet-900 dark:bg-gray-900/60">
+                    <dt class="font-semibold text-gray-950 dark:text-white">{{ ucfirst($category) }}</dt>
+                    <dd class="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">{{ $ledgerCategoryHelp[$category] ?? 'Review the transaction details to determine its meaning.' }}</dd>
+                </div>
+            @endforeach
+        </dl>
+        <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">Changing a category does not automatically change payroll or approve a show or streamer attribution.</p>
+    </details>
+
     <div class="vxled-chips" role="tablist" aria-label="Channel">
         @foreach ($chips as $chip)
             <button type="button" role="tab" wire:key="chip-{{ $chip['key'] }}"

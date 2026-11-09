@@ -129,6 +129,14 @@ class LedgerAttributionService
             throw ValidationException::withMessages(['attribution' => 'Select a valid category and destination, and enter a reason.']);
         }
 
+        // Buyer tips always belong to their verified show and its primary streamer.
+        // Never allow a tip to be categorized as a house expense or credited to
+        // a streamer without the show that generated it.
+        $isTip = $this->suggestedCategory($entry) === 'tips' || ($data['category'] ?? null) === 'tips';
+        if ($isTip && ! in_array($data['target'], ['show', 'unassigned'], true)) {
+            throw ValidationException::withMessages(['attribution' => 'Tips must be assigned to their show and primary streamer. Leave unverified tips unassigned for review; House is not allowed.']);
+        }
+
         $show = null;
         $streamer = null;
         $businessId = null;
@@ -142,6 +150,9 @@ class LedgerAttributionService
                 throw ValidationException::withMessages(['attribution' => 'This show has multiple primary streamers. Fix the show first.']);
             }
             $streamer = $primary->first();
+            if ($isTip && ! $streamer) {
+                throw ValidationException::withMessages(['attribution' => 'Assign a primary streamer to this show before attributing its tips.']);
+            }
             $businessId = $streamer?->business_id;
         } elseif ($data['target'] === 'streamer') {
             $streamer = Streamer::query()->where('status', 'active')->findOrFail((int) ($data['streamer_id'] ?? 0));

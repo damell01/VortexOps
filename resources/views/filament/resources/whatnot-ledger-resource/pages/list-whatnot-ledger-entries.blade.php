@@ -19,6 +19,19 @@
 
 <style>
     .vxled { grid-template-columns: minmax(0, 1fr); }
+    .vxled-visuals { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr); gap:12px; margin:12px 0; }
+    .vxled-visual { min-width:0; padding:16px; border:1px solid var(--vxw-border); border-radius:16px; background:var(--vxw-surface); }
+    .vxled-visual h2 { font-weight:750; font-size:15px; color:var(--vxw-text); }
+    .vxled-trend-legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--vxw-muted); }
+    .vxled-legend-dot { display:inline-block; height:9px; width:9px; border-radius:100%; margin-right:5px; }
+    .vxled-donut { width:150px; height:150px; flex:none; border-radius:50%; display:grid; place-items:center; }
+    .vxled-donut-hole { width:102px; height:102px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--vxw-surface); color:var(--vxw-text); }
+    .vxled-category-list { min-width:0; display:grid; gap:8px; flex:1; }
+    .vxled-category-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+    .vxled-category-row span:first-child { min-width:0; overflow-wrap:anywhere; }
+    @media (max-width:960px) { .vxled-visuals { grid-template-columns:minmax(0,1fr); } }
+    @media (max-width:480px) { .vxled-visual { padding:12px; } .vxled-category-layout { flex-direction:column; align-items:center; } }
+
     /* Ledger workspace: compact, responsive controls with Vortex purple accents. */
     .vxled .vxr-head { padding: 18px 20px; border: 1px solid var(--vxw-border); border-radius: 18px; background: linear-gradient(110deg,rgba(95,39,180,.14),rgba(128,71,245,.04) 65%,transparent); }
     .vxled .vxr-stats { margin-block: 12px; }
@@ -261,6 +274,89 @@
         </div>
     @endif
 
+    @php
+        $trend = $this->ledgerTrend;
+        $categoryRows = collect($this->categoryBreakdown)->groupBy('category')->map(fn ($items, $category) => ['label' => ucfirst((string) $category), 'count' => $items->sum('entries')])->sortByDesc('count')->values();
+        $categoryCount = $categoryRows->sum('count');
+        $chartColors = ['#8b5cf6','#38bdf8','#10b981','#f59e0b','#f472b6','#6366f1','#a3e635','#f97316'];
+        $donutParts = [];
+        $position = 0;
+        foreach ($categoryRows as $index => $category) {
+            $next = $position + ($categoryCount ? $category['count'] / $categoryCount * 100 : 0);
+            $donutParts[] = $chartColors[$index % count($chartColors)].' '.$position.'% '.$next.'%';
+            $position = $next;
+        }
+        $chartWidth = 640; $chartHeight = 180;
+        $plotTop = 12; $plotBottom = 148;
+        $trendMax = max(1, ...array_merge([1], collect($trend)->flatMap(fn ($row) => [$row['credits'], $row['debits'], abs($row['net'])])->all()));
+        $trendPoints = function ($key) use ($trend, $trendMax, $plotTop, $plotBottom) {
+            $count = count($trend);
+            return collect($trend)->map(function ($row, $i) use ($key, $count, $trendMax, $plotTop, $plotBottom) {
+                $x = 34 + ($count <= 1 ? 286 : $i * (572 / ($count - 1)));
+                $y = $plotBottom - (max(0, (float) $row[$key]) / $trendMax) * ($plotBottom - $plotTop);
+                return round($x, 1).','.round($y, 1);
+            })->implode(' ');
+        };
+    @endphp
+    <div class="vxled-visuals">
+        <section class="vxled-visual" aria-label="Monthly ledger trend">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2>Ledger trend</h2>
+                <div class="vxled-trend-legend">
+                    <span><i class="vxled-legend-dot" style="background:#8b5cf6"></i>Credits</span>
+                    <span><i class="vxled-legend-dot" style="background:#f472b6"></i>Debits</span>
+                    <span><i class="vxled-legend-dot" style="background:#10b981"></i>Positive net</span>
+                </div>
+            </div>
+            @if (count($trend))
+                <svg viewBox="0 0 640 180" class="mt-3 w-full" role="img" aria-label="Monthly ledger credits, debits and positive net for up to twelve months">
+                    @foreach ([0, .5, 1] as $fraction)
+                        <line x1="34" y1="{{ $plotBottom - $fraction * ($plotBottom - $plotTop) }}" x2="606" y2="{{ $plotBottom - $fraction * ($plotBottom - $plotTop) }}" stroke="currentColor" opacity=".12" />
+                    @endforeach
+                    <polyline points="{{ $trendPoints('credits') }}" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    <polyline points="{{ $trendPoints('debits') }}" fill="none" stroke="#f472b6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    <polyline points="{{ $trendPoints('net') }}" fill="none" stroke="#10b981" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+                    @foreach ($trend as $i => $point)
+                        @if ($i % max(1, (int) ceil(count($trend) / 6)) === 0 || $i === count($trend) - 1)
+                            <text x="{{ 34 + (count($trend) <= 1 ? 286 : $i * (572 / (count($trend) - 1))) }}" y="169" text-anchor="middle" font-size="11" fill="currentColor">{{ substr($point['label'], 2) }}</text>
+                        @endif
+                    @endforeach
+                </svg>
+                <p class="mt-1 text-xs" style="color:var(--vxw-muted)">Monthly totals · up to 12 latest months · negative net is shown at the baseline, not as a positive amount. Uses current ledger filters.</p>
+                <details class="mt-2 text-xs">
+                    <summary class="cursor-pointer font-semibold">View exact monthly figures</summary>
+                    <div class="mt-2 overflow-x-auto"><table class="w-full text-left"><thead><tr><th class="p-2">Month</th><th class="p-2">Credits</th><th class="p-2">Debits</th><th class="p-2">Net</th></tr></thead><tbody>
+                        @foreach ($trend as $point)
+                            <tr class="border-t" style="border-color:var(--vxw-border)"><td class="p-2">{{ $point['label'] }}</td><td class="p-2">{{ $money($point['credits']) }}</td><td class="p-2">{{ $money($point['debits']) }}</td><td class="p-2">{{ $signed($point['net']) }}</td></tr>
+                        @endforeach
+                    </tbody></table></div>
+                </details>
+            @else
+                <p class="mt-4 text-sm" style="color:var(--vxw-muted)">No transactions match the selected filters.</p>
+            @endif
+        </section>
+        <section class="vxled-visual" aria-label="Approved allocations by category">
+            <h2>Approved category mix</h2>
+            @if ($categoryCount)
+                <div class="vxled-category-layout mt-4 flex items-center gap-4">
+                    <div class="vxled-donut" style="background:conic-gradient({{ implode(',', $donutParts) }})" role="img" aria-label="Approved transactions grouped by category">
+                        <div class="vxled-donut-hole"><strong class="text-xl tabular-nums">{{ number_format($categoryCount) }}</strong><span class="text-xs">Approved</span></div>
+                    </div>
+                    <div class="vxled-category-list">
+                        @foreach ($categoryRows as $index => $category)
+                            <div class="vxled-category-row">
+                                <span><i class="vxled-legend-dot" style="background:{{ $chartColors[$index % count($chartColors)] }}"></i>{{ $category['label'] }}</span>
+                                <strong class="tabular-nums">{{ number_format($category['count']) }} <span style="color:var(--vxw-muted)">({{ number_format($category['count'] / $categoryCount * 100, 1) }}%)</span></strong>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                <p class="mt-3 text-xs" style="color:var(--vxw-muted)">Approved allocations only. Unmatched and pending items are excluded.</p>
+            @else
+                <p class="mt-4 text-sm" style="color:var(--vxw-muted)">No approved allocations in these filters.</p>
+            @endif
+        </section>
+    </div>
     <div class="vxled-workspace" aria-label="Ledger reconciliation workspace">
         <section class="vxled-workspace-card">
             <h2 class="vxled-workspace-title">Allocation overview</h2>

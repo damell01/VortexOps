@@ -83,4 +83,3 @@ chmod 0644 /etc/cron.d/vortexops-maintenance
 logrotate -d /etc/logrotate.d/vortexops-laravel >/dev/null 2>&1 || { echo "Logrotate validation failed"; exit 1; }
 echo "Installed safe maintenance jobs. MySQL, active backfill logs, Docker volumes and Ollama models were not changed."
 echo "Alerts log locally; email requires working mail transport and VORTEXOPS_ALERT_EMAIL in cron environment."
-EOF

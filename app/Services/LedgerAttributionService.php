@@ -154,7 +154,7 @@ class LedgerAttributionService
         }
         DB::transaction(function () use ($entry, $data, $actorId, $show, $streamer, $businessId) {
             $before = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
-            if ($before && $before->status === 'pending' && (int) $before->submitted_by !== $actorId) {
+            if ($before && $before->status === 'pending' && $before->submitted_by !== null && (int) $before->submitted_by !== $actorId) {
                 throw ValidationException::withMessages(['attribution' => 'Another administrator has a pending correction. Review it before submitting another.']);
             }
             $payload = [

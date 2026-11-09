@@ -57,6 +57,14 @@
     <div class="mb-3" style="display:flex;justify-content:flex-end">
         <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="vxr-btn vxr-btn--outline">Streamer tip totals &amp; show breakdown</a>
     </div>
+    @if($review === 'tips_needs_business')
+        <section class="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-gray-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-gray-100" aria-label="Tip business attribution review">
+            <h2 class="font-bold">Tips awaiting business verification</h2>
+            <p class="mt-1">Only tip transactions without an approved business assignment are shown. Open a row to inspect its source order, any verified show suggestion, and the attribution approval controls. A channel alone does not prove business ownership.</p>
+            <p class="mt-1 text-xs">Submitting an attribution requires a reason and a separate administrator's approval. This review does not post payroll.</p>
+            <button type="button" class="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40" wire:click="$set('review', 'all')">Show all ledger entries</button>
+        </section>
+    @endif
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @php

@@ -223,6 +223,7 @@ class ListInventoryItems extends ListRecords
     {
         $startedAt = microtime(true);
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
+        $this->catalogPage = 1;
         $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);

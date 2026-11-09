@@ -89,6 +89,28 @@
 .vx-inventory-list .vx-product-card .vx-product-image.has-photo img{object-fit:contain!important;padding:.3rem!important}
 @media(max-width:1023px){.vx-inventory-list .vx-view-toggle{display:inline-flex!important}.vx-inventory-list .vx-inventory-items-panel{display:block!important;max-width:100%;overflow-x:auto}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
 @media(max-width:640px){.vx-inventory-list .vx-product-card .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-list .vx-product-card .vx-card-action{min-height:44px!important}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
+
+/* Inventory screenshot follow-up: keep the original top menu, remove the empty
+   Filament header wrapper, and use one truly compact desktop control area. */
+body:has(.vx-inventory-list) .fi-page-header{display:none!important}
+body:has(.vx-inventory-list) .fi-page-content{gap:.65rem!important}
+.vx-inventory-list{gap:.6rem!important}
+.vx-inventory-summary{grid-template-columns:minmax(180px,.8fr) minmax(190px,.8fr) minmax(0,2.3fr)!important;gap:10px!important;padding:10px 12px!important}
+.vx-inventory-summary .vx-health-grid{grid-column:auto!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important}
+.vx-inventory-summary .vx-health{min-height:62px!important;padding:8px!important}
+.vx-inventory-summary .vx-health strong{font-size:1.18rem!important}
+.vx-inventory-summary .vx-health-meta{margin-top:1px!important}
+.vx-inventory-actions{display:flex!important;flex-wrap:wrap!important;gap:6px!important;padding:8px!important;align-items:center!important}
+.vx-inventory-actions .vx-inventory-desktop-tools{flex:0 1 auto!important;min-width:0!important}
+.vx-inventory-actions .vx-inv-shortcuts{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+.vx-inventory-actions .vx-inv-shortcuts>a{min-height:36px!important;padding:6px 9px!important}
+.vx-inventory-actions>div.flex{gap:6px!important}
+.vx-inventory-list>section.rounded-2xl{padding:9px!important}
+.vx-inventory-list .vx-inv-toolbar{gap:8px!important}
+.vx-inventory-list .vx-inv-input{min-height:40px!important}
+@media(min-width:1450px){.vx-inventory-actions{flex-wrap:nowrap!important}.vx-inventory-actions .vx-inventory-desktop-tools{flex:1 1 auto!important}}
+@media(max-width:1279px){.vx-inventory-summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}.vx-inventory-summary .vx-health-grid{grid-column:1/-1!important}}
+@media(max-width:640px){.vx-inventory-summary{grid-template-columns:minmax(0,1fr)!important}.vx-inventory-summary .vx-health-grid{grid-column:auto!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-actions .vx-inventory-desktop-tools{flex:1 1 100%!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">

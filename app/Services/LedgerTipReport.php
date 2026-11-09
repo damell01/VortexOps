@@ -32,7 +32,7 @@ class LedgerTipReport
             ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits')
             ->selectRaw('SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) as debits')
             ->selectRaw('COUNT(*) as entries, SUM(CASE WHEN amount IS NULL THEN 1 ELSE 0 END) as missing_amounts')
-            ->selectRaw("SUM(CASE WHEN LOWER(TRIM(status)) IN ('pending', 'processing') THEN 1 ELSE 0 END) as pending")
+            ->selectRaw("SUM(CASE WHEN LOWER(TRIM(whatnot_ledger_entries.status)) IN ('pending', 'processing') THEN 1 ELSE 0 END) as pending")
             ->groupByRaw('DATE(whatnot_ledger_entries.created_date), whatnot_ledger_entries.whatnot_channel_id, attribution.business_id')
             ->orderBy('day')->get();
 

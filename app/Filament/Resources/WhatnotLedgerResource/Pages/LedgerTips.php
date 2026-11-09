@@ -27,6 +27,52 @@ class LedgerTips extends Page
     private bool $reportLoaded = false;
     private ?array $cachedReport = null;
 
+    public bool $showBusinessReview = false;
+    public int $businessReviewPage = 1;
+
+    public function openBusinessReview(): void
+    {
+        $this->businessReviewPage = 1;
+        $this->showBusinessReview = true;
+    }
+
+    public function closeBusinessReview(): void
+    {
+        $this->showBusinessReview = false;
+    }
+
+    public function nextBusinessReviewPage(): void
+    {
+        $this->businessReviewPage++;
+    }
+
+    public function previousBusinessReviewPage(): void
+    {
+        $this->businessReviewPage = max(1, $this->businessReviewPage - 1);
+    }
+
+    /** Read-only review rows. Business approval still happens through the ledger workflow. */
+    public function businessReviewRows(): array
+    {
+        if (! $this->showBusinessReview || $this->report() === null || $this->streamer !== 'all' || ! in_array($this->business, ['all', 'unassigned'], true)) return [];
+        [$from, $until] = $this->range();
+        return DB::table('whatnot_ledger_entries as le')
+            ->whereRaw('LOWER(TRIM(le.transaction_type)) IN (?, ?)', ['tip', 'tips'])
+            ->whereBetween('le.created_date', [$from->copy()->startOfDay(), $until->copy()->endOfDay()])
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('le.whatnot_channel_id', ChannelContext::currentId()))
+            ->when(ctype_digit($this->channel), fn ($q) => $q->where('le.whatnot_channel_id', (int) $this->channel))
+            ->when($this->channel === 'unassigned', fn ($q) => $q->whereNull('le.whatnot_channel_id'))
+            ->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as a')
+                    ->whereColumn('a.whatnot_ledger_entry_id', 'le.id')
+                    ->where('a.status', 'approved')->whereNotNull('a.business_id');
+            })
+            ->select(['le.id', 'le.whatnot_order_id', 'le.created_date', 'le.amount', 'le.status', 'le.whatnot_channel_id'])
+            ->orderByDesc('le.created_date')->orderByDesc('le.id')
+            ->limit(25)->offset((max(1, $this->businessReviewPage) - 1) * 25)
+            ->get()->all();
+    }
+
     public const PERIODS = ['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month',
         'last_month' => 'Last month', 'pay_period' => 'Pay period', 'custom' => 'Custom range'];
 
@@ -65,6 +111,8 @@ class LedgerTips extends Page
     {
         $this->reportLoaded = false;
         $this->cachedReport = null;
+        $this->showBusinessReview = false;
+        $this->businessReviewPage = 1;
         if (in_array($property, ['from', 'until'], true)) {
             $this->period = 'custom';
         }

@@ -282,23 +282,19 @@ class DashboardImproved extends Dashboard
     private function dashboardOverview(): array
     {
         $local = now()->timezone(auth()->user()?->timezone ?: config('app.timezone'));
-        // A real 14-day series powers the channel chart; never interpolate monthly totals.
-        $start = $local->copy()->subDays(13)->startOfDay();
-        $months = [];
-        for ($i = 0; $i < 14; $i++) {
-            $day = $start->copy()->addDays($i);
-            $months[] = ['key' => $day->toDateString(), 'label' => $day->format('M j')];
-        }
+        // Channel Performance covers the current month only.
+        $start = $local->copy()->startOfMonth();
+        $months = [['key'=>$start->format('Y-m'), 'label'=>$start->format('M')]];
         $channelId = ChannelContext::currentId();
         // Net matches Show::profitAndLoss(): settled Whatnot earnings, or Whatnot's
         // estimate until a show settles, so recent months don't read as zero.
         $data = \Illuminate\Support\Facades\Cache::remember(
-            'dashboard:reference:v5:14day:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
+            'dashboard:reference:v4:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
             function () use ($start, $local, $months, $channelId) {
                 $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
                     ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
-                    ->selectRaw('whatnot_channel_id, DATE(show_date) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(COALESCE(completed_earnings, whatnot_net, 0)),0) as net')
-                    ->groupBy('whatnot_channel_id')->groupByRaw('DATE(show_date)')->get();
+                    ->selectRaw('whatnot_channel_id, SUBSTR(show_date, 1, 7) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(COALESCE(completed_earnings, whatnot_net, 0)),0) as net')
+                    ->groupBy('whatnot_channel_id')->groupByRaw('SUBSTR(show_date, 1, 7)')->get();
                 $channels = \App\Models\WhatnotChannel::whereIn('id', $rows->pluck('whatnot_channel_id')->filter()->unique())->orderBy('name')->get(['id','name']);
                 $series = [];
                 $colors = ['#7c3aed','#3b82f6','#ec4899','#10b981','#f59e0b'];
@@ -349,7 +345,7 @@ class DashboardImproved extends Dashboard
             'today'=>$today, 'months'=>$months,
             'greeting'=>$local->hour < 12 ? 'Good morning' : ($local->hour < 18 ? 'Good afternoon' : 'Good evening'),
             'name'=>explode(' ', trim(auth()->user()?->name ?: 'there'))[0],
-            'date'=>$local->format('M j, Y'), 'period'=>'Last 14 days',
+            'date'=>$local->format('M j, Y'), 'period'=>$local->format('F Y').' so far',
         ];
     }
 

@@ -159,7 +159,7 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
         }
-        if (! in_array($this->review, ['all', 'needs_attribution', 'pending_approval', 'rejected_attribution', 'unverified_tips', 'tips_needs_business', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
+        if (! in_array($this->review, ['all', 'needs_attribution', 'unmatched_attribution', 'pending_approval', 'rejected_attribution', 'unverified_tips', 'tips_needs_business', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
         }
         if ($this->categoryFilter !== '' && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
@@ -359,6 +359,10 @@ class ListWhatnotLedgerEntries extends Page
                 $sub->selectRaw('1')->from('ledger_attributions as la')
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
                     ->where('la.status', 'approved');
+            }))
+            ->when($this->review === 'unmatched_attribution', fn (Builder $q) => $q->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id');
             }))
             ->when($this->review === 'pending_approval', fn (Builder $q) => $q->whereExists(function ($sub) {
                 $sub->selectRaw('1')->from('ledger_attributions as la')

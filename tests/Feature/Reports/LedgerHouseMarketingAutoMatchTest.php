@@ -12,7 +12,7 @@ class LedgerHouseMarketingAutoMatchTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_explicit_orderless_marketing_debit_is_approved_as_house_once(): void
+    public function test_explicit_orderless_marketing_debit_requires_review_once(): void
     {
         $entry = WhatnotLedgerEntry::create([
             'dedup_key' => 'house-marketing-1',
@@ -20,10 +20,11 @@ class LedgerHouseMarketingAutoMatchTest extends TestCase
             'amount' => -25,
         ]);
         $matcher = app(LedgerAutoMatcher::class);
-        $this->assertSame('matched', $matcher->match($entry));
-        $this->assertSame('matched', $matcher->match($entry));
+        $this->assertSame('categorized', $matcher->match($entry));
+        $this->assertSame('unmatched', $matcher->match($entry));
         $row = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->first();
         $this->assertSame('house', $row->target);
+        $this->assertSame('pending', $row->status);
         $this->assertSame('marketing', $row->category);
         $this->assertNull($row->streamer_id);
         $this->assertNull($row->business_id);
@@ -45,9 +46,9 @@ class LedgerHouseMarketingAutoMatchTest extends TestCase
             'amount' => 10,
         ]);
         $matcher = app(LedgerAutoMatcher::class);
-        $this->assertSame('unmatched', $matcher->match($ordered));
-        $this->assertSame('unmatched', $matcher->match($refund));
-        $this->assertSame('unmatched', $matcher->match($credit));
-        $this->assertSame(0, DB::table('ledger_attributions')->count());
+        $this->assertSame('categorized', $matcher->match($ordered));
+        $this->assertSame('categorized', $matcher->match($refund));
+        $this->assertSame('categorized', $matcher->match($credit));
+        $this->assertSame(3, DB::table('ledger_attributions')->where('target', 'unassigned')->where('status', 'pending')->count());
     }
 }

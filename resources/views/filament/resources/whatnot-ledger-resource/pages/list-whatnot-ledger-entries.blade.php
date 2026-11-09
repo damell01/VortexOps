@@ -80,6 +80,17 @@
     .vxled-panel .vxr-dl dd.vxled-left { text-align: left; }
     .vxled-copy { display: inline-flex; align-items: center; gap: 10px; }
 
+
+    /* Financial workspace: put transaction review first and keep secondary analytics optional. */
+    .vxled-analytics > summary{list-style-position:inside;padding:6px 4px}
+    .vxled-analytics[open] > summary{margin-bottom:8px}
+    .vxled .vxr-head{padding:12px 16px}
+    .vxled .vxr-stats{margin-block:8px}
+    .vxled .vxled-workspace{gap:8px;margin-bottom:8px}
+    .vxled .vxled-visuals{margin:8px 0}
+    .vxled .vxr-table-wrap{overflow-x:auto}
+    .vxled .vxled-table thead th{position:sticky;top:0;z-index:1}
+    @media(max-width:767px){.vxled .vxled-workspace{grid-template-columns:minmax(0,1fr)}.vxled .vxled-visuals{grid-template-columns:minmax(0,1fr)}}
 </style>
 
 <div class="vxr vxled">
@@ -310,7 +321,9 @@
         </div>
     @endif
 
-    @php
+    <details class="vxled-analytics mb-3 rounded-xl border border-violet-200 bg-white/80 p-3 dark:border-violet-800 dark:bg-gray-900/70" aria-label="Ledger analytics and category breakdown">
+        <summary class="cursor-pointer text-sm font-semibold text-violet-800 dark:text-violet-200">Analytics &amp; Category Breakdown <span class="ml-2 text-xs font-normal opacity-75">Ledger trend and approved category mix</span></summary>
+        @php
         $trend = $this->ledgerTrend;
         $categoryRows = collect($this->categoryBreakdown)->groupBy('category')->map(fn ($items, $category) => ['label' => ucfirst((string) $category), 'count' => $items->sum('entries')])->sortByDesc('count')->values();
         $categoryCount = $categoryRows->sum('count');
@@ -393,6 +406,7 @@
             @endif
         </section>
     </div>
+    </details>
     <div class="vxled-workspace" aria-label="Ledger reconciliation workspace">
         <section class="vxled-workspace-card">
             <h2 class="vxled-workspace-title">Allocation overview</h2>
@@ -415,7 +429,7 @@
             <h2 class="vxled-workspace-title">Quick actions</h2>
             <div class="vxled-actions">
                 <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
-                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_needs_business')"><span>Tips needing business</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
                 <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
             </div>
@@ -434,11 +448,20 @@
             </tbody>
         </table></div>
     </details>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2 dark:border-violet-800 dark:bg-violet-950/20">
+        <div class="text-sm">
+            <strong>Reconciliation queue</strong>
+            <span class="ml-2 text-xs opacity-80">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }} entries need attention in these filters</span>
+        </div>
+        <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', 'needs_attribution')">Review unassigned &amp; pending</button>
+    </div>
     <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
         @foreach ([
             'all' => 'All transactions',
             'needs_attribution' => 'Needs review',
-            'tips_needs_business' => 'Unverified tips',
+            'unverified_tips' => 'Unverified tips',
+            'pending_approval' => 'Pending approval',
+            'rejected_attribution' => 'Rejected',
             'tips_missing_streamer' => 'Missing streamer',
             'tips_missing_order' => 'Missing order',
         ] as $reviewKey => $reviewLabel)

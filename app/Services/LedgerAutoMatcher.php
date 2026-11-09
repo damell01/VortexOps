@@ -64,19 +64,19 @@ class LedgerAutoMatcher
                     'whatnot_ledger_entry_id' => $entry->id,
                     'category' => 'marketing', 'target' => 'house',
                     'show_id' => null, 'streamer_id' => null, 'business_id' => null,
-                    'status' => 'approved',
-                    'reason' => 'Automatic explicit orderless marketing debit; no show or business inferred',
+                    'status' => 'pending',
+                    'reason' => 'Suggested house marketing expense; requires business assignment and human approval',
                     'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                     'created_at' => now(), 'updated_at' => now(),
                 ];
                 DB::table('ledger_attributions')->insert($payload);
                 DB::table('ledger_attribution_events')->insert([
                     'whatnot_ledger_entry_id' => $entry->id, 'actor_id' => null,
-                    'action' => 'auto_matched', 'before' => null,
+                    'action' => 'auto_categorized', 'before' => null,
                     'after' => json_encode($payload), 'reason' => $payload['reason'],
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
-                return 'matched';
+                return 'categorized';
             }
 
             $primary = $show->streamers()->wherePivot('is_primary', true)->get();

@@ -22,6 +22,12 @@ class FulfillmentOperations extends Page
         return (bool) ($user && ($user->isOwner() || $user->isAdmin() || $user->isFulfillmentAdmin()));
     }
 
+    public function mount(): void
+    {
+        // Live operations now live on Fulfillment Home.
+        $this->redirect(FulfillmentHome::getUrl());
+    }
+
     public function getView(): string
     {
         return 'filament.pages.fulfillment-operations';

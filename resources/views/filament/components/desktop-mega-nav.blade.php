@@ -32,6 +32,8 @@ if($assistantOnly){
  ...($user?->isOwner() ? [['Whatnot Sheet Check',\App\Filament\Pages\WhatnotSheetCheck::getUrl(panel:'admin')]] : []),
  ['Show Report Inbox',\App\Filament\Resources\StreamerLogResource::getUrl('index')],
 ];
+// The Fulfillment Center for admins and the owner (fulfillment-only roles get it below).
+if(!$assistantOnly && !$streamerOnly && ($user?->isAdmin() || $user?->isOwner()) && \App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Pages\FulfillmentHome::canAccess()) $groups['Fulfillment']=\App\Support\FulfillmentNav::links();
 if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess() && (! $streamerOnly || \App\Support\RoleAccess::grants(\App\Filament\Resources\InventoryItemResource::class))) $groups['Inventory']=array_values(array_filter([
  ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin'),'Inventory'],
  ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index'),'Inventory'],
@@ -104,14 +106,7 @@ if ($fulfillmentOnly) {
     $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';
     $groups = isset($groups['Inventory']) ? ['Inventory' => $groups['Inventory']] : [];
     if (\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) {
-        $groups['Fulfillment'] = [
-            ...(\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? [['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review'), 'Management', 'heroicon-o-user-group']] : []),
-            ['Packing Queue', \App\Filament\Resources\FulfillmentResource::getUrl('index'), 'Daily work', 'heroicon-o-archive-box'],
-            ...(\App\Filament\Pages\FulfillmentReports::canAccess() ? [['My Reports', \App\Filament\Pages\FulfillmentReports::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-chart-bar']] : []),
-            ...(\App\Filament\Pages\FulfillmentSchedule::canAccess() ? [['Team Schedule', \App\Filament\Pages\FulfillmentSchedule::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-calendar-days']] : []),
-            ...(\App\Filament\Pages\FulfillmentOperations::canAccess() ? [['Live Operations', \App\Filament\Pages\FulfillmentOperations::getUrl(panel:'admin'), 'Management', 'heroicon-o-chart-bar-square']] : []),
-            ...(\App\Filament\Pages\ShipmentOverview::canAccess() ? [['Shipment Tracking', \App\Filament\Pages\ShipmentOverview::getUrl(panel:'admin'), 'Management', 'heroicon-o-truck']] : []),
-        ];
+        $groups['Fulfillment'] = \App\Support\FulfillmentNav::links();
     }
     if (\App\Filament\Pages\Timekeeping::canAccess()) {
         $groups['Timekeeping'] = [['My Timekeeping', \App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];

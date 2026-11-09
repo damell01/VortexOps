@@ -120,6 +120,31 @@ class NotificationCatalog
                 'description' => 'Someone was assigned to pack and ship a show.',
                 'roles' => [], 'involved' => true, 'involved_label' => 'The assigned packer', 'involved_role' => 'fulfillment', 'in_app' => true, 'email' => true,
             ],
+            'fulfillment_show_ready' => [
+                'group' => 'Fulfillment', 'label' => 'Show ready to pack', 'level' => 'action',
+                'description' => 'A show ended and its orders are ready for fulfillment.',
+                'roles' => ['role:fulfillment_admin'], 'involved' => true, 'involved_label' => 'Whoever is assigned to the show', 'involved_role' => 'fulfillment', 'in_app' => true, 'email' => false,
+            ],
+            'fulfillment_schedule_changed' => [
+                'group' => 'Fulfillment', 'label' => 'Fulfillment schedule changed', 'level' => 'fyi',
+                'description' => 'A shift was added, changed, reassigned or removed.',
+                'roles' => [], 'involved' => true, 'involved_label' => 'The person on the shift', 'involved_role' => 'fulfillment', 'in_app' => true, 'email' => false,
+            ],
+            'fulfillment_issue_flagged' => [
+                'group' => 'Fulfillment', 'label' => 'Packing issue flagged', 'level' => 'alert',
+                'description' => 'A packer flagged a missing, damaged or wrong item, or an order problem.',
+                'roles' => ['role:fulfillment_admin'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
+            'fulfillment_issue_resolved' => [
+                'group' => 'Fulfillment', 'label' => 'Packing issue resolved', 'level' => 'fyi',
+                'description' => 'A manager resolved a flagged packing issue.',
+                'roles' => [], 'involved' => true, 'involved_label' => 'Whoever flagged it', 'involved_role' => 'fulfillment', 'in_app' => true, 'email' => false,
+            ],
+            'fulfillment_show_finished' => [
+                'group' => 'Fulfillment', 'label' => 'Show packed · approval needed', 'level' => 'action',
+                'description' => 'A show finished packing and its completion record is waiting for manager approval.',
+                'roles' => ['role:fulfillment_admin'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
 
             // ── Payroll ──────────────────────────────────────────────────
             'missed_clock_out' => [

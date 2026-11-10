@@ -51,6 +51,7 @@
                                     <span class="rounded-full border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500">{{ $block->required_staff - $block->assigned_staff }} open {{ ($block->required_staff - $block->assigned_staff) === 1 ? 'slot' : 'slots' }}</span>
                                 @endif
                             </div>
+                            <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="duplicateBlockNextWeek({{ $block->id }})" wire:confirm="Copy this shift to next week? Employees and the linked show will not be copied.">Copy to next week</button>
                             @if ($block->status !== 'cancelled' && $block->assigned_staff < $block->required_staff)
                                 <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="openBlockAssignment({{ $block->id }})">Assign employee</button>
                             @endif

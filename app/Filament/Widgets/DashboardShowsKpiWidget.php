@@ -25,10 +25,27 @@ class DashboardShowsKpiWidget extends BaseWidget
             "widget:dashboard_business_kpi:v2:{$channel}",
             120,
             function () {
-                $products = Product::query()->where('is_active', true)->with('stock')->get();
-                $items = $products->count();
-                $units = (float) $products->sum(fn (Product $p) => max(0, (float) $p->stock->sum('quantity')));
-                $value = (float) $products->sum(fn (Product $p) => max(0, (float) $p->stock->sum('quantity')) * (float) ($p->costBasis() ?? 0));
+                // Aggregate stock in SQL rather than hydrating every active product
+                // and its stock rows for six small dashboard KPI cards.
+                $inventory = Product::query()
+                    ->where('is_active', true)
+                    ->leftJoinSub(
+                        \Illuminate\Support\Facades\DB::table('inventory_stock')
+                            ->select('inventory_item_id')
+                            ->selectRaw('SUM(quantity) AS stock_quantity')
+                            ->groupBy('inventory_item_id'),
+                        'stock_totals',
+                        'stock_totals.inventory_item_id',
+                        '=',
+                        'products.id'
+                    )
+                    ->selectRaw('COUNT(*) AS product_count')
+                    ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(stock_totals.stock_quantity, 0), 0)), 0) AS units_total')
+                    ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(stock_totals.stock_quantity, 0), 0) * CASE WHEN COALESCE(products.average_cost, 0) > 0 THEN products.average_cost WHEN COALESCE(products.unit_cost, 0) > 0 THEN products.unit_cost ELSE 0 END), 0) AS inventory_value')
+                    ->first();
+                $items = (int) $inventory->product_count;
+                $units = (float) $inventory->units_total;
+                $value = (float) $inventory->inventory_value;
 
                 $monthShows = Show::query()
                     ->inChannelContext()

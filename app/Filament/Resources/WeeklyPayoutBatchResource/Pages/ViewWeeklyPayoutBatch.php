@@ -376,7 +376,11 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                         $this->record->refresh();
                     }),
                 Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
-                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
+                    ->modalHeading('Recalculate draft pay run')
+                    ->modalWidth('md')
+                    ->modalIcon('heroicon-o-arrow-path')
+                    ->modalSubmitActionLabel('Recalculate')
+                    ->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
                     ->action(function () {
                         $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id, $this->record->kind); $this->record->refresh();
                         $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];

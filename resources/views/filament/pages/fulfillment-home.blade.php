@@ -54,7 +54,7 @@
         $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
         $tz = \App\Support\BusinessTime::zone();
     @endphp
-    <div class="vxf-island" wire:poll.20s>
+    <div class="vxf-island" wire:poll.visible.20s>
     <section class="vxf-stats" aria-label="Today at a glance">
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
@@ -162,7 +162,7 @@
             $approved = $requireReport ? $this->queueApproved : [];
             $ordersLink = \App\Filament\Resources\FulfillmentResource::canAccess();
         @endphp
-        <div class="vxf-island" wire:poll.60s>
+        <div class="vxf-island" wire:poll.visible.60s>
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
                 <h2 id="vxf-queue">{{ $manager ? "Today's Shows / Ready to Pack" : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
@@ -228,7 +228,7 @@
         <div class="vxf-activity-col">
         @island(name: 'feed')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
-        <div class="vxf-island" wire:poll.30s>
+        <div class="vxf-island" wire:poll.visible.30s>
         <section class="vxf-card" aria-labelledby="vxf-activity">
             <div class="vxf-card__head"><h2 id="vxf-activity">Live Activity</h2>
                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
@@ -260,7 +260,7 @@
                 $tz = \App\Support\BusinessTime::zone();
                 $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
             @endphp
-            <div class="vxf-island" wire:poll.30s>
+            <div class="vxf-island" wire:poll.visible.30s>
             @if ($this->signoffQueue->isNotEmpty())
                 @php $queue = $this->signoffQueue; @endphp
                 <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff">

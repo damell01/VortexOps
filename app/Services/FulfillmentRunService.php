@@ -120,8 +120,9 @@ class FulfillmentRunService
                 DB::table('fulfillment_run_packers')->insertOrIgnore(['run_id' => $run->id, 'user_id' => $packerId]);
             }
 
-            // Freeze the alphabetical buyer letters for the camera trail. A
-            // later sync may add orders, but never relabels a started run.
+            // Freeze username-initial camera labels when a run starts. Labels may repeat;
+            // the full username, buyer ID, and event timestamps disambiguate footage.
+            // Later syncs must not relabel a started run.
             DB::table('fulfillment_run_buyers')->where('run_id', $run->id)->delete();
             $shipments = Shipment::query()->where('shipments.show_id', $show->id)->whereNotNull('shipments.buyer_username')
                 ->leftJoin('whatnot_show_orders as wso', 'wso.id', '=', 'shipments.whatnot_order_id')
@@ -133,7 +134,7 @@ class FulfillmentRunService
                 $buyerShipments = $shipments->get($key, collect());
                 $buyerId = DB::table('fulfillment_run_buyers')->insertGetId([
                     'run_id' => $run->id, 'buyer_username' => $buyer['username'],
-                    'letter' => self::letter($index), 'order_ids' => json_encode($buyer['order_ids']),
+                    'letter' => self::buyerInitial($buyer['username']), 'order_ids' => json_encode($buyer['order_ids']),
                     'order_count' => count($buyer['order_ids']), 'item_count' => $buyer['item_count'],
                     'package_count' => $buyerShipments->isNotEmpty() ? $buyerShipments->count() : null,
                     'status' => 'waiting', 'created_at' => $now, 'updated_at' => $now,
@@ -159,11 +160,19 @@ class FulfillmentRunService
             FulfillmentLog::record('started', $run->id, $actor->id, ['station_id' => $stationId, 'packers' => $packers]);
             FulfillmentLog::record('buyers_loaded', $run->id, $actor->id, [
                 'buyers' => $buyers->count(), 'packages' => $packageTotal ?: null,
-                'range' => 'A–' . self::letter(max(0, $buyers->count() - 1)),
+                'label_scheme' => 'username_initial',
             ]);
 
             return (int) $run->id;
         });
+    }
+
+    /** Camera reference: first letter of the buyer's username, or # for numeric/symbol prefixes. */
+    public static function buyerInitial(string $username): string
+    {
+        $first = mb_strtoupper(mb_substr(trim($username), 0, 1));
+
+        return preg_match('/^[A-Z]$/', $first) ? $first : '#';
     }
 
     /** A, B, … Z, AA, AB, … for buyer positions 0, 1, … */

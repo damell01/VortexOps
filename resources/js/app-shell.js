@@ -296,7 +296,9 @@ document.addEventListener('visibilitychange', () => {
     checkForUpdate().finally(() => { hiddenAt = 0; });
 });
 window.addEventListener('focus', checkForUpdate);
-setInterval(checkForUpdate, 60 * 1000);
+setInterval(() => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+}, 10 * 60 * 1000);
 setTimeout(checkForUpdate, 5000);
 
 // ── Notifications ───────────────────────────────────────────────────────

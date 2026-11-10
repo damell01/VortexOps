@@ -25,11 +25,7 @@ class FulfillmentResource extends Resource
     protected static ?string $model = Show::class;
     protected static string $moduleSlug = 'fulfillment';
     protected static ?string $slug = 'fulfillment-center';
-    protected static ?string $navigationLabel = 'Fulfillment Center — Coming Soon';
-
-    // Production launch hold: prevent direct URL access, not only navigation.
-    public static function canAccess(): bool { return false; }
-    public static function shouldRegisterNavigation(): bool { return false; }
+    protected static ?string $navigationLabel = 'Fulfillment Center';
     protected static ?string $modelLabel = 'show';
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-truck'; }

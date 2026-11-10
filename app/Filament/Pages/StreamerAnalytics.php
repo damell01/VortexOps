@@ -405,9 +405,9 @@ class StreamerAnalytics extends Page
             ->with([
                 'shows' => function ($q) use ($from, $toBound) {
                     $q->select(['shows.id', 'show_date', 'gross_revenue', 'whatnot_net', 'units_sold', 'show_duration'])
-                        ->whereBetween('show_date', [$from, $toBound]);
+                        ->whereBetween('show_date', [$from, $toBound])
+                        ->withSum('orders as order_cost_total', 'total_cost');
                 },
-                'shows.orders:id,show_id,total_cost',
                 'payouts' => function ($q) use ($from, $toBound) {
                     $q->select(['id', 'show_id', 'streamer_id', 'tips_included', 'calculated_payout', 'status'])
                         ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
@@ -448,7 +448,7 @@ class StreamerAnalytics extends Page
             $unitsSold    = (int) $shows->sum('units_sold');
             $totalPayout  = (float) $payouts->sum('calculated_payout');
             $totalPaid    = (float) $payouts->where('status', 'paid')->sum('calculated_payout');
-            $cogs         = (float) $shows->flatMap(fn ($s) => $s->orders)->sum('total_cost');
+            $cogs         = (float) $shows->sum('order_cost_total');
 
             // Prefer hours from StreamerLogEntry; fall back to show_duration
             $totalHours = (float) $logs->sum('hours_streamed');

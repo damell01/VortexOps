@@ -244,7 +244,8 @@ function gotcha(node) {
 new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(gotcha))).observe(document.documentElement, { childList: true, subtree: true });
 
 // ── Slow load: a sleepy Pokémon says so, instead of nothing ──────────────
-// One consistent loading companion, without rotating messages.\nconst QUIPS = [['gengar', 'Gengar is loading…']];
+// One consistent loading companion, without rotating messages.
+const QUIPS = [['gengar', 'Gengar is loading…']];
 let slowTimer = null;
 function slowStart() {
     clearTimeout(slowTimer);

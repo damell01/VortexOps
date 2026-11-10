@@ -9,6 +9,13 @@
         @vite(['resources/css/filament/admin/theme.css'])
     @endif
     <style>body{margin:0;background:#060914}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style>
+    <style>
+        .vxtv__station-switch { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+        .vxtv__station-link { display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:5px 11px; border:1px solid #30375f; border-radius:9px; background:#171b3b; color:#e4e9ff; text-decoration:none; font:600 12px/1.2 system-ui,sans-serif; white-space:nowrap; }
+        .vxtv__station-link:hover, .vxtv__station-link:focus-visible { border-color:#a78bfa; background:#30205b; }
+        .vxtv__station-link[aria-current="page"] { background:#7c3aed; border-color:#b794f6; color:white; }
+        @media(max-width:1050px) { .vxtv__station-switch { max-width:100%; overflow-x:auto; flex-wrap:nowrap; } }
+    </style>
 </head>
 <body>
 <main class="vxtv vxtv--{{ $density }} {{ $station ? 'vxtv--single' : '' }}" id="vxtv" data-density="{{ $density }}">
@@ -30,19 +37,16 @@
         <div class="vxtv__tools">
             <span class="vxtv__clock" id="vxtv-clock" aria-live="off">{{ $initial['now'] }}</span>
             <a class="vxtv__home" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl(panel: 'admin') }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg> Fulfillment Home</a>
-            <label class="sr-only" for="vxf-station-pick">Show station</label>
-            <select id="vxf-station-pick" class="vxtv__pick">
-                <option value="{{ route('fulfillment.whiteboard', ['density' => $density]) }}" @selected(! $station)>All stations</option>
+            <nav class="vxtv__station-switch" aria-label="Choose station">
+                <a class="vxtv__station-link" href="{{ route('fulfillment.whiteboard', ['density' => $density]) }}" @if (! $station) aria-current="page" @endif>All stations</a>
                 @foreach ($stationList as $s)
-                    <option value="{{ route('fulfillment.whiteboard', ['station' => $s->id, 'density' => $density]) }}" @selected($station === $s->id)>{{ $s->name }}</option>
+                    <a class="vxtv__station-link" href="{{ route('fulfillment.whiteboard', ['station' => $s->id, 'density' => $density]) }}" @if ($station === $s->id) aria-current="page" @endif>{{ $s->name }}</a>
                 @endforeach
-            </select>
+            </nav>
             @if (! $station)
                 @foreach (['compact' => 'S', 'comfortable' => 'M', 'large' => 'L', 'rows' => 'Rows'] as $key => $label)
                     <a href="{{ route('fulfillment.whiteboard', ['density' => $key]) }}" aria-label="{{ $key === 'rows' ? 'One row per station' : ucfirst($key) . ' cards' }}" @if ($density === $key) aria-current="true" @endif>{{ $label }}</a>
                 @endforeach
-            @else
-                <a href="{{ route('fulfillment.whiteboard', ['density' => $density]) }}">All stations</a>
             @endif
             <button type="button" id="vxf-fullscreen">Full screen</button>
         </div>
@@ -81,7 +85,7 @@
     const statusLabel = { packing: 'Packing', ready: 'Ready', paused: 'Paused', completed: 'Completed', idle: 'Idle' };
     const perPage = { compact: 8, comfortable: 4, large: 2, rows: 4 }[density] || 4;
 
-    document.getElementById('vxf-station-pick').addEventListener('change', (e) => { location.href = e.target.value; });
+    // Station selection uses accessible links so switching works without JavaScript.
 
     // Everything from the feed goes in as text; nothing is parsed as HTML.
     const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined && text !== null) n.textContent = text; return n; };

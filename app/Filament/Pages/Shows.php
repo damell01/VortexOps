@@ -85,7 +85,7 @@ class Shows extends Page
         if (auth()->user()?->isStreamerAssistant()) return false;
         if (\App\Support\RoleAccess::grants(static::class)) return true;
         $u = auth()->user();
-        return AdminModules::isEnabled('streams') && ($u?->isAdmin() || $u?->isStreamer() || $u?->isStreamerAssistant());
+        return AdminModules::isEnabled('streams') && ($u?->isAdmin() || $u?->isStreamer() || $u?->isStreamerAssistant() || $u?->isFulfillmentAdmin());
     }
 
     /** Assistants follow the schedule; sales and the admin show page are not theirs. */

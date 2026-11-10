@@ -1686,7 +1686,7 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
     padding:14px;
   }
   .fi-topbar .vx-mega-menu--wide {
-    display:grid!important;
+    display:grid;
     grid-template-columns:repeat(2,minmax(190px,1fr));
     width:min(540px,calc(100vw - 36px));
     gap:4px 14px;

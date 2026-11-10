@@ -124,11 +124,11 @@
             </section>
         @endif
 
-        @teleport('body')
+        {{-- Keep the modal in the Livewire DOM: teleporting conditional siblings can leave Alpine with a null teleport anchor. --}}
             @if ($shiftOpen)
-            <div x-data="{ visible: true }" x-show="visible" class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)" @click="visible = false; window.dispatchEvent(new Event('vx-close-shift-modal'))"></div>
-            <section x-data="{ visible: true }" x-show="visible" @vx-close-shift-modal.window="visible = false" class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="visible = false; $wire.set('shiftOpen', false)">
-                <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close" @click="visible = false"><x-heroicon-o-x-mark /></button></header>
+            <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
+            <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
+                <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
                 <form wire:submit.prevent="saveShift" class="vxf-shift-modal__form">
                     <div class="vxf-shift-modal__body">
                         <label class="vxf-field">Team Member * <select class="vxf-select" wire:model="shift.user_id" required><option value="">Choose team member…</option>@foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
@@ -165,7 +165,6 @@
                 </form>
             </section>
         @endif
-        @endteleport
     @endif
 
     {{-- ── Show logs ────────────────────────────────────────────────── --}}

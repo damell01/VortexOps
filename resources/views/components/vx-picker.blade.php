@@ -70,6 +70,20 @@
 .vx-picker-option.is-on{background:#ede9fe;color:#5b21b6}
 .dark .vx-picker-option.is-on{background:#2e1065;color:#ddd6fe}
 .vx-picker-option span{flex:1;white-space:nowrap}
+/* The menu is a light surface even when opened from the dark topbar.
+   Explicit colors prevent inherited navbar button text from becoming white. */
+.vx-picker-menu .vx-picker-menu-head{color:#645c77!important}
+.vx-picker-menu .vx-picker-option{color:#241d36!important;background:#fff!important}
+.vx-picker-menu .vx-picker-option:hover,
+.vx-picker-menu .vx-picker-option:focus-visible{color:#4c1d95!important;background:#f2eaff!important}
+.vx-picker-menu .vx-picker-option.is-on{color:#5422a5!important;background:#eee7ff!important}
+.vx-picker-menu .vx-picker-check{color:#6d28d9!important}
+.dark .vx-picker-menu .vx-picker-menu-head{color:#b9a8d1!important}
+.dark .vx-picker-menu .vx-picker-option{color:#f4edff!important;background:#111827!important}
+.dark .vx-picker-menu .vx-picker-option:hover,
+.dark .vx-picker-menu .vx-picker-option:focus-visible{color:#fff!important;background:#372451!important}
+.dark .vx-picker-menu .vx-picker-option.is-on{color:#e8d5ff!important;background:#39225e!important}
+
 .vx-picker-check{width:15px;height:15px;flex:none}
 /* In the dark top bar */
 .vx-desktop-mega-nav .vx-mega-business + .vx-mega-channel{margin-left:6px!important}

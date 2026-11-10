@@ -1,6 +1,13 @@
 <x-filament-panels::page>
 <style>
 /* Pay-run header: keep the title readable when Filament has many actions. */
+/* Keep the pay-run left and right columns in one document scroll flow. */
+@media (min-width: 1100px) {
+    .fi-page:has(.vxw[data-vx-page="pay-run"]) .vxw-split > .vxw-aside {
+        position: static !important;
+        top: auto !important;
+    }
+}
 .fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header {
     display: flex;
     flex-wrap: wrap;

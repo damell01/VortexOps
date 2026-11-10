@@ -209,7 +209,10 @@
         </div>
     </div>
 
-    @php $allocation = $this->attributionSummary; @endphp
+    @php $allocation = $loadReports ? $this->attributionSummary : []; @endphp
+    @if (! $loadReports)
+        <div class="mb-3 text-sm" style="color:var(--vxw-muted)">Reconciliation totals and analytics are paused to keep the ledger responsive. <button type="button" class="vxr-btn vxr-btn--outline" wire:click="loadReports">Load reconciliation reports</button></div>
+    @else
     <div class="vxled-coverage mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @php
             $coverageMetrics = [
@@ -234,6 +237,8 @@
             <strong>Unallocated ledger value: {{ $signed($unallocated['net']) }}</strong>
             <span class="text-sm"> across {{ number_format($unallocated['entries']) }} transactions in the selected filters. This is a signed net amount, not a loss estimate; pending and rejected allocations are included until approved.</span>
         </div>
+    @endif
+
     @endif
 
     <div class="vxr-stats">
@@ -657,7 +662,7 @@
         @endif
     </div>
     {{-- The inspector does not need report aggregates. Avoid expensive joins on each row click. --}}
-    @if ($selectedId === null)
+    @if ($selectedId === null && $loadReports)
     @php $byStreamer = $this->streamerTotals; @endphp
     @if ($byStreamer)
         <details class="mb-4 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">

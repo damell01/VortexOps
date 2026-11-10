@@ -176,15 +176,19 @@
                     <thead><tr><th scope="col">Show</th><th scope="col">Station</th><th scope="col">Packers</th><th scope="col">Packed</th><th scope="col">Started → Finished</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
                     <tbody>
                         @forelse ($this->runs as $run)
-                            <tr wire:key="r-{{ $run->id }}">
+                            <tr wire:key="r-{{ $run->id }}" @class(["vxf-row--attention" => $run->status === "completed"])>
                                 <td style="min-width:200px"><strong>{{ $run->show?->title }}</strong><span class="vxf-sub">{{ $run->show?->channel?->name }} · {{ $run->show?->show_date?->format('M j, Y') }}</span></td>
                                 <td>{{ $run->station?->name ?? '—' }}</td>
                                 <td>{{ $run->packers->pluck('name')->join(', ') ?: '—' }}</td>
-                                <td class="vxf-num">{{ $run->completed_packages }}{!! $run->expected_packages !== null ? ' / ' . $run->expected_packages : ' <span class="vxf-unknown">/ ?</span>' !!}</td>
+                                @php $logPct = $run->expected_packages ? min(100, (int) round($run->completed_packages / max(1, $run->expected_packages) * 100)) : 0; @endphp
+                                <td class="vxf-num" style="min-width:110px">{{ $run->completed_packages }}{!! $run->expected_packages !== null ? ' / ' . $run->expected_packages : ' <span class="vxf-unknown">/ ?</span>' !!}
+                                    @if ($run->expected_packages)<div class="vxf-bar vxf-bar--mini" aria-hidden="true"><span style="width: {{ $logPct }}%"></span></div>@endif</td>
                                 <td class="vxf-num" style="white-space:nowrap">{{ $run->started_at?->timezone($tz)->format('M j g:i A') ?? '—' }}<span class="vxf-sub">{{ $run->finished_at?->timezone($tz)->format('M j g:i A') ?? '' }}</span></td>
                                 <td><span class="vxf-pill vxf-pill--{{ $pill($run->status) }}">{{ $run->status === 'completed' ? 'Needs approval' : \App\Models\FulfillmentRun::statusLabel($run->status) }}</span>
                                     @if ($run->open_flags_count)<span class="vxf-pill vxf-pill--issue">{{ $run->open_flags_count }} issue</span>@endif</td>
-                                <td style="text-align:right"><button type="button" class="vxf-btn vxf-btn--sm" wire:click="openLog({{ $run->id }})">Open log</button></td>
+                                <td style="text-align:right;white-space:nowrap">
+                                    @if ($run->status === 'completed' && $manager)<button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openLog({{ $run->id }})"><x-heroicon-o-check-badge /> Review &amp; approve</button>
+                                    @else<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openLog({{ $run->id }})">Open log</button>@endif</td>
                             </tr>
                         @empty
                             <tr><td colspan="7" class="vxf-empty">No show logs yet. A log is created as soon as a show is ready or assigned.</td></tr>
@@ -251,7 +255,8 @@
                     <thead><tr><th scope="col">Team member</th><th scope="col">Packages</th><th scope="col">Buyers</th><th scope="col">Shows</th><th scope="col">Completed</th><th scope="col">Packing time</th><th scope="col">Verified items</th><th scope="col">Issues flagged</th></tr></thead>
                     <tbody>
                         @php $max = max(1, $this->productivity->max('packages') ?: $this->productivity->max('buyers')); @endphp
-                        @forelse ($this->productivity as $row)
+                        @php $idle = $this->productivity->filter(fn ($r) => ! $r['packages'] && ! $r['buyers'] && ! $r['shows']); @endphp
+                        @forelse ($this->productivity->reject(fn ($r) => ! $r['packages'] && ! $r['buyers'] && ! $r['shows']) as $row)
                             <tr>
                                 <th scope="row" style="text-align:left;padding:10px 12px"><span style="display:flex;gap:8px;align-items:center"><span class="vxf-avatar" aria-hidden="true">{{ $initials($row['user']->name) }}</span>{{ $row['user']->name }}</span></th>
                                 <td class="vxf-num" style="min-width:120px"><strong>{{ $row['packages'] }}</strong><div class="vxf-bar" style="margin-top:4px;height:5px"><span style="width: {{ round(($row['packages'] ?: $row['buyers']) / $max * 100) }}%"></span></div></td>
@@ -265,6 +270,9 @@
                         @empty
                             <tr><td colspan="8" class="vxf-empty">No fulfillment team members yet.</td></tr>
                         @endforelse
+                    @if ($idle->isNotEmpty())
+                            <tr><td colspan="8" class="vxf-sub" style="padding:10px 12px">No packing yet for {{ $idle->count() }} {{ \Illuminate\Support\Str::plural('teammate', $idle->count()) }}: {{ $idle->map(fn ($r) => $r['user']->name)->join(', ') }}</td></tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
@@ -280,6 +288,14 @@
                 <label class="vxf-field">Order number or buyer username
                     <input type="search" class="vxf-input" wire:model.live.debounce.400ms="lookup" placeholder="e.g. 7452330 or cardcollector99" autofocus></label>
                 <p class="vxf-sub" style="margin:6px 0 0">Shows the station, camera, buyer letter and exact times it was packed, so you can jump straight to the right moment in the recording.</p>
+                @if (mb_strlen(trim($lookup)) < 2 && $this->recentBuyers->isNotEmpty())
+                    <div class="vxf-recent">
+                        <span class="vxf-sub">Recently packed:</span>
+                        @foreach ($this->recentBuyers as $r)
+                            <button type="button" class="vxf-chip vxf-chip--btn" wire:click="$set('lookup', @js($r->buyer_username))"><b>{{ $r->buyer_letter }}</b> {{ $r->buyer_username }}</button>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             @if (mb_strlen(trim($lookup)) >= 2)
                 <div class="vxf-table-wrap">

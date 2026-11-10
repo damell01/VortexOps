@@ -72,6 +72,21 @@ php artisan migrate --force
 echo "✓ Migrations complete"
 echo ""
 
+# Dev / staging only: keep the Fulfillment Center demo (shows mid-packing, an
+# issue, a paused station, schedule, whiteboard activity). Rebuilt only when it
+# is missing or a few days old, so your own clicking around is kept. The
+# command refuses to run on a production site; FULFILLMENT_DEMO=0 skips it,
+# FULFILLMENT_DEMO=fresh rebuilds it from scratch.
+if [ "$BRANCH" != "Production" ] && [ "${FULFILLMENT_DEMO:-1}" != "0" ] && php artisan list --raw 2>/dev/null | grep -q '^fulfillment:demo'; then
+    echo "🎬 Fulfillment demo..."
+    if [ "${FULFILLMENT_DEMO:-1}" = "fresh" ]; then
+        php artisan fulfillment:demo || echo "⚠ Fulfillment demo skipped"
+    else
+        php artisan fulfillment:demo --refresh || echo "⚠ Fulfillment demo skipped"
+    fi
+    echo ""
+fi
+
 # Long-running processes are still holding the old code.
 #
 # PHP-FPM caches compiled bytecode in OPcache, so until it is reloaded the

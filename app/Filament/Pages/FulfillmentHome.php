@@ -143,7 +143,7 @@ class FulfillmentHome extends Page
             ->whereIn('type', ['buyer_packed', 'item_verified', 'issue_flagged', 'issue_resolved', 'started', 'finished', 'paused', 'approved'])
             ->where('created_at', '>=', now()->subDay())
             ->with(['station:id,name', 'user:id,name'])
-            ->latest('id')->limit(6)->get();
+            ->latest('id')->limit(5)->get();
     }
 
     public function stationState(?FulfillmentRun $run): string
@@ -172,8 +172,13 @@ class FulfillmentHome extends Page
     #[Computed]
     public function stats(): array
     {
-        $open = FulfillmentRun::query()->whereIn('status', FulfillmentRun::OPEN)->get(['id', 'status', 'expected_packages', 'completed_packages', 'buyer_count']);
-        $known = $open->whereNotNull('expected_packages');
+        // Aggregate in SQL rather than hydrating every open run on each dashboard poll.
+        $open = FulfillmentRun::query()->whereIn('status', FulfillmentRun::OPEN)
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS ready_count', [FulfillmentRun::READY])
+            ->selectRaw('COALESCE(SUM(expected_packages), 0) AS expected_count')
+            ->selectRaw('SUM(CASE WHEN expected_packages IS NULL THEN 1 ELSE 0 END) AS unknown_count')
+            ->selectRaw('COALESCE(SUM(CASE WHEN expected_packages IS NOT NULL THEN completed_packages ELSE 0 END), 0) AS completed_count')
+            ->first();
         $todayStart = BusinessTime::local()->startOfDay()->utc();
         $packedToday = DB::table('fulfillment_run_packages')->where('status', 'packed')->where('packed_at', '>=', $todayStart)->count();
         $buyersToday = DB::table('fulfillment_run_buyers')->where('status', 'packed')->where('packed_at', '>=', $todayStart)->count();
@@ -182,12 +187,12 @@ class FulfillmentHome extends Page
         return [
             'stations_active' => FulfillmentRun::query()->whereNotNull('station_occupied_id')->count(),
             'stations_total' => FulfillmentStation::query()->where('active', true)->count(),
-            'ready' => $open->where('status', FulfillmentRun::READY)->count(),
-            'expected' => $known->sum('expected_packages'),
-            'expected_unknown' => $open->whereNull('expected_packages')->count(),
+            'ready' => (int) ($open->ready_count ?? 0),
+            'expected' => (int) ($open->expected_count ?? 0),
+            'expected_unknown' => (int) ($open->unknown_count ?? 0),
             'completed_today' => $packedToday,
             'buyers_today' => $buyersToday,
-            'remaining' => max(0, $known->sum('expected_packages') - $known->sum('completed_packages')),
+            'remaining' => max(0, (int) ($open->expected_count ?? 0) - (int) ($open->completed_count ?? 0)),
             'issues' => DB::table('fulfillment_flags')->where('status', 'open')->count(),
             'working' => TimeEntry::query()->whereIn('user_id', $team)->whereNull('clocked_out_at')->count(),
         ] + $this->shipping();
@@ -224,7 +229,7 @@ class FulfillmentHome extends Page
         return FulfillmentShift::query()->with(['user:id,name', 'station:id,name', 'shows:id,title'])
             ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
             ->when(! $this->isManager(), fn ($q) => $q->where('user_id', auth()->id()))
-            ->orderBy('starts_at')->limit(30)->get();
+            ->orderBy('starts_at')->limit(3)->get();
     }
 
     #[Computed]
@@ -240,7 +245,7 @@ class FulfillmentHome extends Page
         return \App\Models\FulfillmentFlag::query()->with(['show:id,title', 'buyer:id,letter,buyer_username', 'reporter:id,name'])
             ->where('status', 'open')
             ->when(! $this->isManager(), fn ($q) => $q->where('reported_by', auth()->id()))
-            ->latest()->limit(4)->get();
+            ->latest()->limit(3)->get();
     }
 
     /** The fulfillment team for the assign picker: id, name, initials. */

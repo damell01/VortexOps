@@ -337,6 +337,98 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 
 
 
+<style>
+/* Two-tier desktop header: brand and account tools above primary navigation. */
+@media (min-width: 1024px) {
+  .fi-topbar:has(.vx-desktop-mega-nav) {
+    position:relative!important;
+    height:116px!important;
+    min-height:116px!important;
+    padding:0 24px!important;
+    align-items:flex-start!important;
+    background:linear-gradient(115deg,#24133e 0%,#32155b 60%,#191332 100%)!important;
+  }
+  .fi-topbar nav.vx-desktop-mega-nav {
+    position:absolute!important;
+    left:24px!important;
+    right:24px!important;
+    bottom:0!important;
+    width:calc(100% - 48px)!important;
+    max-width:none!important;
+    height:49px!important;
+    min-height:49px!important;
+    margin:0!important;
+    padding:0!important;
+    border-top:1px solid rgba(224,206,255,.17);
+    gap:5px!important;
+    justify-content:flex-start!important;
+  }
+  .fi-topbar .vx-mega-brand {
+    position:absolute!important;
+    top:-59px!important;
+    left:0!important;
+    height:48px!important;
+    max-width:210px!important;
+    display:flex!important;
+    align-items:center!important;
+  }
+  .fi-topbar .vx-mega-brand img {max-height:43px!important;max-width:205px!important;object-fit:contain}
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {
+    min-height:40px!important;
+    padding:0 12px!important;
+    font-size:13px!important;
+    border-radius:10px 10px 0 0!important;
+    gap:7px!important;
+  }
+  .fi-topbar .vx-mega-group-icon,.fi-topbar .vx-mega-home > svg {
+    width:19px!important;height:19px!important;flex-shrink:0!important;
+  }
+  .fi-topbar .vx-mega-chevron {width:13px!important;height:13px!important}
+  .fi-topbar .fi-topbar-end {
+    position:absolute!important;
+    top:9px!important;
+    right:24px!important;
+    height:48px!important;
+    max-width:calc(100% - 260px)!important;
+    align-items:center!important;
+    margin:0!important;
+  }
+  .fi-topbar .fi-global-search {
+    flex:0 1 280px!important;
+    width:clamp(180px,22vw,280px)!important;
+    max-width:280px!important;
+  }
+  .fi-topbar .fi-global-search input {
+    background:rgba(255,255,255,.12)!important;
+    color:#fff!important;
+    -webkit-text-fill-color:#fff!important;
+    border:1px solid rgba(255,255,255,.2)!important;
+    border-radius:999px!important;
+  }
+  .fi-topbar .fi-global-search input::placeholder {color:#e4d9f8!important}
+  .fi-topbar .vx-mega-menu {
+    top:100%!important;
+    margin-top:0!important;
+    border-radius:0 0 17px 17px!important;
+  }
+  .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
+    margin-left:auto!important;
+    align-self:center!important;
+  }
+  .fi-topbar .vx-mega-menu--wide {
+    grid-template-columns:repeat(2,minmax(180px,1fr));
+  }
+}
+@media (min-width:1024px) and (max-width:1250px) {
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {padding-inline:7px!important;font-size:12px!important}
+  .fi-topbar nav.vx-desktop-mega-nav {gap:1px!important}
+}
+@media (prefers-reduced-motion:reduce) {
+  .vx-mega-menu,.vx-mega-trigger {transition:none!important}
+}
+</style>
+
+
 <script>
 (() => {
     const key = 'vortex:visited-pages';

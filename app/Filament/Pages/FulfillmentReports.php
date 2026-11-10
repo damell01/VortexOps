@@ -152,6 +152,39 @@ class FulfillmentReports extends Page
         ];
     }
 
+    /**
+     * Current operational snapshot, separate from the selected historical period.
+     * Overdue is defined as a ready run older than 24 hours; no SLA is implied.
+     * Only managers may see team-wide workload and station availability.
+     */
+    #[Computed]
+    public function operations(): array
+    {
+        if (! $this->isManager()) {
+            return [];
+        }
+
+        $backlog = FulfillmentRun::query()->whereIn('status', FulfillmentRun::OPEN)
+            ->selectRaw('COUNT(*) as runs_count')
+            ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(expected_packages, 0) - COALESCE(completed_packages, 0), 0)), 0) as packages_remaining')
+            ->selectRaw('SUM(CASE WHEN status = ? AND ready_at < ? THEN 1 ELSE 0 END) as overdue_ready', [
+                FulfillmentRun::READY, now()->subDay(),
+            ])->first();
+
+        $stations = DB::table('fulfillment_stations')->where('active', true)->count();
+        $occupied = FulfillmentRun::query()->whereIn('status', FulfillmentRun::ON_STATION)
+            ->whereNotNull('station_occupied_id')->distinct()->count('station_occupied_id');
+
+        return [
+            'open_shows' => (int) ($backlog->runs_count ?? 0),
+            'packages_remaining' => (int) ($backlog->packages_remaining ?? 0),
+            'overdue_ready' => (int) ($backlog->overdue_ready ?? 0),
+            'stations' => $stations,
+            'occupied' => min($stations, $occupied),
+            'utilization' => $stations > 0 ? round(min($stations, $occupied) / $stations * 100) : null,
+        ];
+    }
+
     /** Packages per local day, every day of the period present (zero days included). */
     #[Computed]
     public function daily(): array

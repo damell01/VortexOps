@@ -270,6 +270,18 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     border-radius:999px!important;
   }
   .fi-topbar .fi-global-search input::placeholder {color:#e3d9f5!important;opacity:1}
+  /* Filament paints the input wrapper, not only the input itself. */
+  .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field) {
+    background:rgba(255,255,255,.11)!important;
+    border:1px solid rgba(255,255,255,.23)!important;
+    border-radius:13px!important;
+    box-shadow:none!important;
+    color:#f8f5ff!important;
+  }
+  .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field) :is(input,svg,button) {color:#f8f5ff!important}
+  .fi-topbar .fi-global-search input {background:transparent!important;border:0!important;border-radius:13px!important}
+  .fi-topbar .fi-global-search :is(input,.fi-input-wrp) :focus-visible {outline-color:#d7baff!important}
+
   .fi-topbar .fi-global-search-results-ctn {
     z-index:110!important;color:#1d1732!important;
   }
@@ -289,9 +301,10 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     width:auto!important;max-width:225px!important;height:48px!important;
     display:flex!important;align-items:center!important;flex:none!important;
   }
-  .fi-topbar .vx-mega-brand img {width:auto!important;max-width:45px!important;max-height:42px!important;object-fit:contain}
+  .fi-topbar .vx-mega-brand img {width:auto!important;max-width:38px!important;max-height:38px!important;object-fit:contain}
   .fi-topbar .vx-mega-wordmark {display:inline-block!important;color:#fff!important;font-size:21px!important;font-weight:800!important;letter-spacing:-.04em!important;white-space:nowrap!important}
-  .fi-topbar .vx-mega-brand {gap:9px!important;max-width:240px!important}
+  .fi-topbar .vx-mega-brand {gap:8px!important;max-width:240px!important}
+  .fi-topbar .vx-mega-brand img {min-width:28px!important}
   .fi-topbar .vx-mega-brand .vx-logo-on-light {display:none!important}
   .fi-topbar .vx-mega-brand .vx-logo-on-dark {display:block!important}
   .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {
@@ -332,9 +345,10 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .vx-mega-channel :is(button,select,.vx-channel-switcher-select) {color:#fff!important}
   .fi-topbar .vx-mega-channel :is(.vx-channel-switcher-select-wrp,.vx-picker-trigger) {background:rgba(126,74,199,.35)!important;border-color:rgba(255,255,255,.24)!important}
 
-  .fi-topbar .vx-mega-channel {flex:0 1 155px!important;min-width:0!important;max-width:155px!important}
+  .fi-topbar .vx-mega-channel {flex:0 0 170px!important;min-width:170px!important;max-width:170px!important}
   .fi-topbar .vx-mega-channel--trailing {margin-left:auto!important}
   .fi-topbar .vx-mega-channel .vx-picker-value {overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  .fi-topbar .vx-mega-channel :is(.vx-channel-switcher-select,.vx-picker-value) {font-size:12px!important}
   .fi-topbar .vx-search-trigger {display:none!important}
 }
 @media (min-width:1024px) and (max-width:1350px) {

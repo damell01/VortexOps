@@ -59,3 +59,10 @@ Repository inspection covered dashboard widgets, authentication redirects, fulfi
 7. **Release verification:** compare Dev and Production schemas and deployment commits, run tests and smoke checks, and confirm background workers restart to pick up worker-lifetime schema caching.
 
 No live production tests, deployment, MySQL EXPLAIN, or benchmark results were available for this pass.
+
+## File-by-file audit expansion
+- Complete Dev tree enumeration: 4,358 tracked files, including 2,304 source/config/database/resources/routes/scripts/test files. The per-file queue is in `docs/source-file-audit-register-2026-11-10.md`. Entries remain PENDING until actually reviewed; enumeration is not source-content inspection.
+- Read-only PHP syntax audit runner: `bash scripts/audit-php-syntax.sh`, which emits a per-file TSV under `storage/app/performance-audit/`. Not executed against a deployed checkout.
+- Staged (Dev only) ledger dropdown indexes: `database/migrations/2026_11_10_210000_add_ledger_dropdown_indexes.php` for `status` and `transaction_type` DISTINCT filters. Verify MySQL existing indexes, `EXPLAIN`, migration runtime, and rollback on Dev before Production.
+- Dashboard inventory KPI SQL rewrite requires comparison against the old PHP totals and a representative multi-location dataset before claiming equivalence.
+- Remaining mandatory gates: lint, test suite, database schema, deployment SHA, browser traces, server logs and p95 timings. No blanket file edits should be applied to unrelated modules without evidence.

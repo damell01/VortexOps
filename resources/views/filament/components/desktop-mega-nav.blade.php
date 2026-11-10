@@ -216,7 +216,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endforeach
 @if($user?->canSwitchChannels() && ! ($user?->isFulfillment() || $user?->isFulfillmentAdmin()) )
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
-<div class="vx-mega-channel">@livewire('channel-switcher')</div>
+<div class="vx-mega-channel vx-mega-channel--trailing">@livewire('channel-switcher')</div>
 @endif
 @unless($assistantOnly)
 <button type="button" class="vx-search-trigger" data-vx-search-trigger aria-label="Open search" aria-keyshortcuts="Control+K Meta+K" title="Search">
@@ -293,11 +293,19 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         min-width: 0 !important;
         margin-left: 0 !important;
     }
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
+        margin-left: auto !important;
+    }
     .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business {
         flex: 0 1 176px !important;
         width: 176px !important;
         max-width: 176px !important;
         min-width: 0 !important;
+    }
+    /* Place the channel picker at the right edge of the primary nav,
+       immediately before the topbar notification controls. */
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
+        margin-left: auto !important;
     }
     .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) {
         flex: 0 1 158px !important;

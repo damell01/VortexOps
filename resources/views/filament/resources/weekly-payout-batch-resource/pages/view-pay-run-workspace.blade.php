@@ -357,6 +357,11 @@
                     </div>
                     <div class="vxw-card-body">
                         @if($bizNet['channels'])
+                            <div data-vx-pair-net style="border:1px solid #ddd6fe;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;padding:12px 14px;margin-bottom:12px">
+                                <p class="vxw-meta" style="margin:0;font-weight:600">{{ \App\Services\BusinessChannelNet::PAIR_LABEL }}</p>
+                                <strong style="font-size:24px;font-variant-numeric:tabular-nums">{{ $money($bizNet['pair']['net']) }}</strong>
+                                <p class="vxw-meta" style="margin:0">{{ $bizNet['pair']['shows'] }} {{ \Illuminate\Support\Str::plural('show', $bizNet['pair']['shows']) }} · Whatnot net, this run's dates</p>
+                            </div>
                             <dl class="vxw-dl">
                                 @foreach($bizNet['channels'] as $c)
                                     <div><dt>{{ $c['channel'] }} <span class="vxw-meta">({{ $c['shows'] }} {{ \Illuminate\Support\Str::plural('show', $c['shows']) }})</span></dt><dd>{{ $money($c['net']) }}</dd></div>

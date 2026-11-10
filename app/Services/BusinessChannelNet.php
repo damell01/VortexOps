@@ -20,7 +20,7 @@ final class BusinessChannelNet
     {
         $business = $businessId ? Business::query()->find($businessId) : null;
         if (! $business) {
-            return ['business' => null, 'total' => 0.0, 'shows' => 0, 'channels' => []];
+            return ['business' => null, 'total' => 0.0, 'shows' => 0, 'channels' => [], 'pair' => ['net' => 0.0, 'shows' => 0]];
         }
 
         $rows = DB::table('shows')
@@ -46,7 +46,25 @@ final class BusinessChannelNet
             'total' => round((float) $rows->sum('net'), 2),
             'shows' => (int) $rows->sum('shows'),
             'channels' => $channels,
+            'pair' => self::pair($channels),
         ];
+    }
+
+    /** The two stream channels payroll checks together. */
+    public const PAIR_LABEL = 'Vortex Breaks + Vortex Cards';
+
+    /**
+     * Vortex Breaks and Vortex Cards added together (Vortex Shop and any other
+     * channel left out), matched by name whatever the spacing or case.
+     *
+     * @param  list<array{channel:string,net:float,shows:int}>  $channels
+     * @return array{net: float, shows: int}
+     */
+    public static function pair(array $channels): array
+    {
+        $rows = array_filter($channels, fn ($c) => in_array(preg_replace('/[^a-z]/', '', strtolower($c['channel'])), ['vortexbreaks', 'vortexcards'], true));
+
+        return ['net' => round(array_sum(array_column($rows, 'net')), 2), 'shows' => (int) array_sum(array_column($rows, 'shows'))];
     }
 
     /** The business named VCX (Vortex Collects), whose streamers' net payroll checks against. */

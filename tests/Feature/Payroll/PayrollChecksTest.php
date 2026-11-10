@@ -90,18 +90,21 @@ class PayrollChecksTest extends TestCase
         $this->show($nat, $this->cards, 300);
         $this->show($estiller, $this->cards, 9999); // another business: never counted for VCX
         $this->show($nat, $this->cards, 777, now()->subMonths(3)->toDateString()); // outside the period
+        $shop = WhatnotChannel::create(['name' => 'Vortex Shop', 'status' => 'active']);
+        $this->show($jay, $shop, 100); // counted in the total, not in Breaks + Cards
 
         $net = app(BusinessChannelNet::class)->between($this->vcx->id, now()->subDays(6)->toDateString(), now()->toDateString());
         $this->assertSame('VCX', $net['business']);
-        $this->assertSame(950.5, $net['total']);
-        $this->assertSame(3, $net['shows']);
-        $this->assertSame(['VortexBreaks' => 650.5, 'Vortex Cards' => 300.0], collect($net['channels'])->pluck('net', 'channel')->all());
+        $this->assertSame(1050.5, $net['total']);
+        $this->assertSame(4, $net['shows']);
+        $this->assertSame(['VortexBreaks' => 650.5, 'Vortex Cards' => 300.0, 'Vortex Shop' => 100.0], collect($net['channels'])->pluck('net', 'channel')->all());
+        $this->assertSame(['net' => 950.5, 'shows' => 3], $net['pair']);
 
-        Livewire::test(PayrollOverview::class)->assertSee('VCX streamers · Whatnot net')->assertSee('$950.50')->assertSee('VortexBreaks')->assertSee('$650.50');
+        Livewire::test(PayrollOverview::class)->assertSee('VCX streamers · Whatnot net')->assertSee('Vortex Breaks + Vortex Cards')->assertSee('$950.50')->assertSee('VortexBreaks')->assertSee('$650.50');
 
         $run = WeeklyPayoutBatch::create(['business_id' => $this->vcx->id, 'week_start' => now()->subDays(6)->toDateString(), 'week_end' => now()->toDateString(), 'status' => 'draft']);
         Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->getRouteKey()])
-            ->assertSee('VCX streams · Whatnot net')->assertSee('$950.50')->assertSee('Vortex Cards');
+            ->assertSee('VCX streams · Whatnot net')->assertSee('Vortex Breaks + Vortex Cards')->assertSee('$950.50')->assertSee('$1,050.50');
     }
 
     public function test_a_pay_run_only_shows_tips_for_its_own_people_and_all_pay_includes_tip_lines(): void

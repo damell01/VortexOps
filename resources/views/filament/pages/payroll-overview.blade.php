@@ -85,6 +85,13 @@
                     <strong style="font-size:26px;font-variant-numeric:tabular-nums">{{ $money($vcx['total']) }}</strong>
                     <p class="vxw-meta" style="margin:0">{{ $vcx['shows'] }} {{ \Illuminate\Support\Str::plural('show', $vcx['shows']) }} · {{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j') }}</p>
                 </div>
+                @if($vcx['channels'])
+                    <div style="min-width:180px;border:1px solid #ddd6fe;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;padding:8px 14px" data-vx-pair-net>
+                        <p class="vxw-meta" style="margin:0;font-weight:600">{{ \App\Services\BusinessChannelNet::PAIR_LABEL }}</p>
+                        <strong style="font-size:22px;font-variant-numeric:tabular-nums">{{ $money($vcx['pair']['net']) }}</strong>
+                        <p class="vxw-meta" style="margin:0">{{ $vcx['pair']['shows'] }} {{ \Illuminate\Support\Str::plural('show', $vcx['pair']['shows']) }}</p>
+                    </div>
+                @endif
                 @forelse($vcx['channels'] as $c)
                     <div style="min-width:140px"><p class="vxw-meta" style="margin:0">{{ $c['channel'] }}</p><strong style="font-size:18px;font-variant-numeric:tabular-nums">{{ $money($c['net']) }}</strong><p class="vxw-meta" style="margin:0">{{ $c['shows'] }} {{ \Illuminate\Support\Str::plural('show', $c['shows']) }}</p></div>
                 @empty

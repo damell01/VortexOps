@@ -57,6 +57,9 @@ class InventoryVisibility
     {
         if (self::$unrestrictedDepth > 0 || ($user !== null && $user->isOwner())) return null;
         if ($user === null) return [];
+        // Fulfillment managers may inspect stock across locations, but StockGate
+        // and resource policies continue to deny every stock mutation.
+        if ($user->isFulfillmentAdmin() && ! $user->isAdmin() && ! self::isReadOnlyStreamer($user)) return null;
 
         // Memoised per request: the stock and movement global scopes ask on
         // every query, and the admin answer reads one setting per location.

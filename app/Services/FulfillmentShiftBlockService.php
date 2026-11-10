@@ -131,6 +131,65 @@ final class FulfillmentShiftBlockService
         ]);
     }
 
+    public function cancel(User $actor, int $blockId): void
+    {
+        $this->manager($actor);
+        DB::transaction(function () use ($blockId) {
+            $block = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->lockForUpdate()->first();
+            abort_unless($block, 404);
+            DB::table('fulfillment_shift_blocks')->where('id', $blockId)->update([
+                'status' => 'cancelled', 'updated_at' => now(),
+            ]);
+            // Preserve assignment history rather than deleting staffing rows.
+        });
+    }
+
+    public function update(User $actor, int $blockId, array $data): void
+    {
+        $this->manager($actor);
+        $start = CarbonImmutable::parse($data['starts_at']);
+        $end = CarbonImmutable::parse($data['ends_at']);
+        if ($end->lessThanOrEqualTo($start) || $start->diffInMinutes($end) > 1440) {
+            throw ValidationException::withMessages(['ends_at' => 'Shift must last between 1 minute and 24 hours.']);
+        }
+        DB::transaction(function () use ($blockId, $data, $start, $end) {
+            $block = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->lockForUpdate()->first();
+            abort_unless($block, 404);
+            if ($block->status === 'cancelled') {
+                throw ValidationException::withMessages(['shift' => 'Cancelled shifts cannot be edited.']);
+            }
+            $count = DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)->count();
+            if ((int) $data['required_staff'] < $count) {
+                throw ValidationException::withMessages(['required_staff' => 'Cannot reduce staffing below assigned employees.']);
+            }
+            $assignedIds = DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)->pluck('user_id');
+            foreach ($assignedIds as $userId) {
+                $overlap = DB::table('fulfillment_shift_assignments as a')
+                    ->join('fulfillment_shift_blocks as b', 'b.id', '=', 'a.shift_block_id')
+                    ->where('a.user_id', $userId)->where('b.id', '!=', $blockId)
+                    ->where('b.status', '!=', 'cancelled')
+                    ->where('b.starts_at', '<', $end->toDateTimeString())
+                    ->where('b.ends_at', '>', $start->toDateTimeString())->exists();
+                $legacy = DB::table('fulfillment_shifts')
+                    ->where('user_id', $userId)->where('status', '!=', 'cancelled')
+                    ->where('starts_at', '<', $end->toDateTimeString())
+                    ->where('ends_at', '>', $start->toDateTimeString())->exists();
+                if ($overlap || $legacy) {
+                    throw ValidationException::withMessages(['starts_at' => 'New time overlaps an assigned employee schedule.']);
+                }
+            }
+            DB::table('fulfillment_shift_blocks')->where('id', $blockId)->update([
+                'starts_at' => $start->toDateTimeString(),
+                'ends_at' => $end->toDateTimeString(),
+                'kind' => $data['kind'],
+                'label' => $data['label'],
+                'required_staff' => (int) $data['required_staff'],
+                'notes' => $data['notes'] ?? null,
+                'updated_at' => now(),
+            ]);
+        });
+    }
+
     public function unassign(User $actor, int $blockId, int $userId): void
     {
         $this->manager($actor);

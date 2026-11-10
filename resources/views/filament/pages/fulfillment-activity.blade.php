@@ -36,6 +36,7 @@
                             <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $staffingView === 'shift' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-white' : '' }}" wire:click="setStaffingView('shift')">Shift view</button>
                             <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $staffingView === 'employee' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-white' : '' }}" wire:click="setStaffingView('employee')">Employee view</button>
                         </div>
+                        <button type="button" class="vxf-btn" wire:click="copyStaffingWeek" wire:confirm="Copy every active shift from this week to next week? Employee and show assignments will be left empty; any duplicate will stop the entire copy.">Copy week forward</button>
                         <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openBlock">+ New open shift</button>
                     </div>
                 </div>

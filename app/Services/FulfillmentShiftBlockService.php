@@ -66,7 +66,15 @@ final class FulfillmentShiftBlockService
                 ->where('b.status', '!=', 'cancelled')
                 ->where('b.starts_at', '<', $block->ends_at)
                 ->where('b.ends_at', '>', $block->starts_at)->exists();
-            if ($overlap) {
+            // Include the pre-existing employee-specific schedule during the
+            // transition so new blocks cannot double-book legacy shifts.
+            $legacyOverlap = DB::table('fulfillment_shifts')
+                ->where('user_id', $userId)
+                ->where('starts_at', '<', $block->ends_at)
+                ->where('ends_at', '>', $block->starts_at)
+                ->where('status', '!=', 'cancelled')
+                ->exists();
+            if ($overlap || $legacyOverlap) {
                 throw ValidationException::withMessages(['employee' => 'Employee has an overlapping shift.']);
             }
             $existing = DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)->where('user_id', $userId)->exists();

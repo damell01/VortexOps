@@ -19,7 +19,9 @@
         && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
         $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];
     }
-    // Hide the Fulfillment navigation section for now without changing route permissions.\n    if (! ($fulfillmentOnly ?? false)) {\n        unset($groups['Fulfillment']);\n    }\n    $navLogo = $navLogo ?? null;
+    // The launch placeholder is visible but has no destination.
+    unset($groups['Fulfillment']);
+    $navLogo = $navLogo ?? null;
     $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');
     $homeLabel = $homeLabel ?? 'Dashboard';
     $icons = ['Shows' => 'heroicon-o-tv', 'Inventory' => 'heroicon-o-cube', 'Fulfillment' => 'heroicon-o-truck', 'Finance' => 'heroicon-o-wallet', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', 'Settings' => 'heroicon-o-cog-6-tooth'];
@@ -42,6 +44,14 @@
 <div class="vx-mm-user"><span class="vx-mm-avatar">{{ $initial }}</span><span class="min-w-0"><span class="vx-mm-name">{{ $user->name }}</span><span class="vx-mm-role">{{ $role }}</span></span></div>
 @endif
 <a class="vx-mobile-menu-home @if($isHere($homeUrl)) is-here @endif" href="{{ $homeUrl }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
+@unless($user?->isStreamerAssistant())
+<div class="vx-mobile-menu-group" aria-label="Fulfillment Center coming soon">
+    <div class="px-4 py-3 text-sm font-semibold text-gray-500 dark:text-gray-400" aria-disabled="true">
+        <x-filament::icon icon="heroicon-o-truck" class="inline-block h-5 w-5 align-middle" />
+        Fulfillment Center <span class="ml-1 text-xs font-normal">(Coming Soon)</span>
+    </div>
+</div>
+@endunless
 @foreach($groups as $label=>$links)
 <div class="vx-mobile-menu-group"><button type="button" :aria-expanded="section==={{ $loop->index }}" @click="section=section==={{ $loop->index }}?null:{{ $loop->index }}" :class="section==={{ $loop->index }} && 'is-open'"><span class="vx-mm-gl"><x-filament::icon :icon="$icons[$label] ?? 'heroicon-o-squares-2x2'"/>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==={{ $loop->index }}&&'rotate-180'"/></button>
 <div class="vx-mobile-submenu" x-show="section==={{ $loop->index }}" x-collapse>@foreach($links as $link)@php [$text, $url] = $link; $linkIcon = \App\Support\NavIcons::for($link); @endphp<a href="{{ $url }}" wire:navigate @click="open=false" @class(['is-here' => $isHere($url)]) @if($isHere($url)) aria-current="page" @endif><span class="vx-mm-link">@if($linkIcon)<x-filament::icon :icon="$linkIcon" class="vx-mm-link-icon"/>@endif<span>{{ $text }}</span></span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach

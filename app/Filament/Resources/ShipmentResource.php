@@ -100,16 +100,38 @@ class ShipmentResource extends Resource
                     ->sortable()
                     ->alignCenter(),
                 TextColumn::make('status')
-                    ->label('Status')
+                    ->label('Shipping Status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? ucwords(str_replace('_', ' ', $state)) : 'Unknown')
-                    ->color(fn ($state) => match (strtolower((string) $state)) {
-                        'delivered' => 'success',
-                        'in_transit', 'in transit', 'shipped' => 'info',
-                        'pending', 'pending delivery', 'ready_to_ship', 'ready to ship', 'label_created', 'label created' => 'warning',
-                        'failed', 'returned', 'cancelled', 'canceled' => 'danger',
-                        default => 'gray',
+                    ->formatStateUsing(function ($state): string {
+                        $status = strtolower(trim(str_replace(['_', '-'], ' ', (string) $state)));
+                        return match ($status) {
+                            'label created', 'label printed', 'pre transit', 'pre shipment' => 'Label Created',
+                            'ready to ship', 'pending' => 'Ready to Ship',
+                            'shipped' => 'Shipped',
+                            'in transit' => 'In Transit',
+                            'out for delivery' => 'Out for Delivery',
+                            'delivered' => 'Delivered',
+                            'delivery attempted' => 'Delivery Attempted',
+                            'returned', 'return to sender' => 'Returned',
+                            'failed', 'exception' => 'Delivery Exception',
+                            'cancelled', 'canceled' => 'Cancelled',
+                            '', 'unknown' => 'Status Unknown',
+                            default => ucwords($status),
+                        };
                     })
+                    ->color(function ($state): string {
+                        $status = strtolower(trim(str_replace(['_', '-'], ' ', (string) $state)));
+                        return match ($status) {
+                            'delivered' => 'success',
+                            'in transit', 'out for delivery', 'shipped' => 'info',
+                            'label created', 'label printed', 'pre transit', 'pre shipment', 'pending', 'ready to ship', 'delivery attempted' => 'warning',
+                            'failed', 'exception', 'returned', 'return to sender', 'cancelled', 'canceled' => 'danger',
+                            default => 'gray',
+                        };
+                    })
+                    ->tooltip(fn (Shipment $record) => filled($record->status)
+                        ? 'Latest recorded shipment status: ' . $record->status . '. Not necessarily live carrier tracking.'
+                        : 'No shipment status has been recorded yet.')
                     ->sortable(),
                 TextColumn::make('carrier')
                     ->label('Carrier / Service')

@@ -1658,3 +1658,29 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
   .fi-topbar .vx-mega-brand.is-wordmark { width: 96px !important; flex-basis: 96px !important; }
   .fi-topbar .vx-mega-brand.is-wordmark img { width: 92px !important; }
 }
+
+/* Keep Business and Channel picker labels readable on laptop-width desktops.
+   The previous 1024–1279px rule hid both labels and reduced the picker to an icon. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel {
+    flex: 0 1 135px !important;
+    min-width: 112px !important;
+    max-width: 145px !important;
+  }
+  .fi-topbar .vx-mega-channel .vx-picker-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 5px 8px !important;
+    justify-content: flex-start !important;
+  }
+  .fi-topbar .vx-mega-channel .vx-picker-text {
+    display: flex !important;
+    min-width: 0 !important;
+  }
+  .fi-topbar .vx-mega-channel .vx-picker-chevron { display: block !important; }
+  .fi-topbar .vx-mega-channel .vx-picker-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

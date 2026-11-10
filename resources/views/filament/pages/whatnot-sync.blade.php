@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     {{-- Poll fast only while a run is going, so the live log keeps up without loading an idle page. --}}
-    <div class="space-y-6" @if($this->jobActive) wire:poll.3s @else wire:poll.15s @endif>
+    <div class="space-y-6" @if($this->jobActive) wire:poll.visible.3s @else wire:poll.visible.30s @endif>
         @php($job = $this->reportingJob)
         @php($locks = $this->pipelineStatus)
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">

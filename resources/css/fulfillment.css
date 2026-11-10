@@ -939,3 +939,52 @@ html.dark .vxf-full{background:#0b1020}
 .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue>.vxf-summary-col{grid-template-columns:minmax(0,1fr);display:flex!important}
 .vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table{table-layout:auto}
 }
+
+/* Fulfillment dashboard: unified, scroll-free operations workspace. */
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:12px;
+}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-shows-col {grid-column:1;grid-row:auto;min-width:0}
+.vxf-operations-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.vxf-operations-heading h2 {font-size:18px;font-weight:800;margin:0}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-operations-heading {grid-column:1;grid-row:auto}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-activity-col,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-summary-col {grid-column:auto;grid-row:auto;min-width:0}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-activity-col .vxf-feed,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-signq .vxf-list {max-height:none;overflow:visible}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-feed__text,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-list li > div {min-width:0;overflow:hidden}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-feed__text strong,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-list li strong,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-list li .vxf-sub {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-list li {min-width:0}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-card {min-width:0}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-card__head {gap:8px}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-card__head h2 {min-width:0;font-size:14px}
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-activity-col .vxf-island,
+.vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col .vxf-island {height:100%}
+@media(min-width:1100px) {
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue {grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;gap:12px}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-shows-col,
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-operations-heading {grid-column:1/-1;grid-row:auto}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-activity-col {grid-column:1;grid-row:auto}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-summary-col {grid-column:2/-1;grid-row:auto;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px!important;align-items:start}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col > .vxf-island {display:contents}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col .vxf-signq {grid-column:1;grid-row:1}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col .vxf-today {grid-column:1;grid-row:2}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col section[aria-labelledby="vxf-issues"] {grid-column:3;grid-row:1/3}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col section[aria-labelledby="vxf-schedule"] {grid-column:2;grid-row:1/3}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue .vxf-summary-col .vxf-card {overflow:visible}
+}
+@media(min-width:700px) and (max-width:1099px) {
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue {grid-template-columns:repeat(2,minmax(0,1fr))}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-shows-col,
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-operations-heading {grid-column:1/-1}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-activity-col {grid-column:1}
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-summary-col {grid-column:2;display:flex!important}
+}
+@media(max-width:699px) {
+    .vxf:has(.vxf-home-tabs) .vxf-cols--full-queue > .vxf-summary-col {display:flex!important}
+}

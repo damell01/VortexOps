@@ -24,15 +24,9 @@
         effective() { return this.theme === 'auto' ? (document.documentElement.classList.contains('dark') ? 'dark' : 'light') : this.theme },
         set(t) { this.theme = t; try { localStorage.setItem('vxf-board-theme', t) } catch (e) {} this.apply() },
         apply() { const r = document.documentElement; if (this.theme === 'auto') delete r.dataset.vxfBoard; else r.dataset.vxfBoard = this.theme },
-    }" x-init="apply()">
-@if ($run)
-    <div style="display:flex;justify-content:flex-end">
-        <div class="vxf-board-theme" role="group" aria-label="Board colours">
-            <button type="button" @click="set('light')" :aria-pressed="effective() === 'light'"><x-heroicon-o-sun /> Light</button>
-            <button type="button" @click="set('dark')" :aria-pressed="effective() === 'dark'"><x-heroicon-o-moon /> Dark</button>
-        </div>
-    </div>
-@endif
+        help: false,
+        firstHelp() { try { if (! localStorage.getItem('vxf-help-board')) { this.help = true; localStorage.setItem('vxf-help-board', '1') } } catch (e) {} },
+    }" x-init="apply(); @if ($run && $run->isOnStation()) firstHelp() @endif">
 @if (! $run)
     {{-- Choose a station or a show --}}
     <div class="vxf-head">
@@ -114,29 +108,32 @@
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
     <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())">
-        <div class="vxf-sb__show" style="margin-bottom:12px">
-            <div style="min-width:0">
-                <p class="vxf-eyebrow">{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</p>
-                <h1>{{ $show->title }}</h1>
-                <div class="vxf-sb__facts">
-                    <span>Stream: <strong>{{ $show->show_date?->format('M j') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</strong></span>
-                    <span>Channel: <strong>{{ $show->channel?->name ?? '—' }}</strong></span>
-                    <span>Streamer: <strong>{{ $show->streamers->pluck('name')->join(', ') ?: '—' }}</strong></span>
-                    <span>Packing start: <strong>{{ $run->started_at?->timezone($tz)->format('M j · g:i A') }}</strong></span>
-                    <span>Packer: <strong>{{ $run->packers->pluck('name')->join(', ') }}</strong></span>
-                </div>
+        <header class="vxf-sbar">
+            <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</span>
+            <div class="vxf-sbar__show">
+                <h1 title="{{ $show->title }}">{{ $show->title }}</h1>
+                <p>{{ $show->show_date?->format('M j') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}
+                    · {{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}
+                    · <strong>{{ $run->packers->pluck('name')->join(', ') }}</strong> since {{ $run->started_at?->timezone($tz)->format('g:i A') }}</p>
             </div>
-            <div style="text-align:right;min-width:170px">
-                <div class="vxf-num" style="font-size:26px;font-weight:800;color:var(--vxf-ink)">
-                    @if ($expected !== null){{ $done }} / {{ $expected }}@else{{ $packedBuyers }} / {{ $buyers->count() }}@endif
-                </div>
-                <div class="vxf-sub">{{ $expected !== null ? 'packages' : 'buyers' }} · {{ $pct }}%</div>
-                <div class="vxf-bar" style="margin-top:6px" role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Show progress"><span style="width: {{ $pct }}%;background:#22c55e"></span></div>
+            <div class="vxf-sbar__progress" role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Show progress">
+                <strong class="vxf-num">@if ($expected !== null){{ $done }}<span>/{{ $expected }}</span>@else{{ $packedBuyers }}<span>/{{ $buyers->count() }}</span>@endif</strong>
+                <small>{{ $expected !== null ? 'packages' : 'buyers' }} · {{ $pct }}%</small>
+                <div class="vxf-bar"><span style="width: {{ $pct }}%"></span></div>
             </div>
-        </div>
+            <div class="vxf-sbar__tools">
+                <button type="button" class="vxf-iconbtn" @click="help = true" aria-label="How to pack" title="How to pack"><x-heroicon-o-question-mark-circle /></button>
+                <button type="button" class="vxf-iconbtn" @click="set(effective() === 'dark' ? 'light' : 'dark')" :aria-label="effective() === 'dark' ? 'Switch to light' : 'Switch to dark'" :title="effective() === 'dark' ? 'Light board' : 'Dark board'">
+                    <span x-show="effective() !== 'dark'"><x-heroicon-o-moon /></span><span x-show="effective() === 'dark'" x-cloak><x-heroicon-o-sun /></span>
+                </button>
+                <a class="vxf-iconbtn" href="{{ route('fulfillment.whiteboard', ['station' => $run->station_occupied_id]) }}" target="_blank" rel="noopener" aria-label="Open this station on the TV" title="TV view"><x-heroicon-o-tv /></a>
+            </div>
+        </header>
 
         @if ($flash)
-            <p class="vxf-flash vxf-flash--{{ $flash['ok'] ? 'ok' : 'bad' }}" role="status" aria-live="polite" wire:key="flash-{{ $flash['at'] }}" style="margin-bottom:12px">{{ $flash['text'] }}</p>
+            <p class="vxf-toast vxf-flash vxf-flash--{{ $flash['ok'] ? 'ok' : 'bad' }}" role="status" aria-live="polite" wire:key="flash-{{ $flash['at'] }}"
+               x-data="{ on: true }" x-init="setTimeout(() => on = false, {{ $flash['ok'] ? 2600 : 6000 }})" x-show="on" x-transition.opacity.duration.300ms>
+                @if ($flash['ok'])<x-heroicon-o-check-circle />@else<x-heroicon-o-exclamation-triangle />@endif {{ $flash['text'] }}</p>
         @endif
 
         <div class="vxf-sb">
@@ -263,7 +260,7 @@
                         <button type="button" class="vxf-big vxf-big--warn" wire:click="openFlag"><x-heroicon-o-flag /> Flag Issue</button>
                         <button type="button" class="vxf-big" wire:click="pause"><x-heroicon-o-pause /> Pause Packing</button>
                     @endif
-                    <button type="button" class="vxf-big vxf-big--brand" wire:click="finish" wire:confirm="Finish packing this show? Every buyer must be packed or flagged.">
+                    <button type="button" class="vxf-big vxf-big--brand vxf-big--end" wire:click="finish" wire:confirm="Finish packing this show? Every buyer must be packed or flagged.">
                         <x-heroicon-o-flag /> Finish Show
                     </button>
                     @if ($this->isManager() && $current && $current->status === 'packed')
@@ -272,8 +269,22 @@
                 @else
                     <p class="vxf-sub">You are viewing this station. Only the assigned packers can pack.</p>
                 @endif
-                <a class="vxf-btn vxf-btn--sm" href="{{ route('fulfillment.whiteboard', ['station' => $run->station_occupied_id]) }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV view</a>
             </section>
+        </div>
+
+        <div class="vxf-help" x-show="help" x-cloak x-transition.opacity @keydown.escape.window="help = false" role="dialog" aria-modal="true" aria-labelledby="vxf-help-title">
+            <div class="vxf-help__card" @click.outside="help = false">
+                <h2 id="vxf-help-title">How to pack a show</h2>
+                <ol>
+                    <li><b>A</b><span><strong>Pack buyers in letter order.</strong> The big letter is the buyer you're on. It starts at A and the label matches the camera.</span></li>
+                    <li><b><x-heroicon-o-qr-code /></b><span><strong>Scan each item.</strong> The scan box is always ready. If scanning isn't set up for a buyer, check against the packing slip.</span></li>
+                    <li><b><x-heroicon-o-check /></b><span><strong>Press Mark Packed.</strong> It packs the next package, then moves on to the next buyer by itself.</span></li>
+                    <li><b><x-heroicon-o-flag /></b><span><strong>Something wrong? Flag Issue.</strong> That buyer is put on hold and a manager is told. Keep packing the rest.</span></li>
+                    <li><b><x-heroicon-o-pause /></b><span><strong>Taking a break? Pause.</strong> The timer stops until you resume.</span></li>
+                    <li><b><x-heroicon-o-flag /></b><span><strong>All done? Finish Show.</strong> Then confirm the record so a manager can approve it.</span></li>
+                </ol>
+                <button type="button" class="vxf-btn vxf-btn--primary" @click="help = false">Got it</button>
+            </div>
         </div>
 
         @if ($showFlag)

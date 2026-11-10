@@ -28,7 +28,7 @@ class StockGate
 {
     public static function canChange(?User $user, InventoryLocation|int|null $location): bool
     {
-        if ($user === null || $location === null || InventoryVisibility::isReadOnlyStreamer($user)) {
+        if ($user === null || $location === null || ($user->isFulfillmentAdmin() && ! $user->isAdmin()) || InventoryVisibility::isReadOnlyStreamer($user)) {
             return false;
         }
 
@@ -59,7 +59,7 @@ class StockGate
 
         // A streamer is a streamer even with an admin role on top: they run
         // their own shelf, not Main.
-        if ($user->streamer?->isStreamer() || $user->isStreamerAssistant() || $user->hasRole('streamer')) {
+        if ($user->isFulfillmentAdmin() || $user->streamer?->isStreamer() || $user->isStreamerAssistant() || $user->hasRole('streamer')) {
             return false;
         }
 
@@ -69,7 +69,7 @@ class StockGate
     /** @return list<int> Location ids this user may change stock in. */
     public static function changeableIds(?User $user): array
     {
-        if ($user === null || InventoryVisibility::isReadOnlyStreamer($user)) {
+        if ($user === null || ($user->isFulfillmentAdmin() && ! $user->isAdmin()) || InventoryVisibility::isReadOnlyStreamer($user)) {
             return [];
         }
 

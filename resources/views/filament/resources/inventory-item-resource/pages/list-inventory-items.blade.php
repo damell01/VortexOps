@@ -129,6 +129,58 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
 @media(min-width:1280px){.vx-inventory-list .vx-inventory-summary{grid-template-columns:minmax(155px,.65fr) minmax(220px,.8fr) minmax(0,2.4fr)!important}.vx-inventory-list .vx-inventory-actions{padding:7px!important}}
 @media(max-width:640px){.vx-inventory-list .vx-product-image{height:115px!important}.vx-inventory-list .vx-product-image:not(.has-photo) img{max-height:78px!important;max-width:78px!important}.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-list .vx-card-action{min-height:44px!important;font-size:.7rem!important}}
 </style>
+@if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin())
+    @php
+        $directoryItems = $this->fulfillmentDirectoryItems;
+        $directoryTotal = $this->fulfillmentDirectoryTotal;
+        $directoryPages = max(1, (int) ceil($directoryTotal / max(1, $catalogVisible)));
+        $directoryCurrent = max(1, min($catalogPage, $directoryPages));
+        $directoryPlaceholder = \App\Models\Product::placeholderImageUrl();
+    @endphp
+    <section class="space-y-4 vx-inventory-list" aria-label="Fulfillment inventory catalog">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl font-bold text-gray-950 dark:text-white">All Inventory</h1>
+                <p class="text-sm text-gray-500">Product pictures, names and costs</p>
+            </div>
+            <span class="text-sm text-gray-500">{{ number_format($directoryTotal) }} products</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <input wire:model.live.debounce.500ms="catalogSearch" type="search" class="vx-inv-input flex-1 min-w-[220px]"
+                placeholder="Search products, SKU or barcode" aria-label="Search inventory products">
+            <select wire:model.live="catalogSort" class="vx-inv-input max-w-[190px]" aria-label="Sort inventory">
+                <option value="name">Name A–Z</option>
+                <option value="newest">Newest first</option>
+                <option value="value">Highest cost</option>
+            </select>
+        </div>
+        @if($directoryItems->isNotEmpty())
+            <div class="vx-catalog-grid">
+                @foreach($directoryItems as $item)
+                    <article class="vx-product-card" wire:key="fulfillment-product-{{ $item->id }}">
+                        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])>
+                            <img loading="lazy" decoding="async" src="{{ $item->hasImage() ? $item->imageUrl() : $directoryPlaceholder }}" alt="{{ $item->name }}">
+                        </div>
+                        <div class="vx-product-body">
+                            <div class="vx-product-title">{{ $item->name }}</div>
+                            <div class="vx-product-meta">Item cost: <strong>${{ number_format((float) $item->unit_cost, 2) }}</strong></div>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+            <nav class="flex flex-wrap items-center justify-between gap-3" aria-label="Inventory pages">
+                <span class="text-sm text-gray-500">Showing {{ number_format(($directoryCurrent - 1) * $catalogVisible + 1) }}–{{ number_format(min($directoryCurrent * $catalogVisible, $directoryTotal)) }} of {{ number_format($directoryTotal) }}</span>
+                <div class="flex items-center gap-2">
+                    <button class="vxw-btn vxw-btn--sm" type="button" wire:click="setCatalogPage({{ $directoryCurrent - 1 }})" @disabled($directoryCurrent <= 1)>Previous</button>
+                    <span class="text-sm">Page {{ $directoryCurrent }} of {{ $directoryPages }}</span>
+                    <button class="vxw-btn vxw-btn--sm" type="button" wire:click="setCatalogPage({{ $directoryCurrent + 1 }})" @disabled($directoryCurrent >= $directoryPages)>Next</button>
+                </div>
+            </nav>
+        @else
+            <p class="rounded-xl border p-5 text-sm text-gray-500">No matching products.</p>
+        @endif
+    </section>
+@else
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
  <div class="vx-inventory-mobile-intro sm:hidden"><h2 class="text-2xl font-bold text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Find products, check stock and manage inventory.</p></div>
@@ -313,5 +365,6 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
 {{-- Card view does not render the table that normally owns the action modals. --}}
 <x-filament-actions::modals />
 </div>
+@endif
 </x-filament-panels::page>
 

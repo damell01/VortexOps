@@ -28,6 +28,13 @@
     @if ($tab === 'schedule')
         @php $start = $this->weekStart(); $days = collect(range(0, 6))->map(fn ($i) => $start->addDays($i)); $shifts = $this->weekShifts; @endphp
         @if ($manager)
+            @php $flexibleShiftsReady = \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_blocks') && \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_assignments') && \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_block_events'); @endphp
+            @unless ($flexibleShiftsReady)
+                <div class="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" role="status">
+                    Flexible scheduling is awaiting Dev database migrations. Existing employee schedules remain available; new shift actions are temporarily disabled.
+                </div>
+            @endunless
+            @if ($flexibleShiftsReady)
             <section class="mb-3 rounded-xl border border-[var(--vx-divider)] bg-white p-3 dark:bg-gray-900" aria-label="Open staffing shifts">
                 <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div><h2 class="text-sm font-bold">Open staffing shifts</h2><p class="text-xs text-gray-500">Create Day or Night shifts before assigning employees. Existing employee shifts remain unchanged.</p></div>
@@ -88,6 +95,23 @@
                 </div>
                 @endif
             </section>
+            <section class="mb-3 rounded-xl border border-[var(--vx-divider)] bg-white p-3 dark:bg-gray-900" aria-label="Recent shift changes">
+                <h2 class="mb-2 text-sm font-bold">Recent shift changes</h2>
+                <div class="max-h-64 overflow-y-auto">
+                    @forelse ($this->blockHistory() as $event)
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--vx-divider)] py-2 text-xs last:border-0">
+                            <div><strong>{{ ucfirst(str_replace('_', ' ', $event->action)) }}</strong> · Shift #{{ $event->shift_block_id }}
+                                @if ($event->employee_name) · {{ $event->employee_name }} @endif
+                                <span class="text-gray-500">by {{ $event->actor_name ?? 'System' }}</span>
+                            </div>
+                            <time class="text-gray-500">{{ \Carbon\CarbonImmutable::parse($event->created_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('M j, g:i A') }}</time>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-500">No changes recorded for this week's shifts.</p>
+                    @endforelse
+                </div>
+            </section>
+            @endif
             @if ($assignBlockId)
                 <div class="vxf-shift-modal-backdrop" wire:click="$set('assignBlockId', null)"></div>
                 <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-assign-block-title" @keydown.escape.window="$wire.set('assignBlockId', null)">

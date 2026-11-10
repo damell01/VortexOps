@@ -59,13 +59,9 @@ final class FulfillmentQueue
     /** Whether packing must wait for the streamer report to be approved (the long-standing rule). */
     public static function requiresApprovedReport(): bool
     {
-        // Development-only packing exercises may start before streamer review.
-        // Keep the production approval gate intact regardless of settings.
-        if (parse_url((string) config('app.url'), PHP_URL_HOST) === 'dev.vortexops.tech') {
-            return false;
-        }
-
-        return Setting::get('fulfillment_require_report_approval', '1') !== '0';
+        // Packing is driven by show readiness and assignment, not by
+        // completion or approval of the separate streamer payroll report.
+        return false;
     }
 
     public static function reportApproved(Show $show): bool

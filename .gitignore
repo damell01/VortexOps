@@ -50,3 +50,8 @@ tests/Browser/output/
 
 # Desktop collector configuration contains the VortexOps API bearer token.
 /desktop-collector/config.json
+
+# Local throwaway databases
+/storage/*.sqlite
+/storage/*.sqlite-shm
+/storage/*.sqlite-wal

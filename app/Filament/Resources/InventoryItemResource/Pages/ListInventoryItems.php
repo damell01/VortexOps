@@ -177,6 +177,48 @@ class ListInventoryItems extends ListRecords
         return $query;
     }
 
+    /**
+     * Fulfillment users only need a read-only product directory. Avoid the
+     * stock sums, movement subqueries and warehouse health aggregates used
+     * by the full inventory management workspace.
+     */
+    private function fulfillmentDirectoryQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = \App\Models\Product::query();
+        if (filled($this->catalogSearch)) {
+            $term = '%' . trim($this->catalogSearch) . '%';
+            $query->where(fn ($q) => $q->where('name', 'like', $term)
+                ->orWhere('sku', 'like', $term)
+                ->orWhere('barcode', 'like', $term)
+                ->orWhere('upc', 'like', $term));
+        }
+
+        return match ($this->catalogSort) {
+            'newest' => $query->orderByDesc('created_at')->orderBy('id'),
+            'value' => $query->orderByDesc('unit_cost')->orderBy('id'),
+            default => $query->orderBy('name')->orderBy('id'),
+        };
+    }
+
+    #[Computed]
+    public function fulfillmentDirectoryItems(): Collection
+    {
+        abort_unless(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin(), 403);
+
+        return $this->fulfillmentDirectoryQuery()
+            ->offset((max(1, $this->catalogPage) - 1) * $this->catalogVisible)
+            ->limit($this->catalogVisible)
+            ->get();
+    }
+
+    #[Computed]
+    public function fulfillmentDirectoryTotal(): int
+    {
+        abort_unless(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin(), 403);
+
+        return $this->fulfillmentDirectoryQuery()->reorder()->count();
+    }
+
     #[Computed]
     public function catalogItems(): Collection
     {

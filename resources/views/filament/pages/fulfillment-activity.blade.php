@@ -39,12 +39,29 @@
                             <div class="flex items-center justify-between gap-2"><strong class="text-sm">{{ $block->label }}</strong><span class="text-xs font-semibold">{{ $block->assigned_staff == 0 ? 'Unassigned' : ($block->assigned_staff < $block->required_staff ? 'Partially staffed' : 'Fully staffed') }}</span></div>
                             <div class="mt-1 text-xs text-gray-500">{{ \Carbon\CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D M j, g:i A') }} – {{ \Carbon\CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D g:i A') }}</div>
                             <div class="mt-2 text-xs font-semibold">{{ $block->assigned_staff }} / {{ $block->required_staff }} employees · {{ max(0, $block->required_staff - $block->assigned_staff) }} open slots</div>
+                            @if ($block->status !== 'cancelled' && $block->assigned_staff < $block->required_staff)
+                                <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="openBlockAssignment({{ $block->id }})">Assign employee</button>
+                            @endif
                         </div>
                     @empty
                         <p class="text-sm text-gray-500">No flexible shifts created this week.</p>
                     @endforelse
                 </div>
             </section>
+            @if ($assignBlockId)
+                <div class="vxf-shift-modal-backdrop" wire:click="$set('assignBlockId', null)"></div>
+                <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-assign-block-title" @keydown.escape.window="$wire.set('assignBlockId', null)">
+                    <header class="vxf-shift-modal__header"><div><h2 id="vx-assign-block-title">Assign employee</h2><p class="vxf-sub">Choose a team member and optional station.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('assignBlockId', null)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+                    <form wire:submit.prevent="saveBlockAssignment" class="vxf-shift-modal__form">
+                        <div class="vxf-shift-modal__body">
+                            <label class="vxf-field">Team member <select class="vxf-select" wire:model="assignEmployeeId" required><option value="">Choose employee…</option>@foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
+                            <label class="vxf-field">Station (optional) <select class="vxf-select" wire:model="assignStationId"><option value="">Unassigned station</option>@foreach ($this->stationList->where('active', true) as $station)<option value="{{ $station->id }}">{{ $station->name }}</option>@endforeach</select></label>
+                            @error('assignEmployeeId')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <footer class="flex justify-end gap-2 p-3"><button type="button" class="vxf-btn" wire:click="$set('assignBlockId', null)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary">Assign Employee</button></footer>
+                    </form>
+                </section>
+            @endif
             @if ($blockOpen)
                 <div class="vxf-shift-modal-backdrop" wire:click="$set('blockOpen', false)"></div>
                 <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-open-shift-title" @keydown.escape.window="$wire.set('blockOpen', false)">

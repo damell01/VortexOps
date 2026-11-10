@@ -294,6 +294,29 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     .fi-topbar .vx-mega-channel .vx-picker-btn { gap: 5px !important; padding-inline: 7px !important; }
 }
 @media(max-width:1023px){.vx-search-trigger{display:none!important}}
+
+/* At laptop widths, keep the business/channel names rather than icon-only buttons. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business,
+    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) {
+        flex: 0 1 132px !important;
+        width: 132px !important;
+        max-width: 145px !important;
+        min-width: 112px !important;
+    }
+    .fi-topbar nav.vx-desktop-mega-nav .vx-mega-channel .vx-picker-text {
+        display: flex !important;
+        flex-direction: column !important;
+        min-width: 0 !important;
+    }
+    .fi-topbar nav.vx-desktop-mega-nav .vx-mega-channel .vx-picker-chevron { display: block !important; }
+    .fi-topbar nav.vx-desktop-mega-nav .vx-mega-channel .vx-picker-btn {
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 5px 8px !important;
+        justify-content: flex-start !important;
+    }
+}
 </style>
 
 

@@ -87,7 +87,7 @@
         $people = $this->people->keyBy('id');
         $times = []; for ($m = 0; $m < 1440; $m += 30) { $times[sprintf('%02d:%02d', intdiv($m, 60), $m % 60)] = \Illuminate\Support\Carbon::createFromTime(intdiv($m, 60), $m % 60)->format('g:i A'); }
     @endphp
-    <div class="vxr-drawer-backdrop" x-on:click="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()"></div>
+    <div x-data="{ visible: true }" x-show="visible" x-on:vx-close-configure.window="visible = false" class="vxr-drawer-backdrop" x-on:click="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()"></div>
     <aside class="vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data="{ visible: true }" x-show="visible" x-on:vx-close-configure.window="visible = false" x-on:keydown.escape.window="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()">
         <div class="vxr-drawer-head">
             <div><h2 class="vxr-drawer-title">{{ $event['label'] }}</h2><p class="vxr-hint" style="font-size:13.5px">{{ $event['description'] }}</p></div>
@@ -234,7 +234,7 @@
 
 {{-- ── Email preview ───────────────────────────────────────────────── --}}
 @if ($previewEvent)
-    <div class="vxr-drawer-backdrop" style="z-index:1005" x-on:click="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()"></div>
+    <div x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" class="vxr-drawer-backdrop" style="z-index:1005" x-on:click="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()"></div>
     <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" x-on:keydown.escape.window="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()">
         <div class="vxr-drawer-head">
             <div><p class="vxr-hint" style="margin:0">Email preview</p><h2 class="vxr-drawer-title">{{ \App\Support\NotificationCatalog::label($previewEvent) }}</h2></div>

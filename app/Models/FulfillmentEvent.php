@@ -37,6 +37,7 @@ class FulfillmentEvent extends Model
             'buyers_loaded' => 'Buyers loaded',
             'buyer_selected' => 'Buyer selected',
             'package_packed' => 'Package packed',
+            'label_opened' => 'Shipping label printed',
             'buyer_packed' => 'Buyer packed',
             'buyer_reopened' => 'Buyer reopened',
             'item_verified' => 'Item verified',

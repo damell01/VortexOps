@@ -470,6 +470,30 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->actingAs($outsider)->get(\App\Filament\Pages\FulfillmentReports::getUrl())->assertForbidden();
     }
 
+    public function test_whatnot_shipping_labels_open_from_the_station_and_are_logged(): void
+    {
+        $run = $this->started();
+        $package = \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)->orderBy('id')->firstOrFail();
+        $other = \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)->where('id', '!=', $package->id)->firstOrFail();
+        $package->shipment->update(['raw_payload' => ['_source' => 'seller_api', 'documents' => ['label_url' => 'https://labels.whatnot.test/abc.pdf']]]);
+        $other->shipment->update(['raw_payload' => ['_source' => 'seller_api', 'documents' => ['label_url' => 'javascript:alert(1)']]]);
+
+        $this->actingAs($this->packer)->get(route('fulfillment.package.label', $package))->assertRedirect('https://labels.whatnot.test/abc.pdf');
+        $event = FulfillmentEvent::query()->where('type', 'label_opened')->sole();
+        $this->assertSame([$package->id, $this->packer->id], [$event->package_id, $event->user_id]);
+        $this->assertSame('Shipping label printed', FulfillmentEvent::label('label_opened'));
+
+        // Only https links are ever followed; a missing label says so.
+        $this->actingAs($this->packer)->get(route('fulfillment.package.label', $other))->assertNotFound()->assertSee('No Whatnot label');
+
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id]);
+        $board->call('selectBuyer', $package->buyer_id)->assertSee(route('fulfillment.package.label', $package), false);
+
+        $outsider = User::factory()->create();
+        $outsider->assignRole('fulfillment');
+        $this->actingAs($outsider)->get(route('fulfillment.package.label', $package))->assertForbidden();
+    }
+
     public function test_pages_render_for_a_manager_and_a_member(): void
     {
         $run = $this->started();

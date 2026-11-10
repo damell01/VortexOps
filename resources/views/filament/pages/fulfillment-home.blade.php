@@ -2,6 +2,7 @@
 @php
     $manager = $this->isManager();
 @endphp
+@include('fulfillment.dev-banner')
 @include('fulfillment.motion')
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">

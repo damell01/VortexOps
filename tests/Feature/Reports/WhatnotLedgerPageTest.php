@@ -48,7 +48,8 @@ class WhatnotLedgerPageTest extends TestCase
     public function test_page_renders_header_chips_stats_and_rows(): void
     {
         $this->withoutVite();
-        $this->get(WhatnotLedgerResource::getUrl('index'))
+        // The page opens on the last 30 days; these entries are older.
+        $this->get(WhatnotLedgerResource::getUrl('index', ['period' => 'all']))
             ->assertOk()
             ->assertSee('Whatnot Ledger')
             ->assertSee('Reconcile credits, debits and transaction status by channel.')
@@ -69,7 +70,7 @@ class WhatnotLedgerPageTest extends TestCase
 
     public function test_filters_channel_chip_and_search_narrow_rows_and_totals(): void
     {
-        $page = Livewire::test(ListWhatnotLedgerEntries::class);
+        $page = Livewire::test(ListWhatnotLedgerEntries::class)->set('preset', 'all');
 
         $page->call('setChannel', (string) $this->cards->id)
             ->assertSee('1441625692')->assertDontSee('1441763281');

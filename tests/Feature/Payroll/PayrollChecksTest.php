@@ -212,4 +212,37 @@ class PayrollChecksTest extends TestCase
         $payout->update(['calculation_notes' => 'Manual Pay Run override by Owner: $1 → $2. Reason: agreed']);
         $this->assertCount(0, app(PayChangedAfterPayout::class)->rows());
     }
+
+    public function test_the_fulfillment_admin_sees_everything_but_business_profitability(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('fulfillment_admin', 'web');
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        $fa = User::factory()->create();
+        $fa->assignRole('fulfillment_admin');
+        $nat = $this->member('Natbat', $this->vcx);
+        $this->show($nat, $this->breaks, 400);
+        $run = WeeklyPayoutBatch::create(['business_id' => $this->vcx->id, 'week_start' => now()->subDays(6)->toDateString(), 'week_end' => now()->toDateString(), 'status' => 'draft']);
+        Payout::create(['show_id' => Show::query()->value('id'), 'streamer_id' => $nat->id, 'weekly_payout_batch_id' => $run->id, 'payout_type' => 'profit_share',
+            'calculated_payout' => 40, 'gross_show_revenue' => 480, 'owner_fee_deducted' => 0, 'tips_included' => 0, 'status' => 'draft']);
+        $this->actingAs($fa);
+
+        $this->assertTrue($fa->isAdmin());
+        $this->assertFalse($fa->canSeeBusinessFinancials());
+        // Streaming info, payroll and show financials: yes.
+        $this->assertTrue(PayrollOverview::canAccess());
+        $this->assertTrue(\App\Filament\Pages\ReportsOverview::canAccess());
+        $this->assertTrue(\App\Filament\Resources\ShowResource::canAccess());
+        // How profitable the businesses are: no.
+        $this->assertFalse(\App\Filament\Pages\ProfitLoss::canAccess());
+        $this->get(\App\Filament\Pages\ProfitLoss::getUrl())->assertForbidden();
+        $this->get(\App\Filament\Pages\ReportsOverview::getUrl())->assertOk()->assertDontSee('Finalized Business Profit');
+        Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->getRouteKey()])->assertDontSee('Business account transfer');
+
+        // An admin (or a fulfillment admin who is also an admin) sees them.
+        $fa->assignRole('admin');
+        $this->assertTrue($fa->fresh()->canSeeBusinessFinancials());
+        $this->actingAs($this->owner);
+        $this->assertTrue(\App\Filament\Pages\ProfitLoss::canAccess());
+        Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->getRouteKey()])->assertSee('Business account transfer');
+    }
 }

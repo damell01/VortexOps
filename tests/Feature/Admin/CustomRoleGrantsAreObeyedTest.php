@@ -108,7 +108,9 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         sort($denied);
         $this->assertSame([
             'AppSettings', 'Businesses', 'Communications', 'FulfillmentActivity', 'FulfillmentHome', 'FulfillmentOperations', 'FulfillmentReports', 'FulfillmentSchedule', 'FulfillmentStationBoard', 'ImportStatus', 'InventoryCount', 'InventoryImporter', 'InventoryPopupSettings',
-            'NavigationManager', 'NoShowCleanup', 'OwnerTools', 'PayRunBackfill', 'PaymentStructures',
+            // My Charges is only for streamers charged for ledger corrections; Changed after
+            // payout is admin-only, like Payroll.
+            'MyLedgerCharges', 'NavigationManager', 'NoShowCleanup', 'OwnerTools', 'PayChangedSincePaid', 'PayRunBackfill', 'PaymentStructures',
             'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShipmentOverview', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
             'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
         ], $denied);

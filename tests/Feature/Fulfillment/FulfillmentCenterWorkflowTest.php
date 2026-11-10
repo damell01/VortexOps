@@ -97,13 +97,14 @@ class FulfillmentCenterWorkflowTest extends TestCase
         return FulfillmentRun::query()->findOrFail($id);
     }
 
-    public function test_buyers_are_lettered_alphabetically_once_per_username_with_orders_grouped(): void
+    public function test_buyers_are_lettered_by_username_initial_once_per_username_with_orders_grouped(): void
     {
         $run = $this->started($this->show(['zoe_cards' => 1, 'Alpha_Rips' => 2, 'bigpullz' => 1, 'alpha_rips' => 1]));
         $buyers = $run->buyers()->get();
 
         // Case-insensitive: Alpha_Rips and alpha_rips are one buyer with three orders.
-        $this->assertSame(['A', 'B', 'C'], $buyers->pluck('letter')->all());
+        // The letter is the username's initial (the camera label).
+        $this->assertSame(['A', 'B', 'Z'], $buyers->pluck('letter')->all());
         $this->assertSame(['Alpha_Rips', 'bigpullz', 'zoe_cards'], $buyers->pluck('buyer_username')->all());
         $this->assertSame(3, $buyers->first()->order_count);
         $this->assertSame(3, $buyers->first()->package_count);
@@ -111,17 +112,18 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame(3, $run->fresh()->buyer_count);
     }
 
-    public function test_letters_continue_past_z_and_stay_put_after_packing_starts(): void
+    public function test_shared_initials_are_allowed_and_letters_stay_put_after_packing_starts(): void
     {
         $names = [];
         foreach (range(1, 28) as $i) $names[sprintf('buyer%02d', $i)] = 1;
         $show = $this->show($names, false);
         $run = $this->started($show);
-        $this->assertSame('AB', $run->buyers()->get()->last()->letter);
+        // 28 buyers all starting with "b": one shared letter, packing still starts.
+        $this->assertSame(28, $run->buyers()->where('letter', 'B')->count());
 
         // A later order sync must not relabel a started run.
         WhatnotShowOrder::create(['show_id' => $show->id, 'buyer_username' => 'aaa_first', 'whatnot_order_id' => 'LATE-1', 'item_name' => 'Pack', 'quantity' => 1, 'total_price' => 5, 'status' => 'completed', 'show_date' => $show->show_date]);
-        $this->assertSame('A', $run->buyers()->where('buyer_username', 'buyer01')->value('letter'));
+        $this->assertSame('B', $run->buyers()->where('buyer_username', 'buyer01')->value('letter'));
         $this->assertFalse($run->buyers()->where('buyer_username', 'aaa_first')->exists());
     }
 
@@ -393,7 +395,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
         // 7 PM – 3 AM Central entered on the page.
         Livewire::actingAs($this->manager)->test(FulfillmentActivity::class)
             ->call('newShift', '2026-11-12', $this->helper->id)
-            ->set('shift.start', '19:00')->set('shift.end', '03:00')->set('shift.station_id', (string) $this->station->id)
+            ->set('shift.kind', 'night')->set('shift.start', '19:00')->set('shift.end', '03:00')->set('shift.station_id', (string) $this->station->id)
             ->call('saveShift')->assertHasNoErrors();
         $night = \App\Models\FulfillmentShift::query()->where('user_id', $this->helper->id)->sole();
         $this->assertTrue($night->crossesMidnight() || $night->ends_at->greaterThan($night->starts_at));
@@ -417,7 +419,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
             'buyers_done', 'buyers_total', 'done', 'total', 'unit', 'pct',
         ], array_keys($card));
         // Next in line skips the current buyer; the ticker and summary carry no pay, values or addresses.
-        $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz'], ['letter' => 'C', 'buyer' => 'zoe_cards']], $card['next']);
+        $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz'], ['letter' => 'Z', 'buyer' => 'zoe_cards']], $card['next']);
         $this->assertSame(['packing' => 1, 'stations' => FulfillmentStation::query()->where('active', true)->count(), 'packed_today' => 0, 'buyers_today' => 0, 'issues' => 0], $json['summary']);
         $this->assertSame('started', $json['activity'][0]['type']);
         $this->assertSame(['id', 'type', 'at', 'station', 'letter', 'buyer', 'text'], array_keys($json['activity'][0]));
@@ -435,12 +437,12 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $other = \App\Models\FulfillmentStation::query()->where('id', '!=', $this->station->id)->where('active', true)->firstOrFail();
 
         $this->actingAs($this->packer)->get(route('fulfillment.whiteboard'))->assertOk()
-            ->assertSee('id="vxf-station-pick"', false)->assertSee('All stations')->assertSee($other->name)
+            ->assertSee('vxtv__station-link', false)->assertSee('All stations')->assertSee($other->name)
             ->assertSee(e(route('fulfillment.whiteboard', ['station' => $other->id, 'density' => 'comfortable'])), false);
 
         $single = $this->actingAs($this->packer)->get(route('fulfillment.whiteboard', ['station' => $this->station->id]))->assertOk()
             ->assertSee('Station whiteboard');
-        $this->assertMatchesRegularExpression('/<option value="[^"]*station=' . $this->station->id . '[^"]*" selected/', $single->getContent());
+        $this->assertMatchesRegularExpression('/href="[^"]*station=' . $this->station->id . '[^"]*"\s+aria-current="page"/', $single->getContent());
         $this->actingAs($this->packer)->get(route('fulfillment.whiteboard', ['station' => 999999]))->assertNotFound();
 
         Livewire::actingAs($this->manager)->test(FulfillmentHome::class)

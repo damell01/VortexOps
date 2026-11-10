@@ -404,7 +404,7 @@
                     </details>
                 </div>
             </section>
-            @if($transfer = \App\Support\BusinessTransfer::forRun($run))
+            @if(auth()->user()?->canSeeBusinessFinancials() && ($transfer = \App\Support\BusinessTransfer::forRun($run)))
             @php
                 $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2);
             @endphp

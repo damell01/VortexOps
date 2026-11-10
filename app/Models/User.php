@@ -192,7 +192,17 @@ class User extends Authenticatable implements FilamentUser
 
     public function isAdmin(): bool
     {
-        return $this->isOwner() || (! $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && $this->hasAnyRole(['admin', 'super_admin']));
+        return $this->isOwner() || (! $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && $this->hasAnyRole(['admin', 'super_admin', 'fulfillment_admin']));
+    }
+
+    /**
+     * Summaries of how profitable the businesses are (P&L, business profit,
+     * the business account transfer). Whoever can open those pages sees
+     * them, except a fulfillment admin who is not also an admin.
+     */
+    public function canSeeBusinessFinancials(): bool
+    {
+        return $this->isOwner() || ! $this->hasRole('fulfillment_admin') || $this->hasAnyRole(['admin', 'super_admin']);
     }
 
     public function isStreamer(): bool
@@ -219,7 +229,7 @@ class User extends Authenticatable implements FilamentUser
     /** Roles allowed to pick a specific channel (or "All Channels") via the topbar switcher. */
     public function canSwitchChannels(): bool
     {
-        return ! $this->isStreamerAssistant() && $this->isAdmin();
+        return ! $this->isStreamerAssistant() && ($this->isAdmin() || $this->isFulfillmentAdmin());
     }
 
     /**

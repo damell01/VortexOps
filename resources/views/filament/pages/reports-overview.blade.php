@@ -37,7 +37,9 @@
         <div class="vxr-stats">
             <x-vxr.stat label="Gross Sales" :value="$money($t['sales'])" icon="heroicon-o-chart-bar" :note="$t['shows'].' '.\Illuminate\Support\Str::plural('show', $t['shows'])" />
             <x-vxr.stat label="Whatnot Est. Earnings" :value="$money($t['whatnot_net'])" icon="heroicon-o-tag" tone="accent" note="After Whatnot fees, before our costs" />
+            @if(auth()->user()?->canSeeBusinessFinancials())
             <x-vxr.stat label="Finalized Business Profit" :value="$t['finalized'] ? $money($t['finalized_profit']) : '—'" icon="heroicon-o-currency-dollar" tone="ok" :value-class="$t['finalized_profit'] < 0 ? 'vxr-val-bad' : ''" :note="$t['finalized'].' finalized '.\Illuminate\Support\Str::plural('show', $t['finalized']).' only'" :href="$links['pl']" />
+            @endif
             <x-vxr.stat label="Pending Financials" :value="$t['incomplete'].' '.\Illuminate\Support\Str::plural('show', $t['incomplete'])" icon="heroicon-o-clock" tone="warn" note="Awaiting costs or pay runs" :href="$links['pending']" />
         </div>
 
@@ -72,6 +74,6 @@
             </section>
         </div>
 
-        <p class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Business profit includes finalized shows only — earnings, approved COGS and final pay all in. Pending shows are excluded.</p>
+        @if(auth()->user()?->canSeeBusinessFinancials())<p class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Business profit includes finalized shows only — earnings, approved COGS and final pay all in. Pending shows are excluded.</p>@endif
     </div>
 </x-filament-panels::page>

@@ -39,7 +39,7 @@ final class FulfillmentShiftBlockService
         if ($end->lessThanOrEqualTo($start)) {
             throw ValidationException::withMessages(['ends_at' => 'Shift end must follow the start.']);
         }
-        if ($end->diffInHours($start) > 24) {
+        if ($start->diffInMinutes($end) > 1440) {
             throw ValidationException::withMessages(['ends_at' => 'Shift duration cannot exceed 24 hours.']);
         }
         return DB::transaction(function () use ($actor, $data, $start, $end) {

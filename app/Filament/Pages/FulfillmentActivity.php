@@ -145,6 +145,20 @@ class FulfillmentActivity extends Page
         Notification::make()->title('Employee assigned to shift')->success()->send();
     }
 
+    public function duplicateBlockNextWeek(int $blockId): void
+    {
+        abort_unless($this->isManager(), 403);
+        try {
+            app(\App\Services\FulfillmentShiftBlockService::class)->duplicate(auth()->user(), $blockId);
+        } catch (ValidationException $e) {
+            Notification::make()->title('Could not copy shift')
+                ->body(collect($e->errors())->flatten()->first() ?? 'Check the destination date.')
+                ->danger()->send();
+            return;
+        }
+        Notification::make()->title('Shift copied to next week without assignments')->success()->send();
+    }
+
     public function removeBlockAssignment(int $blockId, int $userId): void
     {
         abort_unless($this->isManager(), 403);

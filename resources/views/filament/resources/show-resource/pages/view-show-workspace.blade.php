@@ -98,13 +98,37 @@
                             </div>
                         @endif
                     </div>
-                    <details class="mt-3"><summary class="cursor-pointer text-xs font-semibold text-primary-600">All {{ $ledger['lines']->count() }} ledger entries</summary>
-                        <div class="mt-2 divide-y divide-[var(--vx-divider)]">
-                            @foreach($ledger['lines'] as $line)
-                                <div class="flex items-center justify-between gap-3 py-1.5 text-xs"><span>{{ $line['at']?->format('M j, g:ia') }} · {{ $line['type'] }}@if($line['order']) · {{ $line['order'] }}@endif</span><span class="tabular-nums {{ $line['amount'] < 0 ? 'vx-bad' : '' }}">${{ number_format($line['amount'], 2) }}</span></div>
+                    <div class="mt-4" x-data="{ ledgerCategory: 'all' }">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h4 class="text-sm font-semibold">All {{ $ledger['lines']->count() }} ledger entries</h4>
+                            @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
+                                <a class="text-xs font-semibold text-violet-700 hover:underline dark:text-violet-300"
+                                   href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $show->id, 'period' => 'all']) }}">Open ledger ↗</a>
+                            @endif
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Filter show ledger entries">
+                            @foreach(array_merge(['all'], $ledger['lines']->pluck('category')->filter()->unique()->sort()->values()->all()) as $ledgerCategory)
+                                <button type="button" class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                                    :class="ledgerCategory === @js($ledgerCategory) ? 'border-violet-500 bg-violet-600 text-white' : 'border-[var(--vx-divider)] hover:border-violet-400'"
+                                    :aria-pressed="ledgerCategory === @js($ledgerCategory)"
+                                    @click="ledgerCategory = @js($ledgerCategory)">{{ $ledgerCategory === 'all' ? 'All entries' : ucfirst($ledgerCategory) }}</button>
                             @endforeach
                         </div>
-                    </details>
+                        <div class="mt-2 max-h-80 overflow-y-auto divide-y divide-[var(--vx-divider)]">
+                            @foreach($ledger['lines'] as $line)
+                                <div x-show="ledgerCategory === 'all' || ledgerCategory === @js($line['category'])"
+                                     class="flex items-start justify-between gap-3 py-2 text-xs">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold">{{ $line['at']?->format('M j, g:ia') }} · {{ ucfirst($line['category']) }} · {{ $line['type'] }}</div>
+                                        @if($line['order'])<div class="text-[var(--vx-muted)]">Order {{ $line['order'] }}</div>@endif
+                                        @if($line['message'])<div class="break-words text-[var(--vx-muted)]">{{ $line['message'] }}</div>@endif
+                                        @if($line['status'] === 'waiting')<span class="text-amber-600">Awaiting attribution</span>@endif
+                                    </div>
+                                    <span class="shrink-0 font-semibold tabular-nums {{ $line['amount'] < 0 ? 'vx-bad' : 'vx-good' }}">{{ $line['amount'] < 0 ? '−' : '+' }}${{ number_format(abs($line['amount']), 2) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 @endif
             </section>
         </div>

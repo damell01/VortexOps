@@ -351,6 +351,10 @@ class PayoutService
             case 'hourly':
                 $calculatedPayout = round((float) $streamer->hourly_rate * $hours, 2);
                 $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$hours}hrs worked" . $hoursMissingNote;
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
 
             case 'flat_rate':
@@ -359,6 +363,10 @@ class PayoutService
                 }
                 $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Flat rate \${$calculatedPayout}";
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
 
             case 'pwe_labels':

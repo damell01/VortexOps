@@ -33,12 +33,24 @@
                     <div><h2 class="text-sm font-bold">Open staffing shifts</h2><p class="text-xs text-gray-500">Create Day or Night shifts before assigning employees. Existing employee shifts remain unchanged.</p></div>
                     <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openBlock">+ New open shift</button>
                 </div>
+                @php $staffByBlock = $this->blockAssignments(); @endphp
                 <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                     @forelse ($this->blockRows() as $block)
                         <div class="rounded-lg border border-[var(--vx-divider)] p-3">
                             <div class="flex items-center justify-between gap-2"><strong class="text-sm">{{ $block->label }}</strong><span class="text-xs font-semibold">{{ $block->assigned_staff == 0 ? 'Unassigned' : ($block->assigned_staff < $block->required_staff ? 'Partially staffed' : 'Fully staffed') }}</span></div>
                             <div class="mt-1 text-xs text-gray-500">{{ \Carbon\CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D M j, g:i A') }} – {{ \Carbon\CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D g:i A') }}</div>
                             <div class="mt-2 text-xs font-semibold">{{ $block->assigned_staff }} / {{ $block->required_staff }} employees · {{ max(0, $block->required_staff - $block->assigned_staff) }} open slots</div>
+                            <div class="mt-2 flex flex-wrap gap-1.5" aria-label="Assigned employees">
+                                @foreach ($staffByBlock->get($block->id, collect()) as $assigned)
+                                    <span class="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-900 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-100">
+                                        {{ $assigned->name }}@if($assigned->station_name) · {{ $assigned->station_name }}@endif
+                                        <button type="button" class="ml-1 rounded-full px-1 hover:bg-violet-200 dark:hover:bg-violet-800" wire:click="removeBlockAssignment({{ $block->id }}, {{ $assigned->user_id }})" wire:confirm="Remove {{ $assigned->name }} from this shift? The shift will remain scheduled." aria-label="Remove {{ $assigned->name }}">×</button>
+                                    </span>
+                                @endforeach
+                                @if($block->assigned_staff < $block->required_staff)
+                                    <span class="rounded-full border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500">{{ $block->required_staff - $block->assigned_staff }} open {{ ($block->required_staff - $block->assigned_staff) === 1 ? 'slot' : 'slots' }}</span>
+                                @endif
+                            </div>
                             @if ($block->status !== 'cancelled' && $block->assigned_staff < $block->required_staff)
                                 <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="openBlockAssignment({{ $block->id }})">Assign employee</button>
                             @endif

@@ -109,12 +109,36 @@ class FulfillmentHome extends Page
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
             ->get();
 
-        return $stations->map(function (FulfillmentStation $station) use ($runs) {
+        $runs->load('currentBuyer:id,letter,buyer_username');
+        $buyers = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
+            ->orderBy('run_id')->orderByRaw('LENGTH(letter)')->orderBy('letter')
+            ->get(['id', 'run_id', 'letter', 'buyer_username', 'status'])->groupBy('run_id');
+
+        return $stations->map(function (FulfillmentStation $station) use ($runs, $buyers) {
             $run = $runs->first(fn ($r) => (int) $r->station_occupied_id === $station->id)
                 ?? $runs->first(fn ($r) => $r->status === FulfillmentRun::READY && (int) $r->station_id === $station->id);
+            // The next buyer still waiting after the current one: what the packer picks up next.
+            $next = null;
+            if ($run && $run->isOnStation()) {
+                $list = $buyers->get($run->id, collect())->values();
+                $at = $run->current_buyer_id ? $list->search(fn ($b) => (int) $b->id === (int) $run->current_buyer_id) : -1;
+                $next = $list->slice($at === false ? 0 : $at + 1)->first(fn ($b) => $b->status === 'waiting');
+            }
 
-            return ['station' => $station, 'run' => $run, 'state' => $this->stationState($run)];
+            return ['station' => $station, 'run' => $run, 'state' => $this->stationState($run), 'next' => $next,
+                'current' => $run?->isOnStation() ? $run->currentBuyer : null];
         });
+    }
+
+    /** Today's packing moments for the activity feed. */
+    #[Computed]
+    public function activity(): \Illuminate\Support\Collection
+    {
+        return \App\Models\FulfillmentEvent::query()
+            ->whereIn('type', ['buyer_packed', 'item_verified', 'issue_flagged', 'issue_resolved', 'started', 'finished', 'paused', 'approved'])
+            ->where('created_at', '>=', now()->subDay())
+            ->with(['station:id,name', 'user:id,name'])
+            ->latest('id')->limit(6)->get();
     }
 
     public function stationState(?FulfillmentRun $run): string

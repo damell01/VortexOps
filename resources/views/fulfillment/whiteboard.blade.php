@@ -38,8 +38,8 @@
                 @endforeach
             </select>
             @if (! $station)
-                @foreach (['compact' => 'S', 'comfortable' => 'M', 'large' => 'L'] as $key => $label)
-                    <a href="{{ route('fulfillment.whiteboard', ['density' => $key]) }}" aria-label="{{ ucfirst($key) }} density" @if ($density === $key) aria-current="true" @endif>{{ $label }}</a>
+                @foreach (['compact' => 'S', 'comfortable' => 'M', 'large' => 'L', 'rows' => 'Rows'] as $key => $label)
+                    <a href="{{ route('fulfillment.whiteboard', ['density' => $key]) }}" aria-label="{{ $key === 'rows' ? 'One row per station' : ucfirst($key) . ' cards' }}" @if ($density === $key) aria-current="true" @endif>{{ $label }}</a>
                 @endforeach
             @else
                 <a href="{{ route('fulfillment.whiteboard', ['density' => $density]) }}">All stations</a>
@@ -51,6 +51,14 @@
     <section id="vxf-board" class="vxtv__board" aria-live="polite" aria-label="Stations"></section>
     <nav class="vxtv__pages" id="vxtv-pages" aria-label="Station pages" hidden></nav>
 
+    @unless ($station)
+        <dl class="vxtv__totals" aria-label="Today">
+            <div><dt>Stations active</dt><dd><b data-sum="packing">0</b><span>/<b data-sum="stations">0</b></span></dd></div>
+            <div><dt>Packages today</dt><dd><b data-sum="packed_today">0</b></dd></div>
+            <div><dt>Buyers today</dt><dd><b data-sum="buyers_today">0</b></dd></div>
+            <div class="vxtv__sum-issue"><dt>Open issues</dt><dd><b data-sum="issues">0</b></dd></div>
+        </dl>
+    @endunless
     <footer class="vxtv__ticker" id="vxtv-ticker" hidden>
         <span class="vxtv__ticker-label">Recent</span>
         <div class="vxtv__ticker-window"><div class="vxtv__ticker-track" id="vxtv-track"></div></div>
@@ -71,7 +79,7 @@
     const track = document.getElementById('vxtv-track');
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const statusLabel = { packing: 'Packing', ready: 'Ready', paused: 'Paused', completed: 'Completed', idle: 'Idle' };
-    const perPage = { compact: 8, comfortable: 4, large: 2 }[density] || 4;
+    const perPage = { compact: 8, comfortable: 4, large: 2, rows: 4 }[density] || 4;
 
     document.getElementById('vxf-station-pick').addEventListener('change', (e) => { location.href = e.target.value; });
 
@@ -220,14 +228,14 @@
             updateCard(entry, s, received);
         });
         board.replaceChildren(...ids.map(id => cards.get(id).c));
-        const cols = single ? 1 : Math.min(density === 'large' ? 2 : 4, Math.max(1, Math.min(list.length, perPage)));
+        const cols = single || density === 'rows' ? 1 : Math.min(density === 'large' ? 2 : 4, Math.max(1, Math.min(list.length, perPage)));
         board.style.setProperty('--cols', cols);
         const changed = order.join() !== ids.join();
         order = ids;
         if (changed) { showPage(page); restartRotation(); } else showPage(page);
 
-        if (data.summary) for (const [k, v] of Object.entries(data.summary)) { const n = document.querySelector('[data-sum="' + k + '"]'); if (n) countTo(n, v); }
-        const issues = document.querySelector('.vxtv__sum-issue'); if (issues && data.summary) issues.classList.toggle('is-alert', data.summary.issues > 0);
+        if (data.summary) for (const [k, v] of Object.entries(data.summary)) document.querySelectorAll('[data-sum="' + k + '"]').forEach(n => countTo(n, v));
+        if (data.summary) document.querySelectorAll('.vxtv__sum-issue').forEach(n => n.classList.toggle('is-alert', data.summary.issues > 0));
         renderTicker(data.activity || []);
     }
 

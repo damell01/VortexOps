@@ -189,7 +189,7 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
    @unless($fulfillmentCatalogOnly)<div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
     <button type="button" wire:click="setViewMode('table')" class="vx-view-btn {{ $viewMode === 'table' ? 'active' : '' }}"><x-heroicon-o-list-bullet class="h-4 w-4" /> Table</button>
-   </div>
+   </div>@endunless
     <select wire:model.live="catalogSort" class="{{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
    @if(filled($catalogSearch))<button wire:click="clearCatalogSearch" class="{{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
   </div>

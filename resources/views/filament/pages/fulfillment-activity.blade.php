@@ -125,39 +125,44 @@
         @endif
 
         @if ($shiftOpen)
-            <div class="vxf-drawer-backdrop" wire:click="$set('shiftOpen', false)"></div>
-            <div class="vxf-drawer" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
-                <div class="vxf-drawer__head"><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit shift' : 'Add shift' }}</h2>
-                    <button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></div>
-                <div class="vxf-drawer__body">
-                    <label class="vxf-field">Employee
-                        <select class="vxf-select" wire:model="shift.user_id"><option value="">Choose…</option>
-                            @foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
-                    <div class="vxf-grid2">
-                        <label class="vxf-field">Date<input type="date" class="vxf-input" wire:model="shift.date"></label>
-                        <label class="vxf-field">Station
-                            <select class="vxf-select" wire:model="shift.station_id"><option value="">None yet</option>
-                                @foreach ($this->stationList->where('active', true) as $st)<option value="{{ $st->id }}">{{ $st->name }}</option>@endforeach</select></label>
-                        <label class="vxf-field">Start<input type="time" class="vxf-input" wire:model="shift.start"></label>
-                        <label class="vxf-field">End<input type="time" class="vxf-input" wire:model="shift.end"></label>
-                        <label class="vxf-field">Shift
-                            <select class="vxf-select" wire:model="shift.kind"><option value="">Work it out from the start time</option><option value="day">Day</option><option value="night">Night</option></select></label>
+            <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
+            <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
+                <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+                <form wire:submit.prevent="saveShift" class="vxf-shift-modal__form">
+                    <div class="vxf-shift-modal__body">
+                        <label class="vxf-field">Team Member * <select class="vxf-select" wire:model="shift.user_id" required><option value="">Choose team member…</option>@foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
+                        <fieldset class="vxf-shift-types"><legend>Shift Type *</legend>
+                            @foreach (['day' => ['Day Shift','8:00 AM – 4:00 PM'], 'night' => ['Night Shift','7:00 PM – 11:00 PM'], 'custom' => ['Custom Time','Choose your own hours']] as $type => $details)
+                                <button type="button" class="vxf-shift-type {{ ($shift['selection'] ?? 'day') === $type ? 'is-active' : '' }}" wire:click="chooseShiftKind('{{ $type }}')" aria-pressed="{{ ($shift['selection'] ?? 'day') === $type ? 'true' : 'false' }}"><strong>{{ $details[0] }}</strong><span>{{ $details[1] }}</span></button>
+                            @endforeach
+                        </fieldset>
+                        <div class="vxf-shift-time-row"><label class="vxf-field">Date * <input type="date" class="vxf-input" wire:model="shift.date" required></label><label class="vxf-field">Start Time * <input type="time" class="vxf-input" wire:model.live.debounce.350ms="shift.start" required></label><label class="vxf-field">End Time * <input type="time" class="vxf-input" wire:model.live.debounce.350ms="shift.end" required></label></div>
+                        <p class="vxf-shift-duration" aria-live="polite">Shift Duration: {{ $this->shiftDuration() }}</p>
+                        <div class="vxf-grid2">
+                            <label class="vxf-field">Station (Optional)<select class="vxf-select" wire:model="shift.station_id"><option value="">No station assigned</option>@foreach ($this->stationList->where('active', true) as $st)<option value="{{ $st->id }}">{{ $st->name }}</option>@endforeach</select></label>
+                            <div class="vxf-field vxf-shift-shows"><label for="vxf-show-search">Shows (Optional)</label><input id="vxf-show-search" type="search" class="vxf-input" placeholder="Search and select shows…" wire:model.live.debounce.300ms="showSearch" wire:focus="$set('showPickerOpen', true)" autocomplete="off">
+                                @if ($showPickerOpen)<div class="vxf-shift-shows__options">
+                                    @forelse (collect($this->assignableShows)->filter(fn ($label) => $showSearch === '' || str_contains(mb_strtolower($label), mb_strtolower($showSearch)))->take(15) as $id => $label)
+                                        <button type="button" wire:click="toggleShiftShow({{ $id }})" title="{{ $label }}"><span>{{ $label }}</span><span>{{ in_array((string) $id, $shift['show_ids'] ?? [], true) ? '✓' : '+' }}</span></button>
+                                    @empty <p class="vxf-sub">No matching shows.</p> @endforelse
+                                    <button type="button" class="vxf-shift-shows__close" wire:click="$set('showPickerOpen', false)">Done selecting</button>
+                                </div>@endif
+                                <div class="vxf-shift-chips">@foreach ($shift['show_ids'] ?? [] as $id)<button type="button" wire:key="shift-show-{{ $id }}" wire:click="toggleShiftShow({{ (int) $id }})" title="Remove show">{{ $this->assignableShows[$id] ?? 'Show #' . $id }} ×</button>@endforeach</div>
+                            </div>
+                        </div>
+                        @if (! $shiftId)
+                            <label class="vxf-shift-repeat"><input type="checkbox" wire:model.live="repeatShift"> Repeat Shift (Optional)</label>
+                            @if ($repeatShift)<fieldset class="vxf-shift-weekdays"><legend>Repeat on weekdays</legend>@foreach (['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $index => $name)<label><input type="checkbox" wire:model="repeatDays" value="{{ $index + 1 }}"> {{ $name }}</label>@endforeach</fieldset><label class="vxf-field">Repeat until <input type="date" class="vxf-input" wire:model="repeatUntil"></label>@endif
+                        @endif
+                        <details class="vxf-shift-notes"><summary>Notes (Optional)</summary><textarea class="vxf-input" rows="3" maxlength="255" wire:model="shift.notes" placeholder="Shift instructions…"></textarea></details>
+                        @error('shift')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
+                        @error('shift.*')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
+                        @error('repeatDays')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
+                        @error('repeatUntil')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                     </div>
-                    <p class="vxf-sub" style="margin:0">An end time earlier than the start runs past midnight into the next day.</p>
-                    <label class="vxf-field">Shows to pack (optional)
-                        <select class="vxf-select" multiple size="6" wire:model="shift.show_ids">
-                            @foreach ($this->assignableShows as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
-                        </select></label>
-                    <label class="vxf-field">Notes<input class="vxf-input" wire:model="shift.notes" maxlength="255"></label>
-                    @error('shift')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
-                    @error('shift.*')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
-                </div>
-                <div class="vxf-drawer__foot">
-                    @if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif
-                    <button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)">Cancel</button>
-                    <button type="button" class="vxf-btn vxf-btn--primary" wire:click="saveShift">Save shift</button>
-                </div>
-            </div>
+                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
+                </form>
+            </section>
         @endif
     @endif
 

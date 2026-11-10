@@ -14,6 +14,7 @@ final class FulfillmentNav
             ['Fulfillment Home', \App\Filament\Pages\FulfillmentHome::getUrl(panel: 'admin'), 'Fulfillment', 'heroicon-o-home'],
             ['Station Board', \App\Filament\Pages\FulfillmentStationBoard::getUrl(panel: 'admin'), 'Fulfillment', 'heroicon-o-qr-code'],
             ['Schedule & Activity', \App\Filament\Pages\FulfillmentActivity::getUrl(panel: 'admin'), 'Fulfillment', 'heroicon-o-calendar-days'],
+            ['Reports', \App\Filament\Pages\FulfillmentReports::getUrl(panel: 'admin'), 'Fulfillment', 'heroicon-o-chart-bar'],
             ['TV Whiteboard', route('fulfillment.whiteboard'), 'Fulfillment', 'heroicon-o-tv'],
             \App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review'), 'Management', 'heroicon-o-user-group'] : null,
             \App\Filament\Pages\ShipmentOverview::canAccess() ? ['Shipment Tracking', \App\Filament\Pages\ShipmentOverview::getUrl(panel: 'admin'), 'Management', 'heroicon-o-truck'] : null,

@@ -30,7 +30,7 @@
             <li><b>1</b><div><strong>Shows arrive</strong><span>When a stream ends and its report is approved, the show appears in Ready to pack.</span></div></li>
             <li><b>2</b><div><strong>Assign</strong><span>{{ $manager ? 'Pick a packer and a station: Assign show on an idle station, or Assign in the list.' : 'A manager gives you a show and a station. Yours appear under My shows.' }}</span></div></li>
             <li><b>3</b><div><strong>Pack A–Z</strong><span>Press Start. Buyers are lettered in order; scan, Mark Packed, and it moves to the next one.</span></div></li>
-            <li><b>4</b><div><strong>Finish &amp; sign off</strong><span>The packer reviews the show and confirms it's done. The fulfillment admin checks off the packages and signs it off.</span></div></li>
+            <li><b>4</b><div><strong>Finish &amp; sign off</strong><span>The packer reviews the show and confirms it's done. The fulfillment admin reviews it and signs it off.</span></div></li>
         </ol>
         <button type="button" class="vxf-iconbtn" @click="toggleGuide()" aria-label="Hide the guide"><x-heroicon-o-x-mark /></button>
     </section>
@@ -55,6 +55,18 @@
             @if ($href)</a>@else</div>@endif
         @endforeach
     </section>
+
+    @if ($this->signoffQueue->isNotEmpty())
+        @php $nextSign = $this->signoffQueue->first(); $signCount = $this->signoffQueue->count(); @endphp
+        <div class="vxf-signbar" role="status">
+            <span class="vxf-signbar__icon" aria-hidden="true"><x-heroicon-o-check-badge /></span>
+            <div style="min-width:0;flex:1">
+                <strong>{{ $signCount }} {{ \Illuminate\Support\Str::plural('show', $signCount) }} ready for your sign-off</strong>
+                <span class="vxf-sub">Next: {{ $nextSign->show?->title }} · {{ $nextSign->completed_packages }} packages</span>
+            </div>
+            <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openSignoff({{ $nextSign->id }})">Review &amp; sign off</button>
+        </div>
+    @endif
 
     <section class="vxf-card" aria-labelledby="vxf-stations">
         <div class="vxf-card__head">
@@ -202,6 +214,30 @@
         </div>
 
         <aside style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            @if ($this->signoffQueue->isNotEmpty())
+                @php $queue = $this->signoffQueue; @endphp
+                <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff" x-data="{ all: false }">
+                    <div class="vxf-card__head">
+                        <h2 id="vxf-signoff">Ready for sign-off</h2>
+                        <span class="vxf-signq__count">{{ $queue->count() }}</span>
+                    </div>
+                    <ul class="vxf-list">
+                        @foreach ($queue as $done)
+                            <li @if ($loop->index >= 4) x-show="all" x-cloak @endif>
+                                <span class="vxf-dot vxf-dot--ok" aria-hidden="true"><x-heroicon-o-check-badge /></span>
+                                <div style="min-width:0;flex:1">
+                                    <strong>{{ $done->show?->title }}</strong>
+                                    <span class="vxf-sub">{{ $done->completed_packages }} packages · {{ $done->acknowledged_at ? 'confirmed by ' . $done->acknowledger?->name : 'packed by ' . ($done->packers->pluck('name')->join(', ') ?: '—') }} · {{ $done->finished_at?->diffForHumans(short: true) }}@if ($done->open_flags_count) · <b style="color:#c2410c">{{ $done->open_flags_count }} open {{ \Illuminate\Support\Str::plural('issue', $done->open_flags_count) }}</b>@endif</span>
+                                </div>
+                                <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openSignoff({{ $done->id }})">Review</button>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($queue->count() > 4)
+                        <button type="button" class="vxf-signq__more" x-on:click="all = ! all" x-text="all ? 'Show fewer' : 'Show all {{ $queue->count() }}'"></button>
+                    @endif
+                </section>
+            @endif
             @php $doneToday = $stats['completed_today']; $goal = $doneToday + $stats['remaining']; $todayPct = $goal ? min(100, round($doneToday / $goal * 100)) : 0; @endphp
             <section class="vxf-card vxf-today" aria-labelledby="vxf-today">
                 <div class="vxf-card__head"><h2 id="vxf-today">Packing progress today</h2><span class="vxf-num vxf-today__pct">{{ $todayPct }}%</span></div>
@@ -212,26 +248,6 @@
                 </div>
             </section>
 
-            @if ($this->awaitingSignoff->isNotEmpty())
-                <section class="vxf-card" aria-labelledby="vxf-signoff">
-                    <div class="vxf-card__head">
-                        <h2 id="vxf-signoff">Ready for sign-off</h2>
-                        <span class="vxf-pill vxf-pill--completed">{{ $this->awaitingSignoff->count() }}</span>
-                    </div>
-                    <ul class="vxf-list">
-                        @foreach ($this->awaitingSignoff as $done)
-                            <li>
-                                <span class="vxf-dot vxf-dot--ok" aria-hidden="true"><x-heroicon-o-check-badge /></span>
-                                <div style="min-width:0;flex:1">
-                                    <strong>{{ $done->show?->title }}</strong>
-                                    <span class="vxf-sub">{{ $done->completed_packages }} packages · {{ $done->acknowledged_at ? 'confirmed by ' . $done->acknowledger?->name : 'packed by ' . ($done->packers->pluck('name')->join(', ') ?: '—') }} · {{ $done->finished_at?->diffForHumans(short: true) }}</span>
-                                </div>
-                                <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows', 'signoff' => $done->id]) }}">Review</a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </section>
-            @endif
 
             <section class="vxf-card" aria-labelledby="vxf-issues">
                 <div class="vxf-card__head">
@@ -334,5 +350,6 @@
             </div>
         </div>
     @endif
+    @include('fulfillment.signoff-review')
 </div>
 </x-filament-panels::page>

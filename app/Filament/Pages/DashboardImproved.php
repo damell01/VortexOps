@@ -38,6 +38,20 @@ class DashboardImproved extends Dashboard
         return 'filament.pages.dashboard-improved';
     }
 
+    /**
+     * Fulfillment team members (packers and the fulfillment admin) start on
+     * Fulfillment Home: their stations, ready shows and the sign-off queue.
+     */
+    public function mount(): void
+    {
+        $user = auth()->user();
+        $fulfillmentOnly = $user && ($user->isFulfillment() || $user->isFulfillmentAdmin())
+            && ! $user->hasAnyRole(['admin', 'super_admin']) && ! $user->isOwner() && ! $user->isStreamer();
+        if ($fulfillmentOnly && \App\Filament\Pages\FulfillmentHome::canAccess()) {
+            $this->redirect(\App\Filament\Pages\FulfillmentHome::getUrl());
+        }
+    }
+
     public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         $user = auth()->user();

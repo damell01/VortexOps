@@ -287,13 +287,34 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->assertSee('Final sign-off')->assertSee('Buyers &amp; packages', false)->assertSee('Alpha_Rips')->assertSee('#ORD-')
             ->assertSee('Packer confirmed done')->assertSee('Sign off show')->assertDontSee('Type your full name');
 
-        $page->set('approvalNotes', 'Counts match')->call('signOff')->assertSee('Signed off by Crystal Rice')->assertSee('Print record');
+        $page->set('signoffNote', 'Counts match')->call('signOff')->assertSee('Signed off by Crystal Rice')->assertSee('Print record');
         $run->refresh();
         $this->assertSame(FulfillmentRun::APPROVED, $run->status);
         $this->assertSame($this->manager->id, $run->approved_by);
         $this->assertSame('Counts match', $run->approval_notes);
         $this->actingAs($this->manager)->get(route('fulfillment.run.print', $run))->assertOk()->assertSee('Final sign-off: Crystal Rice', false);
         $page->call('closeSignoff')->assertSet('signoffId', null);
+    }
+
+    public function test_fulfillment_admin_lands_on_home_and_signs_off_from_the_queue_there(): void
+    {
+        $run = $this->started();
+        foreach ($run->buyers()->get() as $buyer) app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
+        app(FulfillmentRunService::class)->confirmDone($run->id, $this->packer);
+
+        // Signing in lands fulfillment people on Fulfillment Home.
+        Livewire::actingAs($this->manager)->test(\App\Filament\Pages\DashboardImproved::class)->assertRedirect(FulfillmentHome::getUrl());
+        Livewire::actingAs($this->packer)->test(\App\Filament\Pages\DashboardImproved::class)->assertRedirect(FulfillmentHome::getUrl());
+
+        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
+            ->assertSee('Ready for sign-off')->assertDontSee('Sign off show')
+            ->call('openSignoff', $run->id)
+            ->assertSee('Buyers &amp; packages', false)->assertSee('Sign off show')
+            ->call('signOff')
+            ->assertSee('Signed off by Crystal Rice')
+            ->call('closeSignoff')
+            ->assertDontSee('Ready for sign-off');
+        $this->assertSame(FulfillmentRun::APPROVED, $run->fresh()->status);
     }
 
     public function test_open_issues_block_the_sign_off(): void

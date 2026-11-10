@@ -30,6 +30,8 @@ use Livewire\WithPagination;
  */
 class FulfillmentActivity extends Page
 {
+    use \App\Filament\Concerns\ReviewsFulfillmentSignoff;
+
     use WithPagination;
 
     /** The page draws its own header. */
@@ -57,15 +59,7 @@ class FulfillmentActivity extends Page
     public int $days = 7;
     public string $lookup = '';
     public array $resolution = [];
-    public string $approvalNotes = '';
 
-    /** The show open in the full-screen sign-off review. */
-    #[\Livewire\Attributes\Url(as: 'signoff')]
-    public ?int $signoffId = null;
-
-    public int $signoffPage = 1;
-
-    public const SIGNOFF_BUYERS_PER_PAGE = 8;
 
     /** Shift drawer. */
     public bool $shiftOpen = false;
@@ -295,21 +289,16 @@ class FulfillmentActivity extends Page
     }
 
     /** Buyers, packages, events, issues and who packed what for one show. */
-    private function recordData(FulfillmentRun $run): array
+    /** Opening the full-screen review closes the log drawer under it. */
+    protected function signoffOpened(): void
     {
-        $buyers = FulfillmentRunBuyer::query()->where('run_id', $run->id)->with('packer:id,name')
-            ->withCount(['packages', 'packages as packed_packages_count' => fn ($q) => $q->where('status', 'packed')])->orderBy('id')->get();
-        $packages = \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)->with(['buyer:id,letter,buyer_username', 'packer:id,name', 'shipment:id,whatnot_order_id,tracking_number,carrier'])->orderBy('id')->get();
-        $events = FulfillmentEvent::query()->where('run_id', $run->id)->with('user:id,name')->orderBy('id')->limit(1000)->get();
-        $flags = FulfillmentFlag::query()->where('run_id', $run->id)->with(['buyer:id,letter,buyer_username', 'reporter:id,name', 'resolver:id,name'])->latest()->get();
-        $contributions = $packages->where('status', 'packed')->groupBy('packed_by')->map(fn ($rows) => ['name' => $rows->first()->packer?->name ?? 'Unknown', 'packages' => $rows->count()])->values();
-        if ($contributions->isEmpty()) {
-            $contributions = $buyers->where('status', 'packed')->groupBy('packed_by')->map(fn ($rows) => ['name' => $rows->first()->packer?->name ?? 'Unknown', 'buyers' => $rows->count()])->values();
-        }
-        $verified = (int) DB::table('fulfillment_verifications')->where('run_id', $run->id)->whereIn('result', ['matched', 'override'])->sum('quantity');
-        $rejected = DB::table('fulfillment_verifications')->where('run_id', $run->id)->where('result', 'unmatched')->count();
+        $this->runId = null;
+        unset($this->logRun, $this->logData);
+    }
 
-        return compact('buyers', 'packages', 'events', 'flags', 'contributions', 'verified', 'rejected');
+    protected function signoffSaved(): void
+    {
+        unset($this->runs);
     }
 
     public function openLog(int $runId): void
@@ -323,59 +312,6 @@ class FulfillmentActivity extends Page
     {
         $this->runId = null;
         unset($this->logRun, $this->logData);
-    }
-
-    // ── Final sign-off (full-screen review) ───────────────────────────────
-
-    #[Computed]
-    public function signoffRun(): ?FulfillmentRun
-    {
-        if (! $this->signoffId || ! $this->isManager()) return null;
-
-        return FulfillmentRun::query()->with(['show:id,title,show_date,start_time,whatnot_channel_id,whatnot_show_id', 'show.channel:id,name', 'show.streamers:id,name',
-            'station:id,name', 'packers:id,name', 'acknowledger:id,name', 'approver:id,name'])
-            ->whereIn('status', [FulfillmentRun::COMPLETED, FulfillmentRun::APPROVED])->find($this->signoffId);
-    }
-
-    #[Computed]
-    public function signoffData(): array
-    {
-        return $this->signoffRun ? $this->recordData($this->signoffRun) : [];
-    }
-
-    public function openSignoff(int $runId): void
-    {
-        abort_unless($this->isManager(), 403);
-        $this->runId = null;
-        $this->signoffId = $runId;
-        $this->signoffPage = 1;
-        $this->approvalNotes = '';
-        unset($this->signoffRun, $this->signoffData, $this->logRun, $this->logData);
-    }
-
-    public function closeSignoff(): void
-    {
-        $this->signoffId = null;
-        unset($this->signoffRun, $this->signoffData);
-    }
-
-    public function setSignoffPage(int $page): void
-    {
-        $this->signoffPage = max(1, $page);
-    }
-
-    /** One confirm: the fulfillment admin has reviewed the show and signs it off. */
-    public function signOff(): void
-    {
-        abort_unless($this->isManager() && $this->signoffId, 403);
-        try {
-            app(FulfillmentRunService::class)->signOff($this->signoffId, auth()->user(), $this->approvalNotes ?: null);
-            $this->approvalNotes = '';
-            Notification::make()->title('Show signed off')->success()->send();
-        } catch (ValidationException $e) {
-            Notification::make()->title(collect($e->errors())->flatten()->first())->warning()->send();
-        }
-        unset($this->signoffRun, $this->signoffData, $this->runs);
     }
 
     public function acknowledge(): void

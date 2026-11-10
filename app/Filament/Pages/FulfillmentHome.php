@@ -25,6 +25,8 @@ use Livewire\Attributes\Computed;
  */
 class FulfillmentHome extends Page
 {
+    use \App\Filament\Concerns\ReviewsFulfillmentSignoff;
+
     /** The page draws its own header. */
     public function getHeading(): string { return ''; }
 
@@ -212,16 +214,6 @@ class FulfillmentHome extends Page
     {
         return FulfillmentShift::query()->with('station:id,name')->where('user_id', auth()->id())
             ->where('ends_at', '>', now())->orderBy('starts_at')->first();
-    }
-
-    /** Finished shows waiting for the fulfillment admin's final sign-off. */
-    #[Computed]
-    public function awaitingSignoff(): \Illuminate\Support\Collection
-    {
-        if (! $this->isManager()) return collect();
-
-        return FulfillmentRun::query()->with(['show:id,title', 'acknowledger:id,name', 'packers:id,name'])
-            ->where('status', FulfillmentRun::COMPLETED)->orderBy('finished_at')->limit(5)->get();
     }
 
     #[Computed]

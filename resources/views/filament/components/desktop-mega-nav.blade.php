@@ -227,6 +227,12 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel vx-mega-channel--trailing">@livewire('channel-switcher')</div>
 @endif
+@if (\App\Services\TeamCommunications::canAccess($user))
+<a href="{{ \App\Filament\Pages\Communications::getUrl(panel: 'admin') }}" class="vx-communications-shortcut" wire:navigate.hover title="Messages and announcements" aria-label="Messages and announcements">
+    <x-filament::icon icon="heroicon-o-chat-bubble-left-right"/>
+    <span>Messages</span>
+</a>
+@endif
 @unless($assistantOnly)
 <button type="button" class="vx-search-trigger" data-vx-search-trigger aria-label="Open search" aria-keyshortcuts="Control+K Meta+K" title="Search">
 <x-filament::icon icon="heroicon-o-magnifying-glass"/>
@@ -368,6 +374,15 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .vx-mega-channel--trailing {margin-left:auto!important}
   .fi-topbar .vx-mega-channel .vx-picker-value {overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
   .fi-topbar .vx-mega-channel :is(.vx-channel-switcher-select,.vx-picker-value) {font-size:12px!important}
+  .fi-topbar .vx-communications-shortcut {
+    display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;
+    color:#f8f5ff!important;text-decoration:none!important;font-size:12px;
+    font-weight:600;padding:8px 10px;border-radius:9px;
+  }
+  .fi-topbar .vx-communications-shortcut svg {width:17px;height:17px}
+  .fi-topbar .vx-communications-shortcut:hover,.fi-topbar .vx-communications-shortcut:focus-visible {
+    background:rgba(168,118,247,.26);color:#fff!important;
+  }
   .fi-topbar .vx-search-trigger {display:none!important}
 }
 @media (min-width:1024px) and (max-width:1350px) {

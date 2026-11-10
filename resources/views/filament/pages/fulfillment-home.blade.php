@@ -85,9 +85,14 @@
         </div>
     @endif
 
-    <section class="vxf-card" aria-labelledby="vxf-stations">
+    <section class="vxf-card vxf-floor" aria-labelledby="vxf-stations" x-data="{ status: 'all' }">
         <div class="vxf-card__head">
-            <h2 id="vxf-stations">Packing stations <span class="vxf-pill vxf-pill--packing" style="margin-left:6px">Live</span></h2>
+            <h2 id="vxf-stations">Packing Stations <span class="vxf-pill vxf-pill--packing">Live</span></h2>
+            <div class="vxf-status-filters" role="group" aria-label="Filter stations by status">
+                @foreach (['all' => 'All', 'packing' => 'Packing', 'hold' => 'On Hold', 'ready' => 'Ready', 'paused' => 'Paused', 'idle' => 'Idle'] as $key => $label)
+                    <button type="button" class="vxf-tab" x-on:click="status = @js($key)" x-bind:aria-pressed="status === @js($key) ? 'true' : 'false'" x-bind:class="{ 'is-active': status === @js($key) }">{{ $label }} <span class="vxf-filter-count">{{ $key === 'all' ? $this->stations->count() : $this->stations->filter(fn ($item) => ($item['state'] === $key))->count() }}</span></button>
+                @endforeach
+            </div>
         </div>
         <div class="vxf-card__body">
             <div class="vxf-carousel" x-data="{ more: false, check() { const t = $refs.track; if (t) this.more = t.scrollWidth > t.clientWidth + 4 }, go(d) { const t = $refs.track; t?.scrollBy({ left: d * t.clientWidth * .9, behavior: 'smooth' }) } }" x-init="$nextTick(() => { check(); if ($refs.track) new ResizeObserver(() => check()).observe($refs.track) })">
@@ -98,7 +103,7 @@
                         $done = (int) ($run->completed_packages ?? 0); $total = $run?->expected_packages;
                         $pct = $total ? min(100, round($done / max(1, $total) * 100)) : 0; @endphp
                     @php $tone = ['packing' => 'packing', 'hold' => 'hold', 'paused' => 'paused', 'ready' => 'ready'][$state] ?? 'idle'; @endphp
-                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}">
+                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}" x-show="status === 'all' || status === @js($state)" x-cloak>
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
                             <span style="display:inline-flex;gap:6px;align-items:center">
@@ -154,7 +159,7 @@
     @endisland
 
     <div class="vxf-cols">
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="vxf-shows-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
         @island(name: 'queue')
         @php
             $manager = $this->isManager();
@@ -227,6 +232,8 @@
         </div>
         @endisland
 
+        </div>
+        <div class="vxf-activity-col">
         @island(name: 'feed')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
         <div class="vxf-island" wire:poll.30s>
@@ -253,7 +260,7 @@
         @endisland
         </div>
 
-        <aside style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <aside class="vxf-summary-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
             @island(name: 'side')
             @php
                 $manager = $this->isManager();

@@ -32,8 +32,10 @@ class PayRunSchedules
     public const SHARE_TYPES = ['profit_share', 'custom_formula', 'shift_share'];
 
     /**
-     * Pay lines only a Tips run pays: tips a business pays monthly. Every
-     * other run, "All pay" included, leaves them for it.
+     * Tip lines: tips a business pays monthly, split off a show's pay when
+     * the streamer's formula includes tips. A Tips run pays them, and so does
+     * "All pay at once" (it pays everything); wages, share and one-off runs
+     * leave them. A line belongs to one run, so tips are never paid twice.
      */
     public const TIP_TYPES = ['show_tips'];
 
@@ -45,7 +47,7 @@ class PayRunSchedules
             'other' => $query->where('payout_type', 'other_payment'),
             'share' => $query->whereIn('payout_type', self::SHARE_TYPES),
             'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES, 'other_payment', \App\Services\OtherPayService::TYPE]),
-            default => $query->whereNotIn('payout_type', [...self::TIP_TYPES, 'other_payment', \App\Services\OtherPayService::TYPE]),
+            default => $query->whereNotIn('payout_type', ['other_payment', \App\Services\OtherPayService::TYPE]),
         };
     }
 

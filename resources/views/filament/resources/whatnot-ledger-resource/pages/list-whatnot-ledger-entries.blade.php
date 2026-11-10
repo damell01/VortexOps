@@ -197,6 +197,7 @@
         </div>
         <div class="vxr-actions">
             <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
+            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('charges') }}">Charges</a>
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
                     wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">
@@ -377,6 +378,7 @@
                 <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
                 <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
+                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('charges') }}"><span>Ledger charges (chargebacks) by streamer</span><span aria-hidden="true">›</span></a>
             </div>
         </details>
     <div class="vxr-grid">

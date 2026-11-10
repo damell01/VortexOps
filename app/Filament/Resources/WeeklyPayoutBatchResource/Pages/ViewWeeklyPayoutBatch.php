@@ -121,8 +121,9 @@ class ViewWeeklyPayoutBatch extends ViewRecord
     }
 
     /**
-     * Ledger tips per channel over the run's dates, every business together.
-     * Channels are shared, so this is a reference total, not an allocation.
+     * Ledger tips per channel over the run's dates, for the run's business
+     * (every business for a run from before businesses). Channels are shared,
+     * so another business's tips never show on this run.
      *
      * @return list<array{channel: string, net: int}>
      */
@@ -132,7 +133,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             $this->record->week_start->toDateString(),
             $this->record->week_end->toDateString(),
             'all',
-            'all',
+            $this->record->business_id ? (string) $this->record->business_id : 'all',
             false,
         );
 
@@ -142,6 +143,32 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             ->sortBy('channel')
             ->values()
             ->all();
+    }
+
+    /**
+     * Verified tips for the people on this run only: a streamer who is not
+     * on the run (another business, or not paid here) is left out.
+     *
+     * @return list<array{streamer_id:int,streamer:string,business_id:mixed,entries:int,credits:int,debits:int,net:int}>
+     */
+    public function runStreamerTips(): array
+    {
+        $onRun = $this->record->payouts()->whereNotNull('streamer_id')->distinct()->pluck('streamer_id')->map(fn ($id) => (int) $id)->all();
+        $rows = app(\App\Services\LedgerTipReport::class)->byStreamer(
+            $this->record->week_start->toDateString(),
+            $this->record->week_end->toDateString(),
+        );
+
+        return array_values(array_filter($rows, fn ($row) => in_array((int) $row['streamer_id'], $onRun, true)));
+    }
+
+    /** Whatnot net on this run's business's shows in the period, per channel. */
+    public function businessNet(): array
+    {
+        $businessId = $this->record->business_id ?: \App\Services\BusinessChannelNet::vcxId();
+
+        return app(\App\Services\BusinessChannelNet::class)->between($businessId,
+            $this->record->week_start->toDateString(), $this->record->week_end->toDateString());
     }
 
     protected function getHeaderWidgets(): array { return []; }

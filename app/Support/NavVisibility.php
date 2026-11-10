@@ -17,6 +17,8 @@ class NavVisibility
         \App\Filament\Pages\MyNotifications::class,
         // Everyone's own Pokédex — every signed-in trainer, whatever their role.
         \App\Filament\Pages\MyPokedex::class,
+        // A charged streamer's own ledger charges; its canAccess() limits it to them.
+        \App\Filament\Pages\MyLedgerCharges::class,
         \App\Filament\Pages\TwoFactorAuth::class,
         \App\Filament\Pages\TwoFactorVerify::class,
         // New show-first shipment page is part of the existing Streams workflow;

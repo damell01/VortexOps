@@ -98,7 +98,7 @@ class HelpTopics
                 'title' => 'Pay run types',
                 'intro' => 'A run type decides which pay lines a run pays and how often it comes round.',
                 'steps' => [
-                    'All pay at once: wages and profit share together, everything except tips a business pays monthly.',
+                    'All pay at once: wages, profit share and tips together — everything a show earns, tips included when they are in the formula.',
                     'Hourly & wages only: hours, shipments, sales splits and other non-share pay.',
                     'Profit share only: profit shares, for a business that pays them on their own schedule (like VCX, monthly).',
                     'Tips: only the tips a business pays monthly. Monthly by default.',

@@ -203,7 +203,7 @@
                     @error("run_types.$index.name")<p class="text-danger-600">{{ $message }}</p>@enderror
                     <label class="mt-3 block"><span class="text-xs font-semibold">What it pays</span>
                         <select wire:model="run_types.{{ $index }}.kind" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
-                            <option value="">All pay at once (wages + profit share)</option><option value="wages">Hourly & wages only (hours, shipments, sales splits)</option><option value="share">Profit share only</option><option value="tips">Tips (monthly tips lines)</option>
+                            <option value="">All pay at once (wages + profit share + tips)</option><option value="wages">Hourly & wages only (hours, shipments, sales splits)</option><option value="share">Profit share only</option><option value="tips">Tips (monthly tips lines)</option>
                         </select>
                     </label>
                     <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.active"> Available for new runs</label>

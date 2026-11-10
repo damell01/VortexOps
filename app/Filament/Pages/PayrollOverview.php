@@ -168,6 +168,17 @@ class PayrollOverview extends Page
         return ['total' => $report['total']['net'] / 100, 'channels' => $channels];
     }
 
+    /**
+     * Whatnot net on the shows VCX's streamers hosted this pay period, per
+     * channel (VortexBreaks, Vortex Cards, ...), to check against payroll.
+     */
+    public function vcxNet(): array
+    {
+        [$start, $end] = $this->periodBounds();
+
+        return app(\App\Services\BusinessChannelNet::class)->between(\App\Services\BusinessChannelNet::vcxId(), $start->toDateString(), $end->toDateString());
+    }
+
     public function changePeriod(int $direction): void
     {
         [$start, $end] = $this->periodBounds();

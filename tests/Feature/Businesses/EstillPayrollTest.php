@@ -154,10 +154,13 @@ class EstillPayrollTest extends TestCase
         $this->assertEqualsWithDelta(40.00, (float) $lines['show_tips']->calculated_payout, 0.001);
         $this->assertSame('tips', PayRunSchedules::kindOf($lines['show_tips']));
 
-        // Weekly runs leave the tips for the Tips run, which pays nothing else.
-        $weekly = PayRunSchedules::scopeToKind(Payout::query(), null)->pluck('payout_type')->all();
+        // Wages runs leave the tips for the Tips run, which pays nothing else;
+        // "All pay at once" pays everything, tips included.
+        $wages = PayRunSchedules::scopeToKind(Payout::query(), 'wages')->pluck('payout_type')->all();
+        $all = PayRunSchedules::scopeToKind(Payout::query(), null)->pluck('payout_type')->sort()->values()->all();
         $tips = PayRunSchedules::scopeToKind(Payout::query(), 'tips')->pluck('payout_type')->all();
-        $this->assertSame(['sales_split'], $weekly);
+        $this->assertSame(['sales_split'], $wages);
+        $this->assertSame(['sales_split', 'show_tips'], $all);
         $this->assertSame('wages', PayRunSchedules::kindOf($lines['sales_split']));
         $this->assertSame(['show_tips'], $tips);
     }

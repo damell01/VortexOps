@@ -240,6 +240,86 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame($this->manager->id, $run->approved_by);
     }
 
+    public function test_packer_reviews_the_show_and_confirms_it_is_done_in_one_step(): void
+    {
+        $run = $this->started();
+        $first = $run->buyers()->first();
+        app(FulfillmentRunService::class)->markPacked($run->id, $first->id, $this->packer);
+
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
+            ->assertDontSee('camera')->assertDontSee('recorded for you')
+            ->call('openReview')
+            ->assertSet('reviewing', true)
+            ->assertSee('Is Big Giveys Top Hit Tuesday done?')
+            ->assertSee('2 buyers not packed yet')
+            ->call('confirmDone');
+        $this->assertSame(FulfillmentRun::PACKING, $run->fresh()->status, 'Unpacked buyers block the confirmation.');
+
+        foreach ($run->buyers()->where('status', '!=', 'packed')->get() as $buyer) app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
+        $board->call('openReview')->assertSee('Every package for this show is packed')->call('confirmDone')->assertSet('reviewing', false);
+
+        $run->refresh();
+        $this->assertSame(FulfillmentRun::COMPLETED, $run->status);
+        $this->assertSame($this->packer->id, $run->acknowledged_by);
+        $board->assertSee('Waiting for the fulfillment admin');
+    }
+
+    public function test_fulfillment_admin_checks_off_every_package_and_signs_the_show_off(): void
+    {
+        $run = $this->started();
+        foreach ($run->buyers()->get() as $buyer) app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
+        app(FulfillmentRunService::class)->confirmDone($run->id, $this->packer);
+
+        $page = Livewire::withQueryParams(['run' => $run->id])->actingAs($this->manager)->test(FulfillmentActivity::class)
+            ->assertSet('logTab', 'signoff')->assertSee('0 of 4 packages checked')->assertSee('Sign off show');
+
+        // Not until every package is checked and a name is typed.
+        $page->set('signature', 'Crystal Rice')->call('signOff');
+        $this->assertSame(FulfillmentRun::COMPLETED, $run->fresh()->status);
+        $one = \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)->first();
+        $page->call('setChecked', $one->id, true)->assertSee('1 of 4 packages checked');
+        $this->assertSame($this->manager->id, $one->fresh()->checked_by);
+        $page->call('setChecked', null, true)->assertSee('4 of 4 packages checked');
+        $page->set('signature', ' ')->call('signOff');
+        $this->assertSame(FulfillmentRun::COMPLETED, $run->fresh()->status);
+
+        // Packers can't check or sign.
+        try {
+            app(FulfillmentRunService::class)->signOff($run->id, $this->packer, 'Dennis');
+            $this->fail('A packer signed off.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+
+        $page->set('signature', 'Crystal Rice')->set('approvalNotes', 'Counts match')->call('signOff')
+            ->assertSee('Signed off by Crystal Rice');
+        $run->refresh();
+        $this->assertSame(FulfillmentRun::APPROVED, $run->status);
+        $this->assertSame('Crystal Rice', $run->signoff_signature);
+        $this->assertSame($this->manager->id, $run->approved_by);
+        $this->assertSame('Crystal Rice', FulfillmentEvent::query()->where('run_id', $run->id)->where('type', 'approved')->value('data')['signature'] ?? null);
+
+        // Signed shows are locked, and the printed record carries the signature.
+        try {
+            app(FulfillmentRunService::class)->setChecked($run->id, $this->manager, 'package', $one->id, false);
+            $this->fail('Unchecked a signed-off show.');
+        } catch (ValidationException) {
+        }
+        $this->actingAs($this->manager)->get(route('fulfillment.run.print', $run))->assertOk()->assertSee('Final sign-off')->assertSee('Crystal Rice')->assertSee('2/2', false);
+    }
+
+    public function test_shows_without_shipments_are_signed_off_buyer_by_buyer(): void
+    {
+        $run = $this->started($this->show(['zoe_cards' => 1, 'bigpullz' => 1], shipments: false));
+        foreach ($run->buyers()->get() as $buyer) app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
+        app(FulfillmentRunService::class)->confirmDone($run->id, $this->packer);
+
+        $this->assertSame(['kind' => 'buyer', 'total' => 2, 'checked' => 0, 'complete' => false], app(FulfillmentRunService::class)->signOffProgress($run->id));
+        app(FulfillmentRunService::class)->setChecked($run->id, $this->manager, 'buyer', null, true);
+        app(FulfillmentRunService::class)->signOff($run->id, $this->manager, 'Crystal Rice');
+        $this->assertSame(FulfillmentRun::APPROVED, $run->fresh()->status);
+    }
+
     public function test_pause_time_is_left_out_of_packing_time(): void
     {
         $this->travelTo(now()->setTime(10, 0));

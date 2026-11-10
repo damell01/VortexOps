@@ -28,7 +28,8 @@ class NeedsAttentionWidget extends Widget
 {
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
-    protected static bool $isLazy = false;
+    // Render the dashboard shell first; compute expensive attention counts afterward.
+    protected static bool $isLazy = true;
     protected static ?string $heading = 'Needs Attention';
     protected string $view = 'filament.widgets.needs-attention';
 

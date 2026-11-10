@@ -86,7 +86,11 @@ class FulfillmentStationBoard extends Page
             $this->authorizeView($run);
             $this->stationId ??= $run->station_occupied_id ?? $run->station_id;
         } elseif ($this->stationId) {
-            $this->runId = FulfillmentRun::query()->where('station_occupied_id', $this->stationId)->value('id');
+            $occupied = FulfillmentRun::query()->where('station_occupied_id', $this->stationId)->first();
+            if ($occupied) {
+                $this->authorizeView($occupied);
+                $this->runId = $occupied->id;
+            }
         } else {
             // A packer with one show on a station lands straight on it.
             $mine = FulfillmentRun::query()->whereIn('status', FulfillmentRun::ON_STATION)

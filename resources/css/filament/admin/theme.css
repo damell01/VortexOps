@@ -1658,3 +1658,49 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
   .fi-topbar .vx-mega-brand.is-wordmark { width: 96px !important; flex-basis: 96px !important; }
   .fi-topbar .vx-mega-brand.is-wordmark img { width: 92px !important; }
 }
+
+/* 2026 navigation refresh: dark violet header, compact active tabs and
+   spacious two-column menus. Scoped to desktop to preserve mobile navigation. */
+@media (min-width:1024px) {
+  .fi-topbar:has(.vx-desktop-mega-nav) {
+    background:linear-gradient(105deg,#191137 0%,#2b1457 55%,#15132e 100%)!important;
+    border-bottom:1px solid rgba(190,165,255,.22)!important;
+  }
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {
+    color:#f5f1ff!important;
+    border:1px solid transparent;
+    border-radius:11px;
+    transition:background .15s ease,border-color .15s ease;
+  }
+  .fi-topbar .vx-mega-home:hover,.fi-topbar .vx-mega-trigger:hover,
+  .fi-topbar .vx-mega-trigger.is-here,.fi-topbar .vx-mega-home.is-here {
+    background:rgba(171,123,255,.2)!important;
+    border-color:rgba(211,190,255,.15);
+    color:#fff!important;
+  }
+  .fi-topbar .vx-mega-menu {
+    top:calc(100% + 6px);
+    border:1px solid #e9e2fa;
+    border-radius:17px;
+    box-shadow:0 22px 55px rgba(22,12,51,.23);
+    padding:14px;
+  }
+  .fi-topbar .vx-mega-menu--wide {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(190px,1fr));
+    width:min(540px,calc(100vw - 36px));
+    gap:4px 14px;
+    white-space:normal;
+  }
+  .fi-topbar .vx-mega-menu--wide .vx-mega-menu-title,
+  .fi-topbar .vx-mega-menu--wide .vx-owner-tools {
+    grid-column:1/-1;
+  }
+  .fi-topbar .vx-mega-menu a.is-current {
+    background:#f0e7ff;
+    color:#5815bd;
+  }
+  .fi-topbar .fi-global-search input {
+    border-radius:999px!important;
+  }
+}

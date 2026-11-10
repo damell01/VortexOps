@@ -214,7 +214,7 @@ class NavVisibility
     public static function readonlyForRole(string $role): array
     {
         $map = self::readonlyByRole();
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
+        return $map[$role] ?? [];
     }
 
     public static function setReadonlyForRole(string $role, array $classes): void

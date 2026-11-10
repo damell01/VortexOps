@@ -224,6 +224,7 @@
         @endisland
 
         </div>
+        <div class="vxf-operations-heading"><h2>Operations at a Glance</h2><span class="vxf-sub"><span class="vxf-live"><i aria-hidden="true"></i> Live</span></span></div>
         <div class="vxf-activity-col">
         @island(name: 'feed')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
@@ -235,11 +236,11 @@
                 <p class="vxf-empty">Nothing packed yet today.</p>
             @else
                 <ul class="vxf-feed">
-                    @foreach ($this->activity as $e)
+                    @foreach ($this->activity->take(5) as $e)
                         @php $kind = ['buyer_packed' => 'ok', 'item_verified' => 'ok', 'approved' => 'ok', 'finished' => 'brand', 'started' => 'brand', 'issue_flagged' => 'bad', 'issue_resolved' => 'ok', 'paused' => 'warn'][$e->type] ?? 'brand'; @endphp
                         <li class="vxf-feed__item vxf-feed__item--{{ $kind }}">
                             <span class="vxf-feed__icon" aria-hidden="true">@if ($e->buyer_letter)<b>{{ $e->buyer_letter }}</b>@elseif ($kind === 'bad')<x-heroicon-o-exclamation-triangle />@elseif ($kind === 'warn')<x-heroicon-o-pause />@else<x-heroicon-o-check />@endif</span>
-                            <span class="vxf-feed__text"><strong>{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'signed off', 'acknowledged' => 'confirmed done'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
+                            <span class="vxf-feed__text"><strong title="{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}">{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'signed off', 'acknowledged' => 'confirmed done'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
                                 <span class="vxf-sub">{{ $e->station?->name }}{{ $e->user ? ' · ' . explode(' ', $e->user->name)[0] : '' }}</span></span>
                             <time class="vxf-sub vxf-num">{{ $e->created_at?->timezone($tz)->format('g:i A') }}</time>
                         </li>
@@ -262,17 +263,17 @@
             <div class="vxf-island" wire:poll.30s>
             @if ($this->signoffQueue->isNotEmpty())
                 @php $queue = $this->signoffQueue; @endphp
-                <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff" x-data="{ all: false }">
+                <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff">
                     <div class="vxf-card__head">
                         <h2 id="vxf-signoff">Ready for sign-off</h2>
                         <span class="vxf-signq__count">{{ $queue->count() }}</span>
                     </div>
                     <ul class="vxf-list">
-                        @foreach ($queue as $done)
-                            <li @if ($loop->index >= 4) x-show="all" x-cloak @endif>
+                        @foreach ($queue->take(2) as $done)
+                            <li>
                                 <span class="vxf-dot vxf-dot--ok" aria-hidden="true"><x-heroicon-o-check-badge /></span>
                                 <div style="min-width:0;flex:1">
-                                    <strong>{{ $done->show?->title }}</strong>
+                                    <strong title="{{ $done->show?->title }}">{{ $done->show?->title }}</strong>
                                     <span class="vxf-sub">{{ $done->completed_packages }} packages · {{ $done->acknowledged_at ? 'confirmed by ' . $done->acknowledger?->name : 'packed by ' . ($done->packers->pluck('name')->join(', ') ?: '—') }} · {{ $done->finished_at?->diffForHumans(short: true) }}@if ($done->open_flags_count) · <b style="color:#c2410c">{{ $done->open_flags_count }} open {{ \Illuminate\Support\Str::plural('issue', $done->open_flags_count) }}</b>@endif</span>
                                 </div>
                                 <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openSignoff({{ $done->id }})">Review</button>
@@ -304,13 +305,13 @@
                     <p class="vxf-empty">No open issues.</p>
                 @else
                     <ul class="vxf-list">
-                        @foreach ($this->openIssues as $flag)
+                        @foreach ($this->openIssues->take(3) as $flag)
                             <li>
                                 <span class="vxf-dot vxf-dot--warn" aria-hidden="true"><x-heroicon-o-exclamation-triangle /></span>
                                 <div style="min-width:0;flex:1">
-                                    <strong>{{ \App\Services\FulfillmentFlagService::label($flag->type) }}</strong>
+                                    <strong title="{{ \App\Services\FulfillmentFlagService::label($flag->type) }}">{{ \App\Services\FulfillmentFlagService::label($flag->type) }}</strong>
                                     @if ($flag->order_number) · Order {{ $flag->order_number }}@endif
-                                    <span class="vxf-sub">{{ $flag->show?->title }}@if ($flag->buyer) · {{ $flag->buyer->letter }} · {{ $flag->buyer->buyer_username }}@endif</span>
+                                    <span class="vxf-sub" title="{{ $flag->show?->title }}">{{ $flag->show?->title }}@if ($flag->buyer) · {{ $flag->buyer->letter }} · {{ $flag->buyer->buyer_username }}@endif</span>
                                 </div>
                                 <span class="vxf-sub" style="white-space:nowrap">{{ $flag->created_at?->diffForHumans(short: true) }}</span>
                             </li>
@@ -321,7 +322,7 @@
 
             <section class="vxf-card" aria-labelledby="vxf-today">
                 <div class="vxf-card__head">
-                    <h2 id="vxf-today">{{ $manager ? "Today's schedule" : 'My shift' }}</h2>
+                    <h2 id="vxf-schedule">{{ $manager ? "Today's schedule" : 'My shift' }}</h2>
                     <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'schedule']) }}">Schedule</a>
                 </div>
                 @if (! $manager && $this->nextShift)
@@ -334,11 +335,11 @@
                     @if ($manager || ! $this->nextShift)<p class="vxf-empty">No shifts today.</p>@endif
                 @else
                     <ul class="vxf-list">
-                        @foreach ($this->todayShifts as $shift)
+                        @foreach ($this->todayShifts->take(3) as $shift)
                             <li>
                                 <span class="vxf-avatar" aria-hidden="true">{{ $initials($shift->user?->name) }}</span>
-                                <div style="min-width:0;flex:1"><strong>{{ $shift->user?->name }}</strong>
-                                    <span class="vxf-sub">{{ $shift->station?->name ?? 'No station' }}@if ($shift->shows->isNotEmpty()) · {{ $shift->shows->pluck('title')->join(', ') }}@endif</span></div>
+                                <div style="min-width:0;flex:1"><strong title="{{ $shift->user?->name }}">{{ $shift->user?->name }}</strong>
+                                    <span class="vxf-sub" title="{{ ($shift->station?->name ?? 'No station') . ($shift->shows->isNotEmpty() ? ' · ' . $shift->shows->pluck('title')->join(', ') : '') }}">{{ $shift->station?->name ?? 'No station' }}@if ($shift->shows->isNotEmpty()) · {{ $shift->shows->pluck('title')->join(', ') }}@endif</span></div>
                                 <span class="vxf-sub vxf-num" style="white-space:nowrap">{{ $shift->starts_at->timezone($tz)->format('g:i A') }}–{{ $shift->ends_at->timezone($tz)->format('g:i A') }}</span>
                             </li>
                         @endforeach

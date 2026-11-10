@@ -1,4 +1,4 @@
-<div wire:poll.30s="refresh" class="vx-global-clock" data-vx="global-clock-banner">
+<div wire:poll.visible.60s="refresh" class="vx-global-clock" data-vx="global-clock-banner">
     @if($entry)
         <style>
             .vx-global-clock:has(.vx-clock-banner){position:sticky;top:var(--vx-topbar-height,76px);z-index:25;margin-bottom:16px}

@@ -66,6 +66,24 @@
     .vxled-table .vxled-date { white-space: nowrap; }
     .vxled-table .vxled-details { min-width: 160px; }
     .vxled-table .vxled-check { width: 1%; padding-right: 0; }
+    /* Keep the ledger usable at laptop widths without forcing a wide table. */
+    .vxled .vxr-table-wrap { max-width: 100%; }
+    .vxled-table { width: 100%; table-layout: fixed; }
+    .vxled-table th, .vxled-table td { padding: 10px 8px; vertical-align: middle; }
+    .vxled-table th:nth-last-child(3), .vxled-table td:nth-last-child(3) { width: 26%; }
+    .vxled-table th:nth-last-child(2), .vxled-table td:nth-last-child(2) { width: 22%; }
+    .vxled-table th:last-child, .vxled-table td:last-child { width: 13%; overflow-wrap: anywhere; white-space: normal; }
+    .vxled-table .vxled-show-buyer { min-width: 0; overflow: hidden; }
+    .vxled-table .vxled-details { min-width: 0; max-width: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    .vxled-table .vxled-date { white-space: normal; }
+    .vxled-table th button { display: inline-flex; align-items: center; gap: 2px; }
+    @media (max-width: 1100px) {
+        .vxled-table { font-size: 12px; }
+        .vxled-table th, .vxled-table td { padding: 9px 6px; }
+        .vxled-table th:nth-last-child(3), .vxled-table td:nth-last-child(3) { width: 25%; }
+        .vxled-table th:nth-last-child(2), .vxled-table td:nth-last-child(2) { width: 19%; }
+    }
+    @media (max-width: 700px) { .vxled-table { min-width: 740px; } }
     .vxled-pages { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .vxled-foot-tools { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; min-width: 0; max-width: 100%; }
     .vxled-pages button { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--vxw-border); background: var(--vxw-surface); color: var(--vxw-text); font-size: 13.5px; font-weight: 600; cursor: pointer; display: inline-grid; place-items: center; }
@@ -560,7 +578,6 @@
                             <th class="num"><button type="button" wire:click="sortBy('amount')">Amount <x-filament::icon :icon="$sortIcon('amount')" class="h-4 w-4" /></button></th>
                             <th><button type="button" wire:click="sortBy('transaction_type')">Type <x-filament::icon :icon="$sortIcon('transaction_type')" class="h-4 w-4" /></button></th>
                             <th><button type="button" wire:click="sortBy('status')">Status <x-filament::icon :icon="$sortIcon('status')" class="h-4 w-4" /></button></th>
-                            <th><button type="button" wire:click="sortBy('whatnot_order_id')">Order ID <x-filament::icon :icon="$sortIcon('whatnot_order_id')" class="h-4 w-4" /></button></th>
                             <th>Show / Buyer</th>
                             <th>Details</th>
                             <th><button type="button" wire:click="sortBy('channel')">Channel <x-filament::icon :icon="$sortIcon('channel')" class="h-4 w-4" /></button></th>
@@ -600,8 +617,7 @@
                                         <span class="vxr-val-muted">—</span>
                                     @endif
                                 </td>
-                                <td style="font-variant-numeric:tabular-nums">{{ $entry->whatnot_order_id ?: '—' }}</td>
-                                <td class="min-w-[180px] max-w-[260px]" x-on:click.stop>
+                                <td class="vxled-show-buyer" x-on:click.stop>
                                     @if($entry->linked_show_id && $entry->linked_show_title && \App\Filament\Resources\ShowResource::canAccess())
                                         <a class="block truncate font-semibold text-violet-700 hover:underline dark:text-violet-300"
                                            href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $entry->linked_show_id]) }}"
@@ -612,15 +628,22 @@
                                     @if($entry->linked_buyer)
                                         <span class="block truncate text-xs text-[var(--vx-muted)]" title="{{ $entry->linked_buyer }}">Buyer: {{ $entry->linked_buyer }}</span>
                                     @endif
+                                    @if($entry->whatnot_order_id)
+                                        <button type="button" wire:click.stop="sortBy('whatnot_order_id')"
+                                            class="block truncate text-xs text-[var(--vx-muted)] hover:underline"
+                                            title="Order {{ $entry->whatnot_order_id }} · click to sort by order">
+                                            #{{ $entry->whatnot_order_id }}
+                                        </button>
+                                    @endif
                                 </td>
-                                <td><div class="vxled-details" title="{{ $entry->message }}">{{ Str::limit((string) $entry->message, 120) ?: '—' }}</div></td>
+                                <td><div class="vxled-details" title="{{ $entry->message }}">{{ Str::limit((string) $entry->message, 85) ?: '—' }}</div></td>
                                 <td style="white-space:nowrap">{{ $entry->channel?->name ?? '—' }}</td>
                             </tr>
                         @endforeach
                         @else
 
                             <tr>
-                                <td colspan="{{ $canDelete ? 9 : 8 }}">
+                                <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
                                         @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $businessFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')

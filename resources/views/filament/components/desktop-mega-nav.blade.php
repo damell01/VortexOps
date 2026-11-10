@@ -114,6 +114,8 @@ if ($fulfillmentOnly) {
     $directGroups = ['Timekeeping'];
 }
 
+// Production launch hold: no Fulfillment submenu links may render.
+unset($groups['Fulfillment']);
 // The route registry is the source of truth for each link's access.
 foreach ($groups as $label => $links) {
     $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {
@@ -153,6 +155,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
 @php $onHome = '/'.trim(request()->path(), '/') === '/'.trim((string) parse_url((string) $homeUrl, PHP_URL_PATH), '/'); @endphp
 <a @class(['vx-mega-home', 'is-here' => $onHome]) href="{{ $homeUrl }}" wire:navigate @if($onHome) aria-current="page" @endif><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
+<span class="vx-mega-trigger" aria-disabled="true" title="Fulfillment Center coming soon" style="opacity:.65;cursor:not-allowed;display:inline-flex;align-items:center;gap:5px">Fulfillment <small style="font-size:10px;font-weight:700">Coming Soon</small></span>
 @foreach($groups as $label=>$links)
 @if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
 @php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp

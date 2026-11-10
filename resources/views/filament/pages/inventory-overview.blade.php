@@ -136,7 +136,7 @@
                     <select wire:model.live="reportCategory" class="ivx-input mt-1"><option value="">All Categories</option>@foreach($this->reportCategories as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach</select></label>
             </div>
             <div class="mt-2 flex gap-2">
-                <div class="ivx-search"><x-heroicon-o-magnifying-glass /><input type="search" wire:model.live.debounce.300ms="reportSearch" placeholder="Search items, SKU, or name…"></div>
+                <div class="ivx-search"><x-heroicon-o-magnifying-glass /><input type="search" wire:model.live.debounce.450ms="reportSearch" placeholder="Search items, SKU, or name…"></div>
                 <a href="{{ $this->exportUrl() }}" target="_blank" class="ivx-btn ic" title="Export Excel" aria-label="Export Excel"><x-heroicon-o-arrow-down-tray /></a>
             </div>
         </section>

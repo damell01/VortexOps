@@ -38,7 +38,7 @@
     <section class="vxfr-kpis" aria-label="Totals for the period">
         @foreach ([
             ['Packages packed', number_format($k['packages']), $k['buyers'] . ' buyers', 'heroicon-o-cube', 'brand'],
-            ['Shows completed', $k['shows'], $k['awaiting'] ? $k['awaiting'] . ' awaiting approval' : 'all approved', 'heroicon-o-check-badge', 'ok'],
+            ['Shows completed', $k['shows'], $k['awaiting'] ? $k['awaiting'] . ' waiting for sign-off' : 'all signed off', 'heroicon-o-check-badge', 'ok'],
             ['Avg. packing time', $k['avg_minutes'] !== null ? \App\Filament\Pages\FulfillmentReports::hours($k['avg_minutes'] * 60) : '—', 'per show, pauses excluded', 'heroicon-o-clock', 'info'],
             ['Packages per hour', $k['per_hour'] ?? '—', 'on finished shows', 'heroicon-o-bolt', 'brand'],
             ['Issues', $k['issues'], $k['issues_open'] ? $k['issues_open'] . ' still open' : 'all resolved', 'heroicon-o-exclamation-triangle', $k['issues_open'] ? 'bad' : 'ok'],
@@ -143,7 +143,7 @@
     <section class="vxf-card" aria-labelledby="vxfr-shows">
         <div class="vxf-card__head">
             <div><h2 id="vxfr-shows">Show completion records</h2>
-                <span class="vxf-sub">One record per finished show: station, who packed what, times, and approval.</span></div>
+                <span class="vxf-sub">One record per finished show: station, who packed what, times, and the final sign-off.</span></div>
             <button type="button" class="vxf-btn vxf-btn--sm" wire:click="exportShows"><x-heroicon-o-arrow-down-tray /> Export CSV</button>
         </div>
         @if ($this->runs->isEmpty())
@@ -161,7 +161,7 @@
                                 <td class="vxf-num" style="white-space:nowrap">{{ $run->started_at?->timezone($tz)->format('M j g:i A') }}<span class="vxf-sub">{{ $run->finished_at?->timezone($tz)->format('M j g:i A') }}</span></td>
                                 <td class="vxf-num">{{ \App\Filament\Pages\FulfillmentReports::hours($run->activeSeconds()) }}</td>
                                 <td class="vxf-num">{{ $run->completed_packages }}{{ $run->expected_packages !== null ? ' / ' . $run->expected_packages : '' }}@if ($run->flags_count)<span class="vxf-sub">{{ $run->flags_count }} {{ \Illuminate\Support\Str::plural('issue', $run->flags_count) }}</span>@endif</td>
-                                <td>@if ($run->status === 'approved')<span class="vxf-pill vxf-pill--approved">Approved</span><span class="vxf-sub">{{ $run->approver?->name }}</span>@else<span class="vxf-pill vxf-pill--completed">Needs approval</span>@endif</td>
+                                <td>@if ($run->status === 'approved')<span class="vxf-pill vxf-pill--approved">Signed off</span><span class="vxf-sub">{{ $run->approver?->name }}</span>@else<span class="vxf-pill vxf-pill--completed">Needs sign-off</span>@endif</td>
                                 <td style="text-align:right;white-space:nowrap">
                                     <a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ route('fulfillment.run.print', $run) }}" target="_blank" rel="noopener" title="Print record" aria-label="Print the record for {{ $run->show?->title }}"><x-heroicon-o-printer /></a>
                                     <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows', 'run' => $run->id]) }}">{{ $run->status === 'completed' && $manager ? 'Review' : 'Log' }}</a>

@@ -30,7 +30,7 @@
             <li><b>1</b><div><strong>Shows arrive</strong><span>When a stream ends and its report is approved, the show appears in Ready to pack.</span></div></li>
             <li><b>2</b><div><strong>Assign</strong><span>{{ $manager ? 'Pick a packer and a station: Assign show on an idle station, or Assign in the list.' : 'A manager gives you a show and a station. Yours appear under My shows.' }}</span></div></li>
             <li><b>3</b><div><strong>Pack A–Z</strong><span>Press Start. Buyers are lettered in order; scan, Mark Packed, and it moves to the next one.</span></div></li>
-            <li><b>4</b><div><strong>Finish &amp; approve</strong><span>Finish the show, confirm the record, and a manager approves it. Every step is logged for you.</span></div></li>
+            <li><b>4</b><div><strong>Finish &amp; sign off</strong><span>The packer reviews the show and confirms it's done. The fulfillment admin checks off the packages and signs it off.</span></div></li>
         </ol>
         <button type="button" class="vxf-iconbtn" @click="toggleGuide()" aria-label="Hide the guide"><x-heroicon-o-x-mark /></button>
     </section>
@@ -191,7 +191,7 @@
                         @php $kind = ['buyer_packed' => 'ok', 'item_verified' => 'ok', 'approved' => 'ok', 'finished' => 'brand', 'started' => 'brand', 'issue_flagged' => 'bad', 'issue_resolved' => 'ok', 'paused' => 'warn'][$e->type] ?? 'brand'; @endphp
                         <li class="vxf-feed__item vxf-feed__item--{{ $kind }}">
                             <span class="vxf-feed__icon" aria-hidden="true">@if ($e->buyer_letter)<b>{{ $e->buyer_letter }}</b>@elseif ($kind === 'bad')<x-heroicon-o-exclamation-triangle />@elseif ($kind === 'warn')<x-heroicon-o-pause />@else<x-heroicon-o-check />@endif</span>
-                            <span class="vxf-feed__text"><strong>{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'approved'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
+                            <span class="vxf-feed__text"><strong>{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'signed off', 'acknowledged' => 'confirmed done'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
                                 <span class="vxf-sub">{{ $e->station?->name }}{{ $e->user ? ' · ' . explode(' ', $e->user->name)[0] : '' }}</span></span>
                             <time class="vxf-sub vxf-num">{{ $e->created_at?->timezone($tz)->format('g:i A') }}</time>
                         </li>

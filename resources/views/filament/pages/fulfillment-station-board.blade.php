@@ -41,7 +41,7 @@
                 <button type="button" wire:click="chooseStation({{ $station->id }})" @class(['vxf-tile', 'vxf-tile--busy' => $active, 'is-selected' => $stationId === $station->id]) aria-pressed="{{ $stationId === $station->id ? 'true' : 'false' }}">
                     <span class="vxf-tile__top"><strong>{{ $station->name }}</strong>
                         <span class="vxf-pill vxf-pill--{{ $active ? 'packing' : 'ready' }}">{{ $active ? 'Packing' : 'Free' }}</span></span>
-                    <span class="vxf-tile__sub">{{ $active?->show?->title ?? ($station->camera_label ? $station->camera_label . ' · ready for a show' : 'Ready for a show') }}</span>
+                    <span class="vxf-tile__sub">{{ $active?->show?->title ?? 'Ready for a show' }}</span>
                     @if ($stationId === $station->id)<span class="vxf-tile__check" aria-hidden="true"><x-heroicon-s-check-circle /></span>@endif
                 </button>
             @endforeach
@@ -93,8 +93,7 @@
                 @endforelse
             </div>
             <ul class="vxf-whatnext">
-                <li><x-heroicon-o-clock /> The start time, station and packer are recorded for you.</li>
-                <li><x-heroicon-o-language /> Buyers load A–Z with their letters, matching the camera.</li>
+                <li><x-heroicon-o-language /> Buyers load A–Z, each with a letter.</li>
                 <li><x-heroicon-o-tv /> The TV whiteboard shows your progress live.</li>
             </ul>
         </section>
@@ -109,7 +108,7 @@
                     <button type="button" role="radio" aria-checked="{{ (int) $stationId === $station->id ? 'true' : 'false' }}" wire:click="$set('stationId', {{ $station->id }})" @disabled($busy)
                         @class(['vxf-tile', 'vxf-tile--busy' => $busy, 'is-selected' => (int) $stationId === $station->id])>
                         <span class="vxf-tile__top"><strong>{{ $station->name }}</strong>@if ((int) $stationId === $station->id)<span class="vxf-tile__check" aria-hidden="true"><x-heroicon-s-check-circle /></span>@endif</span>
-                        <span class="vxf-tile__sub">{{ $busy ? 'Busy · ' . $busy->show?->title : ($station->camera_label ?: 'Free') }}</span>
+                        <span class="vxf-tile__sub">{{ $busy ? 'Busy · ' . $busy->show?->title : 'Free' }}</span>
                     </button>
                 @endforeach
             </div>
@@ -280,7 +279,7 @@
                             <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="openFlag"><x-heroicon-o-flag /><span>Flag Issue</span></button>
                             <button type="button" class="vxf-acttile vxf-acttile--warn" wire:click="pause"><x-heroicon-o-pause /><span>Pause</span></button>
                         @endunless
-                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="finish" wire:confirm="Finish packing this show? Every buyer must be packed or flagged."><x-heroicon-o-check-badge /><span>Finish Show</span></button>
+                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="openReview"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
                     </div>
                     @if ($this->isManager() && $current && $current->status === 'packed')
                         <button type="button" class="vxf-btn vxf-btn--sm" wire:click="reopenBuyer({{ $current->id }})" wire:confirm="Reopen {{ $current->letter }} so it can be packed again?">Reopen buyer</button>
@@ -295,16 +294,49 @@
             <div class="vxf-help__card" @click.outside="help = false">
                 <h2 id="vxf-help-title">How to pack a show</h2>
                 <ol>
-                    <li><b>A</b><span><strong>Pack buyers in letter order.</strong> The big letter is the buyer you're on. It starts at A and the label matches the camera.</span></li>
+                    <li><b>A</b><span><strong>Pack buyers in letter order.</strong> The big letter is the buyer you're on. It starts at A.</span></li>
                     <li><b><x-heroicon-o-qr-code /></b><span><strong>Scan each item.</strong> The scan box is always ready. If scanning isn't set up for a buyer, check against the packing slip.</span></li>
                     <li><b><x-heroicon-o-check /></b><span><strong>Press Mark Packed.</strong> It packs the next package, then moves on to the next buyer by itself.</span></li>
                     <li><b><x-heroicon-o-flag /></b><span><strong>Something wrong? Flag Issue.</strong> That buyer is put on hold and a manager is told. Keep packing the rest.</span></li>
                     <li><b><x-heroicon-o-pause /></b><span><strong>Taking a break? Pause.</strong> The timer stops until you resume.</span></li>
-                    <li><b><x-heroicon-o-flag /></b><span><strong>All done? Finish Show.</strong> Then confirm the record so a manager can approve it.</span></li>
+                    <li><b><x-heroicon-o-check-badge /></b><span><strong>All done? Finish Show.</strong> Look over the review screen and confirm the show is done. The fulfillment admin then signs it off.</span></li>
                 </ol>
                 <button type="button" class="vxf-btn vxf-btn--primary" @click="help = false">Got it</button>
             </div>
         </div>
+
+        @if ($reviewing && ($r = $this->review))
+            @php $ready = $r['notPacked']->isEmpty() && ! $r['blockingIssues']; @endphp
+            <div class="vxf-drawer-backdrop" wire:click="$set('reviewing', false)"></div>
+            <div class="vxf-review" role="dialog" aria-modal="true" aria-labelledby="vxf-review-title" x-data="{ sure: false }" @keydown.escape.window="$wire.set('reviewing', false)">
+                <div class="vxf-review__head">
+                    <p class="vxf-eyebrow">Final check</p>
+                    <h2 id="vxf-review-title">Is {{ $show->title }} done?</h2>
+                    <p class="vxf-sub" style="margin:0">Look it over. Once you confirm, the show goes to the fulfillment admin for final sign-off.</p>
+                </div>
+                <div class="vxf-review__stats">
+                    <div class="vxf-review__stat {{ $r['packedBuyers'] === $r['buyers'] ? 'is-ok' : 'is-bad' }}"><b>{{ $r['packedBuyers'] }}<small>/{{ $r['buyers'] }}</small></b><span>buyers packed</span></div>
+                    @if ($r['packages'])
+                        <div class="vxf-review__stat {{ $r['packedPackages'] === $r['packages'] ? 'is-ok' : 'is-bad' }}"><b>{{ $r['packedPackages'] }}<small>/{{ $r['packages'] }}</small></b><span>packages packed</span></div>
+                    @endif
+                    <div class="vxf-review__stat {{ $r['openIssues'] ? 'is-warn' : 'is-ok' }}"><b>{{ $r['openIssues'] }}</b><span>open {{ \Illuminate\Support\Str::plural('issue', $r['openIssues']) }}{{ $r['issues'] > $r['openIssues'] ? ' · ' . ($r['issues'] - $r['openIssues']) . ' resolved' : '' }}</span></div>
+                    <div class="vxf-review__stat"><b>{{ $r['seconds'] >= 3600 ? gmdate('G\h i\m', $r['seconds']) : intdiv($r['seconds'], 60) . 'm' }}</b><span>packing time</span></div>
+                </div>
+                @if ($r['notPacked']->isNotEmpty())
+                    <div class="vxf-alert" role="alert"><div><strong>{{ $r['notPacked']->count() }} {{ \Illuminate\Support\Str::plural('buyer', $r['notPacked']->count()) }} not packed yet</strong>
+                        <div class="vxf-review__left">@foreach ($r['notPacked']->take(12) as $b)<span><b>{{ $b->letter }}</b> {{ $b->buyer_username }}</span>@endforeach @if ($r['notPacked']->count() > 12)<span>+{{ $r['notPacked']->count() - 12 }} more</span>@endif</div>
+                        <span class="vxf-sub">Pack them, or flag the ones you can't, before the show can be done.</span></div></div>
+                @elseif ($r['blockingIssues'])
+                    <div class="vxf-alert" role="alert"><div><strong>{{ $r['blockingIssues'] }} open {{ \Illuminate\Support\Str::plural('issue', $r['blockingIssues']) }} must be resolved first</strong><span class="vxf-sub">Ask the fulfillment admin to resolve it.</span></div></div>
+                @else
+                    <label class="vxf-review__confirm"><input type="checkbox" x-model="sure"> <span>Every package for this show is packed and the counts above are right.</span></label>
+                @endif
+                <div class="vxf-review__foot">
+                    <button type="button" class="vxf-btn" wire:click="$set('reviewing', false)">Keep packing</button>
+                    <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" wire:click="confirmDone" @disabled(! $ready) x-bind:disabled="{{ $ready ? '! sure' : 'true' }}"><x-heroicon-o-check-badge /> Confirm, show is done</button>
+                </div>
+            </div>
+        @endif
 
         @if ($showFlag)
             <div class="vxf-drawer-backdrop" wire:click="$set('showFlag', false)"></div>
@@ -350,15 +382,15 @@
             <div><dt>Buyers</dt><dd>{{ $run->buyer_count ?? '—' }}</dd></div>
             <div><dt>Packages</dt><dd>{{ $run->completed_packages }}{{ $run->expected_packages !== null ? ' / ' . $run->expected_packages : '' }}</dd></div>
             <div><dt>Packers</dt><dd>{{ $run->packers->pluck('name')->join(', ') ?: '—' }}</dd></div>
-            <div><dt>Approval</dt><dd>{{ $run->approved_at ? 'Approved by ' . $run->approver?->name : 'Waiting for manager' }}</dd></div>
+            <div><dt>Final sign-off</dt><dd>{{ $run->approved_at ? 'Signed off by ' . $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j, g:i A') : 'Waiting for the fulfillment admin' }}</dd></div>
         </dl>
         @if ($run->discrepancies)
-            <div class="vxf-alert" role="note"><div><strong>Check before approving</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $d)<li>{{ $d }}</li>@endforeach</ul></div></div>
+            <div class="vxf-alert" role="note"><div><strong>For the sign-off</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $d)<li>{{ $d }}</li>@endforeach</ul></div></div>
         @endif
         @if ($run->acknowledged_at)
-            <p class="vxf-sub" style="margin:0">Acknowledged by {{ $run->acknowledger?->name }} · {{ $run->acknowledged_at->timezone($tz)->format('M j, g:i A') }}</p>
+            <p class="vxf-sub" style="margin:0">Confirmed done by {{ $run->acknowledger?->name }} · {{ $run->acknowledged_at->timezone($tz)->format('M j, g:i A') }}</p>
         @elseif ($run->packers->contains('id', auth()->id()))
-            <button type="button" class="vxf-btn vxf-btn--primary" style="justify-self:start" wire:click="acknowledge">I confirm these counts are right</button>
+            <button type="button" class="vxf-btn vxf-btn--primary" style="justify-self:start" wire:click="acknowledge">Confirm this show is done</button>
         @endif
     </section>
 @endif

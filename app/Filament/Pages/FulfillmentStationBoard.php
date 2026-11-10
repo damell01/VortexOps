@@ -53,6 +53,9 @@ class FulfillmentStationBoard extends Page
     public ?array $flash = null;
 
     public bool $showFlag = false;
+
+    /** The review screen shown before a show is marked done. */
+    public bool $reviewing = false;
     public string $flagType = 'missing_item';
     public string $flagDetails = '';
     public string $flagOrder = '';
@@ -313,9 +316,45 @@ class FulfillmentStationBoard extends Page
 
     public function finish(): void
     {
+        $this->openReview();
+    }
+
+    public function openReview(): void
+    {
+        $this->reviewing = true;
+        unset($this->review);
+    }
+
+    /** Everything the packer checks on the review screen before saying the show is done. */
+    #[Computed]
+    public function review(): array
+    {
+        $run = $this->run;
+        if (! $run) return [];
+        $buyers = $this->buyers;
+        $packages = \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id);
+        $flags = \App\Models\FulfillmentFlag::query()->where('run_id', $run->id);
+
+        return [
+            'buyers' => $buyers->count(),
+            'packedBuyers' => $buyers->where('status', 'packed')->count(),
+            'notPacked' => $buyers->where('status', '!=', 'packed')->values(),
+            'packages' => (clone $packages)->count(),
+            'packedPackages' => (clone $packages)->where('status', 'packed')->count(),
+            'openIssues' => (clone $flags)->where('status', 'open')->count(),
+            'blockingIssues' => (clone $flags)->where('status', 'open')->where('blocking', true)->count(),
+            'issues' => (clone $flags)->count(),
+            'seconds' => $run->activeSeconds(),
+        ];
+    }
+
+    /** The packer confirms the show is done: packing finished and the record confirmed in one step. */
+    public function confirmDone(): void
+    {
         $this->act(function () {
-            app(FulfillmentRunService::class)->finish($this->runId, auth()->user());
-            $this->say('Show packed. Completion record saved for manager approval.', true);
+            app(FulfillmentRunService::class)->confirmDone($this->runId, auth()->user());
+            $this->reviewing = false;
+            $this->say('Show done. It is with the fulfillment admin for final sign-off.', true);
         });
     }
 
@@ -323,7 +362,7 @@ class FulfillmentStationBoard extends Page
     {
         $this->act(function () {
             app(FulfillmentRunService::class)->acknowledge($this->runId, auth()->user());
-            $this->say('Thanks, completion acknowledged', true);
+            $this->say('Thanks, confirmed as done', true);
         });
     }
 

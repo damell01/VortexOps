@@ -285,7 +285,7 @@ class FulfillmentReports extends Page
         $tz = BusinessTime::zone();
         return response()->streamDownload(function () use ($runs, $splits, $tz) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Show', 'Stream date', 'Channel', 'Station', 'Packers', 'Packed by', 'Started', 'Finished', 'Active time', 'Packages', 'Expected', 'Buyers', 'Issues', 'Status', 'Approved by']);
+            fputcsv($out, ['Show', 'Stream date', 'Channel', 'Station', 'Packers', 'Packed by', 'Started', 'Finished', 'Active time', 'Packages', 'Expected', 'Buyers', 'Issues', 'Status', 'Signed off by', 'Signature']);
             foreach ($runs as $r) {
                 fputcsv($out, [
                     $r->show?->title, $r->show?->show_date?->format('Y-m-d'), $r->show?->channel?->name, $r->station?->name,
@@ -293,7 +293,7 @@ class FulfillmentReports extends Page
                     collect($splits[$r->id] ?? [])->map(fn ($s) => $s['name'] . ' ' . $s['n'])->join('; '),
                     $r->started_at?->timezone($tz)->format('Y-m-d H:i'), $r->finished_at?->timezone($tz)->format('Y-m-d H:i'),
                     self::hours($r->activeSeconds()), $r->completed_packages, $r->expected_packages, $r->buyer_count, $r->flags_count,
-                    $r->status === FulfillmentRun::APPROVED ? 'Approved' : 'Needs approval', $r->approver?->name,
+                    $r->status === FulfillmentRun::APPROVED ? 'Signed off' : 'Needs sign-off', $r->approver?->name, $r->signoff_signature,
                 ]);
             }
             fclose($out);

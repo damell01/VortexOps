@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * One show's fulfillment record: the digital tracking sheet.
  *
- * ready → packing ⇄ paused → completed → approved
+ * ready → packing ⇄ paused → completed (packer confirmed done) → approved (final sign-off)
  * (cancelled ends a run without packing it.)
  */
 class FulfillmentRun extends Model
@@ -66,8 +66,8 @@ class FulfillmentRun extends Model
             self::READY => 'Ready',
             self::PACKING => 'Packing',
             self::PAUSED => 'Paused',
-            self::COMPLETED => 'Completed',
-            self::APPROVED => 'Approved',
+            self::COMPLETED => 'Needs sign-off',
+            self::APPROVED => 'Signed off',
             self::CANCELLED => 'Cancelled',
             default => 'Idle',
         };

@@ -229,7 +229,7 @@ class FulfillmentActivity extends Page
 
     public function blockAssignments(): \Illuminate\Support\Collection
     {
-        if (! $this->isManager()) return collect();
+        if (! $this->isManager() || ! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_assignments')) return collect();
         $ids = $this->blockRows()->pluck('id');
         if ($ids->isEmpty()) return collect();
         return DB::table('fulfillment_shift_assignments as a')
@@ -242,7 +242,21 @@ class FulfillmentActivity extends Page
 
     public function blockRows(): \Illuminate\Support\Collection
     {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_blocks')) return collect();
         return app(\App\Services\FulfillmentShiftBlockService::class)->week(auth()->user(), $this->weekStart()->utc());
+    }
+
+    public function blockHistory(): \Illuminate\Support\Collection
+    {
+        if (! $this->isManager() || ! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_block_events')) return collect();
+        $ids = $this->blockRows()->pluck('id');
+        if ($ids->isEmpty()) return collect();
+        return DB::table('fulfillment_shift_block_events as e')
+            ->leftJoin('users as actor', 'actor.id', '=', 'e.actor_id')
+            ->leftJoin('users as employee', 'employee.id', '=', 'e.employee_id')
+            ->whereIn('e.shift_block_id', $ids)
+            ->select('e.id', 'e.shift_block_id', 'e.action', 'e.created_at', 'actor.name as actor_name', 'employee.name as employee_name')
+            ->orderByDesc('e.id')->limit(30)->get();
     }
 
     /** Shift drawer. */

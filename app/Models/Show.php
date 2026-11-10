@@ -352,6 +352,12 @@ class Show extends Model
     }
 
     /** Fulfillment-role users assigned to work this show — scopes their Fulfillment Center. */
+    /** Fulfillment Center runs: the digital packing record for this show. */
+    public function fulfillmentRuns(): HasMany
+    {
+        return $this->hasMany(FulfillmentRun::class);
+    }
+
     public function fulfillmentUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'show_fulfillment_user')->withTimestamps();

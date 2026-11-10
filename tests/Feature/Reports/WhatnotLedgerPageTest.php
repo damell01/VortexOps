@@ -60,7 +60,7 @@ class WhatnotLedgerPageTest extends TestCase
             ->assertSee('Credits')->assertSee('$70.50')
             ->assertSee('Debits')->assertSee('$6.09')
             ->assertSee('Net Activity')->assertSee('$64.41')
-            ->assertSee('1 transaction')
+            ->assertSee('1 processing or pending')
             ->assertSee('1441763281')
             ->assertSee('+$42.00')
             ->assertSee('-$1.09')

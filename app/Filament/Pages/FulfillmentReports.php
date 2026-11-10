@@ -22,6 +22,12 @@ class FulfillmentReports extends Page
             || $user->isFulfillmentAdmin() || $user->isFulfillment()));
     }
 
+    public function mount(): void
+    {
+        // Productivity now lives on Schedule & Activity.
+        $this->redirect(FulfillmentActivity::getUrl(['tab' => 'productivity']));
+    }
+
     public function getView(): string
     {
         return 'filament.pages.fulfillment-reports';

@@ -55,13 +55,13 @@ class InventoryLocationPickerTest extends TestCase
         $page->set('inventoryLocation', 'all')->assertCanSeeTableRecords([$this->shared, $this->elsewhere]);
     }
 
-    public function test_location_change_clears_bulk_selection_and_resets_loaded_cards(): void
+    public function test_location_change_clears_bulk_selection_and_returns_to_the_first_page(): void
     {
         $page = Livewire::test(ListInventoryItems::class)->set('selectedItems', [(string) $this->shared->id])
-            ->set('selectAllMatching', true)->set('catalogVisible', 120)
+            ->set('selectAllMatching', true)->set('catalogVisible', 48)->set('catalogPage', 3)
             ->set('selectedTableRecords', [(string) $this->shared->id])->set('isTrackingDeselectedTableRecords', true)
             ->set('inventoryLocation', (string) $this->main->id)
-            ->assertSet('selectedItems', [])->assertSet('selectAllMatching', false)->assertSet('catalogVisible', 40)
+            ->assertSet('selectedItems', [])->assertSet('selectAllMatching', false)->assertSet('catalogPage', 1)->assertSet('catalogVisible', 48)
             ->assertSet('selectedTableRecords', [])->assertSet('isTrackingDeselectedTableRecords', false)
             ->assertDispatched('deselectAllTableRecords');
         $page->set('catalogSearch', 'Shelf only')->assertSee('No matching inventory');

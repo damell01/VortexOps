@@ -61,6 +61,11 @@ Artisan::command('storage:prune-runtime {--days=14} {--imports-hours=48} {--max-
 
 Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyFiveMinutes()->name('scheduler-heartbeat')->withoutOverlapping();
 Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')->withoutOverlapping();
+// Fulfillment Center: open a tracking record for shows that just became ready
+// to pack, and tell the assigned packer (or the fulfillment admins).
+Schedule::call(function () {
+    if (\App\Support\AdminModules::isEnabled('fulfillment')) app(\App\Services\FulfillmentQueue::class)->sync();
+})->everyTenMinutes()->name('fulfillment-ready-sync')->withoutOverlapping();
 Schedule::command('db:backup --prune=14')->dailyAt('02:00')->name('daily-db-backup')->withoutOverlapping();
 Schedule::command('storage:prune-runtime --days=14 --imports-hours=48 --max-log-mb=25')->dailyAt('03:15')->name('prune-runtime-storage')->withoutOverlapping();
 Schedule::command('health:check')->everyThirtyMinutes()->sendOutputTo('/dev/null');
@@ -170,6 +175,8 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
 
 // Reconcile imported ledger transactions against exact Whatnot orders and shows.
 Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));
+// Morning nudge when ledger money is still not tied to a show, streamer or house.
+Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('America/Chicago')->name('ledger-unassigned-alert')->withoutOverlapping(30);
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')

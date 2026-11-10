@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Shows;
 
-use App\Filament\Resources\FulfillmentResource\Pages\ListFulfillmentShows;
+use App\Filament\Pages\FulfillmentHome;
 use App\Filament\Widgets\ShowMetricsWidget;
 use App\Models\Setting;
 use App\Models\Shipment;
@@ -121,10 +121,10 @@ class FulfillmentHeadsUpTest extends TestCase
         $slow     = $this->queuedShow(['title' => 'Jumbo Night', 'is_slow_pack' => true]);
         $ordinary = $this->queuedShow(['title' => 'Quick Night']);
 
-        Livewire::test(ListFulfillmentShows::class)
-            ->loadTable()
-            ->filterTable('is_slow_pack', true)
-            ->assertSee('Jumbo Night')->assertDontSee('Quick Night');
+        // The queue lives on Fulfillment Home now; its job-length filter replaced the table filter.
+        Livewire::test(FulfillmentHome::class)->assertSee('Jumbo Night')->assertSee('Quick Night')
+            ->set('length', 'slow')
+            ->assertSee('Jumbo Night')->assertSee('Long job')->assertDontSee('Quick Night');
     }
 
     public function test_the_queue_can_also_be_narrowed_to_the_quick_ones(): void
@@ -133,9 +133,11 @@ class FulfillmentHeadsUpTest extends TestCase
         $slow     = $this->queuedShow(['title' => 'Jumbo Night', 'is_slow_pack' => true]);
         $ordinary = $this->queuedShow(['title' => 'Quick Night']);
 
-        Livewire::test(ListFulfillmentShows::class)
-            ->loadTable()
-            ->filterTable('is_slow_pack', false)
+        Livewire::test(FulfillmentHome::class)
+            ->set('length', 'quick')
             ->assertSee('Quick Night')->assertDontSee('Jumbo Night');
+        // Old bookmarks with the table filter land on the same view.
+        $this->get(\App\Filament\Resources\FulfillmentResource::getUrl('index', ['tableFilters' => ['is_slow_pack' => ['value' => '0']]]))
+            ->assertRedirect(FulfillmentHome::getUrl(['length' => 'quick']));
     }
 }

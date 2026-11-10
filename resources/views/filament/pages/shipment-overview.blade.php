@@ -12,8 +12,8 @@
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Status
                     <select wire:model.live="status" class="mt-1 min-h-11 w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800">
                         <option value="all">All statuses</option>
-                        @foreach(['created','pending','label_generated','label_created','dropped_off','in_transit','shipped','delivered','failed','returned','cancelled'] as $value)
-                            <option value="{{ $value }}">{{ ucwords(str_replace('_', ' ', $value)) }}</option>
+                        @foreach(\App\Filament\Pages\ShipmentOverview::BUCKETS as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -25,11 +25,12 @@
             </div>
         </header>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            @foreach(['created' => 'Created', 'label_generated' => 'Label ready', 'in_transit' => 'In transit', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'failed' => 'Failed'] as $key => $label)
-                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            @foreach(array_diff_key(\App\Filament\Pages\ShipmentOverview::BUCKETS, ['cancelled' => true]) as $key => $label)
+                <button type="button" wire:click="$set('status', '{{ $this->status === $key ? 'all' : $key }}')" aria-pressed="{{ $this->status === $key ? 'true' : 'false' }}"
+                    class="rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:border-violet-400 dark:bg-gray-900 {{ $this->status === $key ? 'border-violet-500 ring-2 ring-violet-200 dark:ring-violet-900' : 'border-gray-200 dark:border-gray-700' }}">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $label }}</p>
-                    <p class="mt-2 text-3xl font-bold tabular-nums text-gray-950 dark:text-white">{{ $totals[$key] ?? 0 }}</p>
-                </div>
+                    <p class="mt-2 text-3xl font-bold tabular-nums text-gray-950 dark:text-white">{{ number_format($totals[$key] ?? 0) }}</p>
+                </button>
             @endforeach
         </div>
         <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -44,7 +45,7 @@
                             <td class="p-3">{{ $shipment->buyer_username ?: 'Unknown' }}</td>
                             <td class="p-3 font-mono text-xs">{{ $shipment->tracking_number ?: 'Pending' }}</td>
                             <td class="p-3">{{ $shipment->carrier ?: '—' }}</td>
-                            <td class="p-3"><span class="rounded-full bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200">{{ ucwords(str_replace('_', ' ', $shipment->status ?: 'pending')) }}</span></td>
+                            <td class="p-3"><span title="{{ $shipment->status }}" class="rounded-full bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200">{{ \App\Filament\Pages\ShipmentOverview::BUCKETS[\App\Filament\Pages\ShipmentOverview::bucket($shipment->status)] }}</span></td>
                             <td class="p-3 text-xs text-gray-500">{{ $shipment->updated_at?->diffForHumans() }}</td>
                         </tr>
                     @empty

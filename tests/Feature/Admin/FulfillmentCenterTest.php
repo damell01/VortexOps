@@ -3,7 +3,6 @@
 namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\FulfillmentResource;
-use App\Filament\Resources\FulfillmentResource\Pages\ListFulfillmentShows;
 use App\Filament\Resources\FulfillmentResource\Pages\ViewFulfillmentShow;
 use App\Filament\Resources\FulfillmentResource\RelationManagers\FulfillmentOrdersRelationManager;
 use App\Livewire\FulfillmentDashboard;
@@ -266,8 +265,10 @@ class FulfillmentCenterTest extends TestCase
         $fulfillment = $this->fulfillmentUser();
         $show->fulfillmentUsers()->attach($fulfillment->id);
 
-        Livewire::actingAs($fulfillment);
-        Livewire::test(ListFulfillmentShows::class)->assertOk()->assertSee('Test Show');
+        // The show list was folded into Fulfillment Home; the old address forwards there.
+        $this->actingAs($fulfillment)->get(\App\Filament\Resources\FulfillmentResource::getUrl('index'))
+            ->assertRedirect(\App\Filament\Pages\FulfillmentHome::getUrl());
+        Livewire::actingAs($fulfillment)->test(\App\Filament\Pages\FulfillmentHome::class)->assertOk()->assertSee('Test Show');
     }
 
     public function test_view_page_renders_for_assigned_fulfillment_member(): void

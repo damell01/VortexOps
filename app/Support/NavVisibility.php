@@ -32,6 +32,11 @@ class NavVisibility
      */
     public const COMPANIONS = [
         \App\Filament\Pages\QuickAddStock::class => [\App\Filament\Pages\InventoryScanner::class],
+        // The Fulfillment Center pages come with fulfillment access, so a saved
+        // role list from before they existed does not lock the team out.
+        \App\Filament\Pages\FulfillmentHome::class => [\App\Filament\Resources\FulfillmentResource::class, \App\Filament\Pages\FulfillmentOperations::class],
+        \App\Filament\Pages\FulfillmentStationBoard::class => [\App\Filament\Resources\FulfillmentResource::class],
+        \App\Filament\Pages\FulfillmentActivity::class => [\App\Filament\Resources\FulfillmentResource::class, \App\Filament\Pages\FulfillmentSchedule::class, \App\Filament\Pages\FulfillmentReports::class],
     ];
 
     /** Default page grants. Assistants have a fixed clock-and-paid-pay workspace. */

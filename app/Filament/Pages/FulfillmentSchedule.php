@@ -36,7 +36,8 @@ class FulfillmentSchedule extends Page
 
     public function mount(): void
     {
-        $this->week = now()->startOfWeek()->toDateString();
+        // The schedule now lives on Schedule & Activity.
+        $this->redirect(FulfillmentActivity::getUrl(['tab' => 'schedule']));
     }
 
     public function changeWeek(int $weeks): void

@@ -528,7 +528,9 @@ class ListWhatnotLedgerEntries extends Page
     public function getLedgerTrendProperty(): array
     {
         $rows = $this->filteredQuery()->toBase()->reorder()
-            ->selectRaw("DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
+            ->selectRaw(\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite'
+                ? "strftime('%Y-%m', whatnot_ledger_entries.created_date) as bucket"
+                : "DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
             ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits')
             ->selectRaw('ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) as debits')
             ->selectRaw('SUM(amount) as net')
@@ -596,7 +598,10 @@ class ListWhatnotLedgerEntries extends Page
      * approved matches (to a show's primary streamer or to a streamer
      * directly), split by category. Business/house entries are not included.
      *
-     * @return list<array{streamer:string, tips:float, sales:float, refunds:float, shipping:float, other:float, net:float, entries:int}>
+     * Corrections and bonuses keep their own columns so a ledger correction
+     * tied to a streamer is visible on that streamer's line.
+     *
+     * @return list<array{streamer:string, tips:float, sales:float, refunds:float, shipping:float, correction:float, bonus:float, other:float, net:float, entries:int}>
      */
     public function getStreamerTotalsProperty(): array
     {
@@ -612,8 +617,8 @@ class ListWhatnotLedgerEntries extends Page
 
         $out = [];
         foreach ($rows as $row) {
-            $out[$row->streamer_id] ??= ['streamer' => $row->name, 'tips' => 0.0, 'sales' => 0.0, 'refunds' => 0.0, 'shipping' => 0.0, 'other' => 0.0, 'net' => 0.0, 'entries' => 0];
-            $bucket = in_array($row->category, ['tips', 'sales', 'refunds', 'shipping'], true) ? $row->category : 'other';
+            $out[$row->streamer_id] ??= ['streamer' => $row->name, 'tips' => 0.0, 'sales' => 0.0, 'refunds' => 0.0, 'shipping' => 0.0, 'correction' => 0.0, 'bonus' => 0.0, 'other' => 0.0, 'net' => 0.0, 'entries' => 0];
+            $bucket = in_array($row->category, ['tips', 'sales', 'refunds', 'shipping', 'correction', 'bonus'], true) ? $row->category : 'other';
             $out[$row->streamer_id][$bucket] += (float) $row->total;
             $out[$row->streamer_id]['net'] += (float) $row->total;
             $out[$row->streamer_id]['entries'] += (int) $row->entries;

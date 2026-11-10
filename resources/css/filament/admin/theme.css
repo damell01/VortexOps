@@ -4,6 +4,7 @@
 @import '../../reports.css';
 @import '../../streamer-leaderboard.css';
 @import '../../communications.css';
+@import '../../fulfillment.css';
 
 @source '../../../../app/Filament/**/*.php';
 @source '../../../views/**/*.blade.php';

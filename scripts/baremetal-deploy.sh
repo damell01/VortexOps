@@ -158,6 +158,14 @@ else
   echo "No migrations changed: skipping migrate"
 fi
 
+# Dev only: keep a Fulfillment Center demo on the site (shows mid-packing, an
+# issue, a paused station, schedule, whiteboard activity). It is rebuilt only
+# when missing or a few days old, never touches real shows, and the command
+# itself refuses to run in production. A failure here never fails a deploy.
+if [ "$ENVIRONMENT" = "development" ] && [ -f app/Console/Commands/FulfillmentDemo.php ]; then
+  php artisan fulfillment:demo --refresh || echo "Fulfillment demo skipped (see above)"
+fi
+
 # Idempotent: keep the same encrypted Web Push keys across deployments.
 if [ -f app/Console/Commands/SetupWebPush.php ]; then
   php artisan push:setup

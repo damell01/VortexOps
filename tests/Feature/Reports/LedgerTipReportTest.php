@@ -56,15 +56,24 @@ class LedgerTipReportTest extends TestCase
     {
         $member = Streamer::create(['name' => fake()->name(), 'business_id' => $business?->id, 'status' => 'active']);
         $show = Show::create(['title' => 'Tip show', 'show_date' => '2026-10-22', 'created_by' => $this->owner->id,
-            'whatnot_channel_id' => ($channel ?? $this->channel)->id, 'status' => 'reconciled']);
+            'whatnot_channel_id' => ($channel ?? $this->channel)->id, 'status' => 'reconciled', 'whatnot_show_id' => $live = fake()->uuid()]);
         $show->streamers()->attach($member->id, ['is_primary' => true]);
-        WhatnotShowOrder::create(['show_id' => $show->id, 'whatnot_order_id' => $order]);
+        // Real imports (Seller API) record the order's livestream; that is the evidence the matcher requires.
+        WhatnotShowOrder::create(['show_id' => $show->id, 'whatnot_order_id' => $order, 'raw_data' => ['_source' => 'seller_api', 'livestream_id' => $live]]);
 
         return $show;
     }
 
+    /** Production ties ledger rows to shows with the hourly matcher; run it the same way. */
+    private function match(): void
+    {
+        $this->artisan('ledger:match-shows')->assertSuccessful();
+    }
+
     private function report(string $business = 'all'): array
     {
+        $this->match();
+
         return app(LedgerTipReport::class)->between('2026-10-01', '2026-10-31', 'all', $business);
     }
 
@@ -107,9 +116,17 @@ class LedgerTipReportTest extends TestCase
         $show->streamers()->attach($member->id);
         $this->tip(10, ['whatnot_order_id' => 'duplicate']);
         $this->assertSame(1000, $this->report((string) $this->business->id)['total']['net']);
+
+        // Two shows claiming the same order are never guessed between.
+        $this->order('claimed-twice', $this->business);
+        $this->order('claimed-twice', $this->business);
+        $this->tip(5, ['whatnot_order_id' => 'claimed-twice']);
+        $this->assertSame(500, $this->report('unassigned')['total']['net']);
+
+        // An approved allocation is not moved by a later conflicting import: it is flagged.
         $this->order('duplicate', $this->business);
-        $this->assertSame(0, $this->report((string) $this->business->id)['total']['net']);
-        $this->assertSame(1000, $this->report('unassigned')['total']['net']);
+        $this->assertSame('flagged', app(\App\Services\LedgerAutoMatcher::class)->match(WhatnotLedgerEntry::where('whatnot_order_id', 'duplicate')->sole()));
+        $this->assertSame(1000, $this->report((string) $this->business->id)['total']['net']);
     }
 
     public function test_mixed_business_show_and_different_channel_order_do_not_attribute_tips(): void
@@ -131,8 +148,8 @@ class LedgerTipReportTest extends TestCase
         $show->streamers()->attach($member->id);
         $this->tip(20, ['whatnot_order_id' => 'missing-business']);
         $this->order('two-shows', $this->business);
-        $second = Show::create(['title' => 'No members', 'show_date' => '2026-10-22', 'whatnot_channel_id' => $this->channel->id, 'created_by' => $this->owner->id]);
-        WhatnotShowOrder::create(['show_id' => $second->id, 'whatnot_order_id' => 'two-shows']);
+        $second = Show::create(['title' => 'No members', 'show_date' => '2026-10-22', 'whatnot_channel_id' => $this->channel->id, 'created_by' => $this->owner->id, 'whatnot_show_id' => $live = fake()->uuid()]);
+        WhatnotShowOrder::create(['show_id' => $second->id, 'whatnot_order_id' => 'two-shows', 'raw_data' => ['_source' => 'seller_api', 'livestream_id' => $live]]);
         $this->tip(30, ['whatnot_order_id' => 'two-shows']);
         $this->assertSame(5000, $this->report('unassigned')['total']['net']);
     }
@@ -180,12 +197,13 @@ class LedgerTipReportTest extends TestCase
     {
         $show = $this->order('paid-tips', $this->business);
         $this->tip(50, ['whatnot_order_id' => 'paid-tips']);
+        $this->match();
         $run = WeeklyPayoutBatch::create(['business_id' => $this->business->id, 'week_start' => '2026-10-19', 'week_end' => '2026-10-25', 'status' => 'draft', 'created_by' => $this->owner->id]);
         $payout = Payout::create(['weekly_payout_batch_id' => $run->id, 'show_id' => $show->id, 'streamer_id' => $show->streamers()->first()->id,
             'payout_type' => 'package', 'calculated_payout' => 75, 'tips_included' => 25, 'status' => 'draft']);
         $page = Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->id])
             ->assertDontSee('Ledger tip totals')->assertDontSee('Tips recorded in this run')
-            ->assertSee('Tips by channel')->assertSee('$50.00');
+            ->assertSee('Verified tips by streamer')->assertSee('Imported tips by channel')->assertSee('$50.00');
         $this->assertSame(5000, array_sum(array_column($page->instance()->assistantAndTipSummary()['tip_channels'], 'net')));
         $this->assertSame('75.00', $payout->fresh()->calculated_payout);
         Livewire::withQueryParams(['period' => 'pay_period', 'payRun' => $run->id, 'business' => (string) $this->business->id])
@@ -253,6 +271,7 @@ class LedgerTipReportTest extends TestCase
         $this->tip(99, ['whatnot_order_id' => 'duplicate-tip']);
 
         $this->tip(99, ['whatnot_order_id' => 'unmatched-tip']);
+        $this->match();
         $rows = app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31');
         $this->assertCount(2, $rows);
         $byName = collect($rows)->keyBy('streamer');

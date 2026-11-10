@@ -15,7 +15,7 @@ final class FulfillmentPayrollHandoffService
         }
         DB::transaction(function () use ($actor, $runId, $shipments, $pwes, $hardCopy) {
             $run = DB::table('fulfillment_runs')->where('id', $runId)->lockForUpdate()->first();
-            if (! $run || $run->status !== 'completed' || $run->payroll_handoff_at) {
+            if (! $run || ! in_array($run->status, ['completed', 'approved'], true) || $run->payroll_handoff_at) {
                 throw ValidationException::withMessages(['run' => 'Run must be completed and not handed off.']);
             }
             $packedBuyers = DB::table('fulfillment_run_buyers')

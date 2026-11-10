@@ -72,6 +72,9 @@ class StationBoard extends Page
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $this->record = (int) $show->id;
+        // The station board is now the Fulfillment Center's own page.
+        $run = app(\App\Services\FulfillmentQueue::class)->ensureRun($show, auth()->id());
+        $this->redirect(\App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]));
         $this->runId = DB::table('fulfillment_runs')
             ->where('show_id', $show->id)->whereIn('status', ['packing', 'completed'])
             ->orderByRaw("CASE WHEN status = 'packing' THEN 0 ELSE 1 END")

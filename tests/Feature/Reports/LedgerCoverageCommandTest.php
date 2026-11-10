@@ -31,7 +31,7 @@ class LedgerCoverageCommandTest extends TestCase
     public function test_business_summary_only_includes_approved_attributions(): void
     {
         $entry = WhatnotLedgerEntry::create([
-            'dedup_key' => 'summary-marketing', 'transaction_type' => 'Marketing', 'amount' => -12,
+            'dedup_key' => 'summary-refund', 'transaction_type' => 'Refund', 'amount' => -12,
         ]);
         $this->artisan('ledger:match-shows', ['--limit' => 1])->assertSuccessful();
         $this->artisan('ledger:business-summary --json')

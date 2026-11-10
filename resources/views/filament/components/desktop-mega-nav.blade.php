@@ -111,6 +111,13 @@ if ($fulfillmentOnly) {
     // Regular fulfillment members keep their existing scoped navigation.
     if ($user?->isFulfillmentAdmin()) {
         $groups = [];
+        if (\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) {
+            $groups['Shows'] = [[
+                'Shows Overview',
+                \App\Filament\Pages\Shows::getUrl(panel: 'admin'),
+                'Shows',
+            ]];
+        }
         if (\App\Support\AdminModules::isEnabled('inventory')
             && \App\Filament\Resources\InventoryItemResource::canAccess()) {
             $groups['Inventory'] = [[

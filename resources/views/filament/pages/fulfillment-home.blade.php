@@ -320,7 +320,7 @@
                 @endif
             </section>
 
-            <section class="vxf-card" aria-labelledby="vxf-today">
+            <section class="vxf-card" aria-labelledby="vxf-schedule">
                 <div class="vxf-card__head">
                     <h2 id="vxf-schedule">{{ $manager ? "Today's schedule" : 'My shift' }}</h2>
                     <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'schedule']) }}">Schedule</a>

@@ -22,6 +22,74 @@
 
     Re-check this against the packaged view after a Filament upgrade.
 --}}
+<style>
+/* Global search results: explicit text colors in both themes, including hover.
+   Scope to this palette so the purple header cannot tint result text. */
+.fi-global-search-results-ctn {
+  background:#fff!important;color:#1b1830!important;
+  border:1px solid #e7e2f0!important;border-radius:16px!important;
+}
+.fi-global-search-results-ctn .fi-global-search-result-group-header {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:#f7f5fc!important;color:#312849!important;
+  padding:11px 14px!important;font-weight:750!important;
+}
+.fi-global-search-results-ctn .vx-gs-viewall {color:#6227b7!important;font-size:12px;font-weight:650;text-decoration:none}
+.fi-global-search-results-ctn .fi-global-search-result-link {
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px!important;color:#1b1830!important;
+  background:#fff!important;text-decoration:none!important;
+  border-bottom:1px solid #efedf4!important;
+}
+.fi-global-search-results-ctn .fi-global-search-result-link:is(:hover,:focus-visible) {
+  background:#f1eafd!important;color:#1b1830!important;
+  outline-offset:-2px;
+}
+.fi-global-search-results-ctn .vx-gs-main {display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.fi-global-search-results-ctn .vx-gs-line {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fi-global-search-results-ctn .fi-global-search-result-heading {
+  color:#19152d!important;font-size:13px!important;font-weight:750!important;
+  line-height:1.35!important;overflow-wrap:anywhere;
+}
+.fi-global-search-results-ctn .vx-gs-subtitle,
+.fi-global-search-results-ctn .fi-global-search-result-detail-value {
+  color:#57526c!important;font-size:12px!important;line-height:1.45!important;
+}
+.fi-global-search-results-ctn .fi-global-search-result-detail-label {color:#635b76!important}
+.fi-global-search-results-ctn .vx-gs-tile {
+  display:flex;align-items:center;justify-content:center;flex:none;
+  width:34px;height:34px;border-radius:10px;
+  background:#f0e9ff!important;color:#6025bc!important;
+}
+.fi-global-search-results-ctn .vx-gs-tile svg {width:18px;height:18px;color:inherit!important}
+.fi-global-search-results-ctn .vx-gs-figure {color:#39246a!important;font-size:12px;font-weight:700}
+.fi-global-search-results-ctn .vx-gs-pill {
+  display:inline-flex;align-items:center;border-radius:999px;
+  padding:3px 8px;font-size:11px;font-weight:700;
+  color:#40375c!important;background:#ede9f5!important;
+}
+.fi-global-search-results-ctn .vx-gs-pill.is-success {background:#dcfce7!important;color:#166534!important}
+.fi-global-search-results-ctn .vx-gs-pill.is-warning {background:#fef3c7!important;color:#92400e!important}
+.fi-global-search-results-ctn .vx-gs-pill.is-danger {background:#fee2e2!important;color:#991b1b!important}
+.fi-global-search-results-ctn .vx-gs-pill.is-info {background:#dbeafe!important;color:#1d4ed8!important}
+.fi-global-search-results-ctn .fi-global-search-no-results-message {color:#57526c!important}
+.dark .fi-global-search-results-ctn {background:#211b30!important;color:#f6f2ff!important;border-color:#54446c!important}
+.dark .fi-global-search-results-ctn .fi-global-search-result-group-header {background:#302541!important;color:#f4edff!important}
+.dark .fi-global-search-results-ctn .vx-gs-viewall {color:#d1adff!important}
+.dark .fi-global-search-results-ctn .fi-global-search-result-link {background:#211b30!important;color:#f6f2ff!important;border-color:#443653!important}
+.dark .fi-global-search-results-ctn .fi-global-search-result-link:is(:hover,:focus-visible) {background:#3b2b53!important;color:#fff!important}
+.dark .fi-global-search-results-ctn .fi-global-search-result-heading {color:#fff!important}
+.dark .fi-global-search-results-ctn .vx-gs-subtitle,
+.dark .fi-global-search-results-ctn .fi-global-search-result-detail-value {color:#c9bedb!important}
+.dark .fi-global-search-results-ctn .fi-global-search-result-detail-label {color:#b9a9d0!important}
+.dark .fi-global-search-results-ctn .vx-gs-tile {background:#46315e!important;color:#e1caff!important}
+.dark .fi-global-search-results-ctn .vx-gs-figure {color:#e1caff!important}
+@media(max-width:640px) {
+  .fi-global-search-results-ctn .fi-global-search-result-link {padding:10px!important;gap:8px}
+  .fi-global-search-results-ctn .vx-gs-line {gap:6px}
+}
+</style>
+
 @php
     $debounce = filament()->getGlobalSearchDebounce();
 

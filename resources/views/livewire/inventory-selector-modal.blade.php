@@ -3,7 +3,7 @@
     <div class="space-y-3">
         <div class="flex gap-2">
             <input
-                wire:model.live="search"
+                wire:model.live.debounce.400ms="search"
                 type="text"
                 placeholder="🔍 Search items by name or SKU..."
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-900 dark:text-white"

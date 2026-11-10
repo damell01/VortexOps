@@ -87,11 +87,11 @@
         $people = $this->people->keyBy('id');
         $times = []; for ($m = 0; $m < 1440; $m += 30) { $times[sprintf('%02d:%02d', intdiv($m, 60), $m % 60)] = \Illuminate\Support\Carbon::createFromTime(intdiv($m, 60), $m % 60)->format('g:i A'); }
     @endphp
-    <div class="vxr-drawer-backdrop" wire:click="closeConfigure"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.closeConfigure()">
+    <div x-data="{ visible: true }" x-show="visible" x-on:vx-close-configure.window="visible = false" class="vxr-drawer-backdrop" x-on:click="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()"></div>
+    <aside class="vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data="{ visible: true }" x-show="visible" x-on:vx-close-configure.window="visible = false" x-on:keydown.escape.window="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()">
         <div class="vxr-drawer-head">
             <div><h2 class="vxr-drawer-title">{{ $event['label'] }}</h2><p class="vxr-hint" style="font-size:13.5px">{{ $event['description'] }}</p></div>
-            <button type="button" class="vxr-x" wire:click="closeConfigure" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+            <button type="button" class="vxr-x" x-on:click="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
         </div>
         <div class="vxr-drawer-body vxr-drawer-body--cols">
             <div class="vxr-span" style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
@@ -191,7 +191,7 @@
         </div>
         <div class="vxr-drawer-foot">
             @if ($dirty)<span class="vxr-hint" style="margin:0 auto 0 0;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:9px;background:#f59e0b"></span> Changes not saved</span>@endif
-            <button type="button" class="vxr-btn" wire:click="closeConfigure">Cancel</button>
+            <button type="button" class="vxr-btn" x-on:click="window.dispatchEvent(new Event('vx-close-configure')); $wire.closeConfigure()">Cancel</button>
             <button type="button" class="vxr-btn vxr-btn--primary" wire:click="saveConfigure" wire:loading.attr="disabled">Save Changes</button>
         </div>
     </aside>
@@ -234,11 +234,11 @@
 
 {{-- ── Email preview ───────────────────────────────────────────────── --}}
 @if ($previewEvent)
-    <div class="vxr-drawer-backdrop" style="z-index:1005" wire:click="closePreview"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data x-on:keydown.escape.window="$wire.closePreview()">
+    <div x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" class="vxr-drawer-backdrop" style="z-index:1005" x-on:click="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()"></div>
+    <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" x-on:keydown.escape.window="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()">
         <div class="vxr-drawer-head">
             <div><p class="vxr-hint" style="margin:0">Email preview</p><h2 class="vxr-drawer-title">{{ \App\Support\NotificationCatalog::label($previewEvent) }}</h2></div>
-            <div style="display:flex;gap:8px"><button type="button" class="vxr-btn vxr-btn--sm" wire:click="sendTest('{{ $previewEvent }}')">Send test</button><button type="button" class="vxr-x" wire:click="closePreview" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>
+            <div style="display:flex;gap:8px"><button type="button" class="vxr-btn vxr-btn--sm" wire:click="sendTest('{{ $previewEvent }}')">Send test</button><button type="button" class="vxr-x" x-on:click="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>
         </div>
         <iframe title="Email preview" sandbox srcdoc="{{ $previewHtml }}" style="flex:1;width:100%;border:0;background:#f4f2fb"></iframe>
     </aside>

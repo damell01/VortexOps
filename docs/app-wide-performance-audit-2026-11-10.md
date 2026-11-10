@@ -36,3 +36,26 @@ The three performance migrations were authored using conditional table/column ch
 
 ## Limits
 No claim is made that the entire app has been exhaustively audited, that tests passed, that migrations ran, or that production response times improved. Additional profiling is required before calling the six-phase project complete.
+
+## Follow-up code pass — 2026-11-10
+
+Repository inspection covered dashboard widgets, authentication redirects, fulfillment queue/run services and authorization, Whatnot analytics show matching, and ledger dropdown/report queries. This is a **targeted cross-module code pass**, not a complete file-by-file or runtime audit.
+
+### Changes applied to both Dev and Production
+- Whatnot analytics worker caches `shows` schema column metadata per process, avoiding repeated `information_schema.columns` lookups. Preserved case-insensitive show-ID ambiguity checks.
+- Fulfillment-only users redirect directly to their fulfillment landing page after login, avoiding an intermediate dashboard load.
+- Needs Attention and Upcoming Shows dashboard widgets are lazy, reducing blocking queries during initial navigation.
+- Dashboard inventory KPI computation now aggregates product/stock totals in SQL rather than hydrating all active products and stock rows. Cost basis still prioritizes `average_cost` then `unit_cost`.
+- Fulfillment run creation computes buyer/order/shipment counts once rather than twice; ready notifications reuse eager-loaded fulfillment assignments.
+- Packing no longer depends on streamer report approval on either environment. Ordinary fulfillment members still need show assignments, and station URL authorization is enforced.
+
+### High-priority unresolved issues
+1. **Ledger 500:** the provided logs only contain slow-query warnings, not the exception. Capture the matching exception and stack trace before changing business logic.
+2. **Database saturation:** the sample contains an 18.1s ledger-status DISTINCT query, 5s activity-log DISTINCT, 3.1s ledger SUM, and hundreds of millisecond-scale show lookups during sync. Capture `SHOW FULL PROCESSLIST`, slow-query EXPLAIN, MySQL buffer/CPU and lock waits while sync is active.
+3. **Show lookup:** `LOWER(whatnot_show_id)` in multiple importers may inhibit ordinary index usage. Any optimization must preserve case-insensitive matching and detection of duplicate/cross-channel IDs. Consider a normalized persisted ID with an indexed unique/multi-column key after data audit.
+4. **Inventory dashboard KPI:** compare SQL aggregation to the previous PHP implementation on representative products, including deleted products, null costs, negative stock and multi-location rows. Verify SQL query plan and index use.
+5. **Ledger dropdowns:** options are cached for 600s, but cache misses can run costly full-table DISTINCT scans. Verify indexes on `status` and `transaction_type` and ensure cache backend is persistent across requests.
+6. **Authentication:** measure actual login request duration, middleware, role checks, session storage, and redirect destination. Direct fulfillment redirect helps only fulfillment accounts.
+7. **Release verification:** compare Dev and Production schemas and deployment commits, run tests and smoke checks, and confirm background workers restart to pick up worker-lifetime schema caching.
+
+No live production tests, deployment, MySQL EXPLAIN, or benchmark results were available for this pass.

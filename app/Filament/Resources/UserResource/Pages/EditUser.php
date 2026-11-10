@@ -68,6 +68,7 @@ class EditUser extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            UserResource::inviteAction(),
             DeleteAction::make()
                 ->visible(fn () => UserResource::canDelete($this->record))
                 ->before(function (DeleteAction $action) {

@@ -147,6 +147,34 @@ class UserResource extends Resource
         return $get(UserPayFields::MODEL) ?: UserPayFields::defaultModel($get(UserPayFields::BUSINESS));
     }
 
+    /** Tell the admin how an invite went; when email failed, give them the link to send themselves. */
+    public static function notifyInviteResult(array $result, \App\Models\User $user): void
+    {
+        $note = \Filament\Notifications\Notification::make();
+        if ($result['sent']) {
+            $note->title('Invite sent to ' . $user->email)->body('They can set their password from the email for the next ' . \App\Support\AccountInvite::DAYS . ' days.')->success();
+        } else {
+            $note->title('The invite email could not be sent')
+                ->body('Copy this link and send it to ' . $user->name . ' yourself (good for ' . \App\Support\AccountInvite::DAYS . ' days): ' . $result['url'])
+                ->warning()->persistent();
+        }
+        $note->send();
+    }
+
+    /** "Send invite": a fresh set-your-password link by email. */
+    public static function inviteAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('send_invite')
+            ->label('Send invite')
+            ->icon('heroicon-o-envelope')
+            ->color('gray')
+            ->visible(fn ($record) => auth()->user()?->isAdmin() && $record?->email)
+            ->requiresConfirmation()
+            ->modalHeading(fn ($record) => 'Email ' . $record->name . ' an invite?')
+            ->modalDescription('They get a link to set their password. It works once, for ' . \App\Support\AccountInvite::DAYS . ' days. Their current password keeps working until they set a new one.')
+            ->action(fn ($record) => static::notifyInviteResult(\App\Support\AccountInvite::send($record, auth()->user()), $record));
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -169,10 +197,18 @@ class UserResource extends Resource
                     ->maxLength(255)
                     ->dehydrated(fn (?string $state): bool => filled($state))
                     ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
-                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->label(fn (string $operation): string => $operation === 'create' ? 'Temporary password (optional)' : 'Password')
                     ->helperText(fn (string $operation): string => $operation === 'edit'
                         ? 'Leave blank to keep the current password.'
-                        : '')
+                        : 'Leave blank and they choose their own from the invite email. If you set one, they must change it the first time they sign in.')
+                    ->columnSpanFull(),
+
+                \Filament\Forms\Components\Toggle::make('send_invite')
+                    ->label('Email them an invite to set their password')
+                    ->helperText('A sign-in link good for ' . \App\Support\AccountInvite::DAYS . ' days. It works once.')
+                    ->default(true)
+                    ->dehydrated(false)
+                    ->visibleOn('create')
                     ->columnSpanFull(),
             ]),
 

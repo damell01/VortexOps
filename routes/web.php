@@ -8,6 +8,12 @@ use App\Models\FulfillmentPackage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
+// Account invites: a signed, single-use link to set a password (see App\Support\AccountInvite).
+Route::middleware(['signed', 'throttle:20,1'])->group(function () {
+    Route::get('/account/invite/{user}', [\App\Http\Controllers\AccountInviteController::class, 'show'])->name('account.invite');
+    Route::post('/account/invite/{user}', [\App\Http\Controllers\AccountInviteController::class, 'update'])->name('account.invite.accept');
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'show'])->name('account.password.edit');
     Route::post('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'update'])->middleware('throttle:6,1')->name('account.password.update');

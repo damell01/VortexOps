@@ -1618,3 +1618,43 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 @media (prefers-reduced-motion: reduce) {
   .fi-btn, .fi-input-wrp, .fi-section, .fi-ta, .fi-wi { transition: none; }
 }
+
+/* ── Top bar: responsive by design ─────────────────────────────────────────
+   Final say on the desktop top bar (1024px and up). The menu never pushes
+   into the channel / business pickers or the right-hand buttons; instead the
+   bar tightens in steps as the window narrows:
+     < 1600  Install app becomes an icon; pickers drop their "CHANNEL" label.
+     < 1440  menu items tighten, chevrons go.
+     < 1280  Dashboard becomes an icon; pickers become an icon (name in tooltip).
+   Under 1024 the phone menu takes over (see mobile-report-pass.css). */
+@media (min-width: 1024px) {
+  .fi-topbar .vx-desktop-mega-nav { flex: 1 1 auto !important; min-width: 0 !important; }
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel { flex: 0 0 auto !important; min-width: 0 !important; max-width: 190px !important; margin-left: auto; }
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel + .vx-mega-channel { margin-left: 6px; }
+  .fi-topbar .vx-mega-channel .vx-picker-btn { max-width: 100%; }
+  .fi-topbar .vx-mega-channel .vx-picker-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fi-topbar .fi-topbar-end { flex: 0 0 auto !important; gap: 8px; }
+  .fi-topbar .vx-mega-group, .fi-topbar .vx-mega-home, .fi-topbar a.vx-mega-trigger { flex: 0 0 auto; }
+}
+@media (min-width: 1024px) and (max-width: 1599px) {
+  .fi-topbar .vx-install-chip__label { display: none !important; }
+  .fi-topbar .vx-install-chip { padding-inline: 10px !important; }
+  .fi-topbar .vx-mega-channel .vx-picker-kicker { display: none !important; }
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel { max-width: 160px !important; }
+}
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .fi-topbar .vx-mega-home, .fi-topbar .vx-mega-trigger { padding-inline: 7px !important; font-size: 13px !important; gap: 4px !important; }
+  .fi-topbar .vx-mega-trigger > svg { display: none !important; }
+  .fi-topbar .vx-desktop-mega-nav { gap: 2px !important; }
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel { max-width: 140px !important; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .fi-topbar .vx-mega-home > span { display: none !important; }
+  .fi-topbar .vx-mega-home, .fi-topbar .vx-mega-trigger { padding-inline: 6px !important; font-size: 12.5px !important; }
+  .fi-topbar .vx-mega-channel .vx-picker-text, .fi-topbar .vx-mega-channel .vx-picker-chevron { display: none !important; }
+  .fi-topbar .vx-desktop-mega-nav .vx-mega-channel { max-width: 44px !important; }
+  .fi-topbar .vx-mega-channel .vx-picker-btn { width: 40px !important; min-width: 40px !important; padding: 0 !important; justify-content: center !important; }
+  .fi-topbar .vx-mega-channel .vx-picker-menu { min-width: 240px; right: 0; left: auto; }
+  .fi-topbar .vx-mega-brand.is-wordmark { width: 96px !important; flex-basis: 96px !important; }
+  .fi-topbar .vx-mega-brand.is-wordmark img { width: 92px !important; }
+}

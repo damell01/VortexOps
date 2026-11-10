@@ -19,6 +19,7 @@ class ViewUser extends ViewRecord
         return [
             UserResource::impersonateAction()->button(),
             EditAction::make(),
+            UserResource::inviteAction(),
 
             Action::make('reset_password')
                 ->label('Reset Password')

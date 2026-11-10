@@ -15,6 +15,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use App\Filament\Pages\DashboardImproved;
 use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
@@ -123,6 +124,14 @@ class AdminPanelProvider extends PanelProvider
             // requested changes before the bell showed anything, which read as
             // "no notification was sent" when one had been written instantly.
             ->databaseNotificationsPolling('60s')
+            // Production-only placeholder. The fulfillment resource is denied
+            // independently, including direct URL requests.
+            ->navigationItems([
+                NavigationItem::make('Fulfillment Center — Coming Soon')
+                    ->icon('heroicon-o-truck')
+                    ->group('Fulfillment')
+                    ->sort(44),
+            ])
             ->navigationGroups(array_map(
                 // Collapse every group except the primary "Streams" workflow, so the
                 // sidebar stays compact — you expand the group you need.

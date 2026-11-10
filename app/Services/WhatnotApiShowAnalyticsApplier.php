@@ -18,6 +18,16 @@ use RuntimeException;
  */
 final class WhatnotApiShowAnalyticsApplier
 {
+    /** Cache schema metadata for the lifetime of each sync process. */
+    private static ?array $showColumns = null;
+
+    private static function hasShowColumn(string $column): bool
+    {
+        self::$showColumns ??= array_fill_keys(Schema::getColumnListing('shows'), true);
+
+        return isset(self::$showColumns[$column]);
+    }
+
     /** ShowAnalytics field => shows column. */
     private const MONEY = [
         'sales' => 'gross_revenue',
@@ -65,8 +75,8 @@ final class WhatnotApiShowAnalyticsApplier
         if ($status === 'WILL_NOT_BE_CALCULATED') {
             // Cancelled, private or a rehearsal: nothing will ever arrive.
             $mark = array_filter([
-                'analytics_sync_status' => Schema::hasColumn('shows', 'analytics_sync_status') ? 'unavailable' : null,
-                'analytics_unavailable_at' => Schema::hasColumn('shows', 'analytics_unavailable_at') && ! $show->analytics_unavailable_at ? now() : null,
+                'analytics_sync_status' => self::hasShowColumn('analytics_sync_status') ? 'unavailable' : null,
+                'analytics_unavailable_at' => self::hasShowColumn('analytics_unavailable_at') && ! $show->analytics_unavailable_at ? now() : null,
             ]);
             if (! $dryRun && $mark) $show->forceFill($mark)->save();
             return ['outcome' => 'not_calculated', 'show_id' => $show->id, 'changes' => []];
@@ -89,7 +99,7 @@ final class WhatnotApiShowAnalyticsApplier
         if (is_numeric($analytics['average_rating'] ?? null)) {
             $values['avg_order_rating'] = round((float) $analytics['average_rating'], 2);
         }
-        $values = array_filter($values, fn ($v, $column) => Schema::hasColumn('shows', $column), ARRAY_FILTER_USE_BOTH);
+        $values = array_filter($values, fn ($v, $column) => self::hasShowColumn($column), ARRAY_FILTER_USE_BOTH);
 
         $changes = array_filter($values, function ($value, $column) use ($show) {
             $current = $show->{$column};
@@ -97,8 +107,8 @@ final class WhatnotApiShowAnalyticsApplier
         }, ARRAY_FILTER_USE_BOTH);
 
         $stamp = array_filter([
-            'analytics_sync_status' => Schema::hasColumn('shows', 'analytics_sync_status') ? 'complete' : null,
-            'last_analytics_synced_at' => Schema::hasColumn('shows', 'last_analytics_synced_at') ? now() : null,
+            'analytics_sync_status' => self::hasShowColumn('analytics_sync_status') ? 'complete' : null,
+            'last_analytics_synced_at' => self::hasShowColumn('last_analytics_synced_at') ? now() : null,
         ]);
 
         if ($changes !== [] && in_array($show->status, self::LOCKED, true)) {

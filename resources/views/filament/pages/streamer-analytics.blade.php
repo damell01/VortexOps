@@ -323,7 +323,7 @@
                 @endif
                 <label class="vxr-control vxr-search">
                     <x-filament::icon icon="heroicon-o-magnifying-glass" />
-                    <input type="search" wire:model.live.debounce.300ms="cardSearch" placeholder="Search streamers…" aria-label="Search streamers">
+                    <input type="search" wire:model.live.debounce.450ms="cardSearch" placeholder="Search streamers…" aria-label="Search streamers">
                 </label>
                 <label class="vxr-toolbar vxsa-sort" style="gap:8px;font-size:13.5px;color:var(--vxw-muted);flex-wrap:nowrap;white-space:nowrap">
                     Sort by

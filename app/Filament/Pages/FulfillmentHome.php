@@ -34,16 +34,15 @@ class FulfillmentHome extends Page
     protected static ?string $slug = 'fulfillment';
     protected static bool $shouldRegisterNavigation = false;
 
-    /** Assign drawer state. */
     /** Ready queue: all shows, long jobs (slow-pack) or the quick ones. */
     #[\Livewire\Attributes\Url(as: 'length')]
-    public string $length = 'all';
+    public string $jobs = 'all';
 
-    public function updatedLength(): void
+    public function updatedJobs(): void
     {
-        if (! in_array($this->length, ['all', 'slow', 'quick'], true)) $this->length = 'all';
+        if (! in_array($this->jobs, ['all', 'slow', 'quick'], true)) $this->jobs = 'all';
         $this->queuePage = 1;
-        unset($this->queue);
+        unset($this->queue, $this->queueTotal);
     }
 
     /** The ready queue shows a page at a time, never one long list. */
@@ -53,26 +52,27 @@ class FulfillmentHome extends Page
 
     public function queuePageCount(): int
     {
-        return max(1, (int) ceil($this->queue->count() / self::QUEUE_PER_PAGE));
+        return max(1, (int) ceil($this->queueTotal / self::QUEUE_PER_PAGE));
     }
 
+    /** How many shows are in the queue (for the current filter). */
+    #[Computed]
+    public function queueTotal(): int
+    {
+        return app(FulfillmentQueue::class)->queueQuery(auth()->user(), $this->jobs)->count();
+    }
+
+    /** @deprecated the page is already sliced in the database */
     public function queueSlice(): \Illuminate\Support\Collection
     {
-        $this->queuePage = max(1, min($this->queuePage, $this->queuePageCount()));
-
-        return $this->queue->forPage($this->queuePage, self::QUEUE_PER_PAGE)->values();
+        return $this->queue;
     }
 
     public function setQueuePage(int $page): void
     {
         $this->queuePage = max(1, min($page, $this->queuePageCount()));
+        unset($this->queue);
     }
-
-    public ?int $assignRunId = null;
-    public array $assignUsers = [];
-    public ?int $assignStation = null;
-    /** Opened from an idle station: the manager still has to pick the show. */
-    public bool $assignPickShow = false;
 
     public static function canAccess(): bool
     {
@@ -91,8 +91,11 @@ class FulfillmentHome extends Page
 
     public function mount(): void
     {
-        // Pick up shows that became ready since the scheduler last ran.
-        app(FulfillmentQueue::class)->sync();
+        // The scheduler syncs every ten minutes; between runs, the first visit
+        // in a couple of minutes picks up newly ready shows. Never on every load.
+        if (\Illuminate\Support\Facades\Cache::add('fulfillment:home-sync', 1, 120)) {
+            app(FulfillmentQueue::class)->sync();
+        }
     }
 
     public function isManager(): bool
@@ -150,11 +153,20 @@ class FulfillmentHome extends Page
         return $run->status;
     }
 
+    /** The current page of the ready queue (paged in the database). */
     #[Computed]
     public function queue(): \Illuminate\Support\Collection
     {
-        return app(FulfillmentQueue::class)->queueRows(auth()->user(), 50, $this->length)
-            ->loadCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')]);
+        $this->queuePage = max(1, min($this->queuePage, $this->queuePageCount()));
+
+        return app(FulfillmentQueue::class)->queuePage(auth()->user(), $this->jobs, $this->queuePage, self::QUEUE_PER_PAGE);
+    }
+
+    /** Shows on this page whose streamer report is approved (one query, not one per row). */
+    #[Computed]
+    public function queueApproved(): array
+    {
+        return FulfillmentQueue::approvedReportShowIds($this->queue->pluck('show_id')->map(fn ($id) => (int) $id)->all());
     }
 
     #[Computed]
@@ -181,20 +193,26 @@ class FulfillmentHome extends Page
         ] + $this->shipping();
     }
 
-    /** In transit / delivered over the last 30 days, grouped the same way as Shipment Tracking. */
+    /**
+     * In transit / delivered over the last 30 days, grouped the same way as
+     * Shipment Tracking. Thirty days of shipments move slowly, so the figure
+     * is cached for two minutes instead of recounted on every refresh.
+     */
     private function shipping(): array
     {
-        $out = ['in_transit' => 0, 'delivered' => 0];
-        \App\Models\Shipment::query()
-            ->whereHas('show', fn ($q) => $q->where('show_date', '>=', now()->subDays(30)->toDateString()))
-            ->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')->get()
-            ->each(function ($row) use (&$out) {
-                $bucket = \App\Filament\Pages\ShipmentOverview::bucket($row->status);
-                if (in_array($bucket, ['in_transit', 'shipped'], true)) $out['in_transit'] += (int) $row->total;
-                if ($bucket === 'delivered') $out['delivered'] += (int) $row->total;
-            });
+        return \Illuminate\Support\Facades\Cache::remember('fulfillment:home-shipping30', 120, function () {
+            $out = ['in_transit' => 0, 'delivered' => 0];
+            DB::table('shipments')->join('shows', 'shows.id', '=', 'shipments.show_id')
+                ->where('shows.show_date', '>=', now()->subDays(30)->toDateString())
+                ->select('shipments.status', DB::raw('COUNT(*) as total'))->groupBy('shipments.status')->get()
+                ->each(function ($row) use (&$out) {
+                    $bucket = \App\Filament\Pages\ShipmentOverview::bucket($row->status);
+                    if (in_array($bucket, ['in_transit', 'shipped'], true)) $out['in_transit'] += (int) $row->total;
+                    if ($bucket === 'delivered') $out['delivered'] += (int) $row->total;
+                });
 
-        return $out;
+            return $out;
+        });
     }
 
     #[Computed]
@@ -225,76 +243,93 @@ class FulfillmentHome extends Page
             ->latest()->limit(4)->get();
     }
 
+    /** The fulfillment team for the assign picker: id, name, initials. */
+    #[Computed]
+    public function team(): array
+    {
+        return User::query()->whereHas('roles', fn ($q) => $q->whereIn('name', ['fulfillment', 'fulfillment_admin']))
+            ->orderBy('name')->get(['id', 'name'])
+            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name,
+                'initials' => collect(preg_split('/\s+/', trim($u->name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('')])
+            ->all();
+    }
+
+    /** @deprecated use team() */
     #[Computed]
     public function teamOptions(): array
     {
-        return User::query()->whereHas('roles', fn ($q) => $q->whereIn('name', ['fulfillment', 'fulfillment_admin']))
-            ->orderBy('name')->pluck('name', 'id')->all();
+        return collect($this->team)->pluck('name', 'id')->all();
     }
 
-    public function openAssign(int $runId): void
+    /** Active stations for the assign picker, with what is on each now. */
+    #[Computed]
+    public function stationChoices(): array
+    {
+        $busy = FulfillmentRun::query()->whereNotNull('station_occupied_id')->with('show:id,title')->get(['id', 'show_id', 'station_occupied_id'])
+            ->keyBy('station_occupied_id');
+
+        return FulfillmentStation::query()->where('active', true)->orderBy('sort')->orderBy('id')->get(['id', 'name'])
+            ->map(fn ($st) => ['id' => $st->id, 'name' => $st->name, 'busy' => $busy->get($st->id)?->show?->title])->all();
+    }
+
+    /**
+     * Ready shows for the assign picker's search: no page re-render, just data.
+     *
+     * @return list<array{id:int,title:string,date:?string,users:list<int>,station:?int,packages:?int}>
+     */
+    #[\Livewire\Attributes\Renderless]
+    public function assignShows(string $search = ''): array
     {
         abort_unless($this->isManager(), 403);
-        $run = FulfillmentRun::query()->with('show.fulfillmentUsers:id')->findOrFail($runId);
-        $this->assignRunId = $run->id;
-        $this->assignUsers = $run->show?->fulfillmentUsers->pluck('id')->map(fn ($id) => (string) $id)->all() ?? [];
-        $this->assignStation = $run->station_id;
-        $this->resetErrorBag();
+        $search = trim($search);
+
+        return FulfillmentRun::query()->where('fulfillment_runs.status', FulfillmentRun::READY)
+            ->join('shows', 'shows.id', '=', 'fulfillment_runs.show_id')
+            ->when($search !== '', fn ($q) => $q->where('shows.title', 'like', '%' . addcslashes($search, '%_\\') . '%'))
+            ->with('show.fulfillmentUsers:id')
+            ->orderByDesc('shows.show_date')->orderByDesc('fulfillment_runs.id')
+            ->limit(40)->get(['fulfillment_runs.id', 'fulfillment_runs.show_id', 'fulfillment_runs.station_id', 'fulfillment_runs.expected_packages', 'shows.title', 'shows.show_date'])
+            ->map(fn ($r) => ['id' => $r->id, 'title' => $r->title, 'date' => $r->show_date ? \Illuminate\Support\Carbon::parse($r->show_date)->format('M j') : null,
+                'users' => $r->show?->fulfillmentUsers->pluck('id')->map(fn ($id) => (int) $id)->values()->all() ?? [],
+                'station' => $r->station_id ? (int) $r->station_id : null, 'packages' => $r->expected_packages])
+            ->all();
     }
 
-    /** "Assign show" on an idle station: choose a ready show for it. */
-    public function openAssignToStation(int $stationId): void
+    /**
+     * Save an assignment from the assign modal: who packs the show and,
+     * optionally, the station. Re-renders only the parts it changes.
+     *
+     * @return array{ok:bool,message:string}
+     */
+    public function saveAssignment(int $runId, array $users = [], ?int $stationId = null): array
     {
         abort_unless($this->isManager(), 403);
-        abort_unless(FulfillmentStation::query()->whereKey($stationId)->where('active', true)->exists(), 404);
-        $this->reset('assignRunId', 'assignUsers');
-        $this->assignStation = $stationId;
-        $this->assignPickShow = true;
-        $this->resetErrorBag();
-    }
-
-    public function updatedAssignRunId(): void
-    {
-        $run = $this->assignRunId ? FulfillmentRun::query()->with('show.fulfillmentUsers:id')->find($this->assignRunId) : null;
-        $this->assignUsers = $run?->show?->fulfillmentUsers->pluck('id')->map(fn ($id) => (string) $id)->all() ?? [];
-    }
-
-    /** Ready shows a manager can put on a station. */
-    public function readyRunOptions(): array
-    {
-        return FulfillmentRun::query()->where('status', FulfillmentRun::READY)->with('show:id,title,show_date')
-            ->get()->sortByDesc(fn ($r) => $r->show?->show_date)
-            ->mapWithKeys(fn ($r) => [$r->id => ($r->show?->show_date?->format('M j') ?? '') . ' · ' . ($r->show?->title ?? 'Show')])->all();
-    }
-
-    public function closeAssign(): void
-    {
-        $this->reset('assignRunId', 'assignUsers', 'assignStation', 'assignPickShow');
-    }
-
-    public function saveAssign(): void
-    {
-        abort_unless($this->isManager(), 403);
-        $this->validate([
-            'assignRunId' => ['required', 'integer'],
-        ], [
-            'assignRunId.required' => 'Choose a show to assign.',
-        ]);
-        $this->validate([
-            'assignUsers' => ['array'],
-            'assignUsers.*' => ['integer'],
-            'assignStation' => ['nullable', 'integer'],
-        ]);
-        $run = FulfillmentRun::query()->with('show')->findOrFail($this->assignRunId);
+        $run = FulfillmentRun::query()->with('show')->find($runId);
+        if (! $run || ! $run->show) return ['ok' => false, 'message' => 'That show is no longer ready to pack.'];
+        $users = array_values(array_unique(array_map('intval', array_filter($users, 'is_numeric'))));
+        $stationId = $stationId ?: null;
         try {
-            app(FulfillmentRunService::class)->assign($run->show, $this->assignUsers, auth()->user(), $this->assignStation ?: null);
+            app(FulfillmentRunService::class)->assign($run->show, $users, auth()->user(), $stationId);
         } catch (ValidationException $e) {
-            $this->addError('assignUsers', collect($e->errors())->flatten()->first());
-            return;
+            return ['ok' => false, 'message' => (string) collect($e->errors())->flatten()->first()];
         }
-        $this->closeAssign();
-        unset($this->stations, $this->queue);
+        unset($this->stations, $this->queue, $this->queueTotal, $this->stats, $this->stationChoices);
+        foreach (['floor', 'queue', 'side'] as $island) $this->renderIsland($island);
         Notification::make()->title('Assignment saved')->success()->send();
+
+        return ['ok' => true, 'message' => 'Assignment saved'];
+    }
+
+    /** Sign-off review: show it, and refresh what signing off changes. */
+    protected function signoffOpened(): void
+    {
+        $this->renderIsland('signoff');
+    }
+
+    protected function signoffSaved(): void
+    {
+        unset($this->stats, $this->activity);
+        foreach (['signoff', 'floor', 'side', 'feed'] as $island) $this->renderIsland($island);
     }
 
     public function statusPill(string $state): string

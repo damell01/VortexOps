@@ -122,8 +122,9 @@ class FulfillmentHeadsUpTest extends TestCase
         $ordinary = $this->queuedShow(['title' => 'Quick Night']);
 
         // The queue lives on Fulfillment Home now; its job-length filter replaced the table filter.
-        Livewire::test(FulfillmentHome::class)->assertSee('Jumbo Night')->assertSee('Quick Night')
-            ->set('length', 'slow')
+        Livewire::test(FulfillmentHome::class)->assertSee('Jumbo Night')->assertSee('Quick Night');
+        Livewire::withQueryParams(['length' => 'slow'])->test(FulfillmentHome::class)
+            ->assertSet('jobs', 'slow')
             ->assertSee('Jumbo Night')->assertSee('Long job')->assertDontSee('Quick Night');
     }
 
@@ -133,9 +134,12 @@ class FulfillmentHeadsUpTest extends TestCase
         $slow     = $this->queuedShow(['title' => 'Jumbo Night', 'is_slow_pack' => true]);
         $ordinary = $this->queuedShow(['title' => 'Quick Night']);
 
-        Livewire::test(FulfillmentHome::class)
-            ->set('length', 'quick')
+        Livewire::withQueryParams(['length' => 'quick'])->test(FulfillmentHome::class)
             ->assertSee('Quick Night')->assertDontSee('Jumbo Night');
+        // Switching the filter resets to the first page and narrows the count.
+        $home = Livewire::test(FulfillmentHome::class)->set('queuePage', 3)->set('jobs', 'quick');
+        $this->assertSame(1, $home->get('queuePage'));
+        $this->assertSame(1, $home->instance()->queueTotal);
         // Old bookmarks with the table filter land on the same view.
         $this->get(\App\Filament\Resources\FulfillmentResource::getUrl('index', ['tableFilters' => ['is_slow_pack' => ['value' => '0']]]))
             ->assertRedirect(FulfillmentHome::getUrl(['length' => 'quick']));

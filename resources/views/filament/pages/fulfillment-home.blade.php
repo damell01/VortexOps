@@ -1,14 +1,10 @@
 <x-filament-panels::page>
 @php
     $manager = $this->isManager();
-    $stats = $this->stats;
-    $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
-    $tz = \App\Support\BusinessTime::zone();
-    $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
 @endphp
 @include('fulfillment.dev-banner')
 @include('fulfillment.motion')
-<div class="vxf" wire:poll.20s x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') !== 'hidden' } catch (e) { return true } })(),
+<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') !== 'hidden' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
@@ -34,6 +30,14 @@
         <button type="button" class="vxf-iconbtn" @click="toggleGuide()" aria-label="Hide the guide"><x-heroicon-o-x-mark /></button>
     </section>
 
+    @island(name: 'floor')
+    @php
+        $manager = $this->isManager();
+        $stats = $this->stats;
+        $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
+        $tz = \App\Support\BusinessTime::zone();
+    @endphp
+    <div class="vxf-island" wire:poll.20s>
     <section class="vxf-stats" aria-label="Today at a glance">
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
@@ -109,7 +113,7 @@
                                     <span class="vxf-station__next">Last buyer</span>
                                 @endif
                                 <span class="vxf-actions">
-                                    @if ($manager && $state === 'ready')<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">Assign</button>@endif
+                                    @if ($manager && $state === 'ready')<button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-assign', {{ \Illuminate\Support\Js::from(['runId' => $run->id, 'title' => $show->title, 'users' => $show->fulfillmentUsers->pluck('id')->all(), 'station' => $row['station']->id]) }})">Assign</button>@endif
                                     <a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}" aria-label="Open {{ $row['station']->name }}" title="Open station"><x-heroicon-o-chevron-right /></a>
                                 </span>
                             </div>
@@ -117,7 +121,7 @@
                             <div class="vxf-station__idle"><x-heroicon-o-inbox /><span>No show assigned</span></div>
                             <div class="vxf-station__foot vxf-actions">
                                 @if ($manager)
-                                    <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openAssignToStation({{ $row['station']->id }})"><x-heroicon-o-plus /> Assign show</button>
+                                    <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {{ \Illuminate\Support\Js::from(['station' => $row['station']->id]) }})"><x-heroicon-o-plus /> Assign show</button>
                                 @endif
                                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['station' => $row['station']->id]) }}">Open</a>
                             </div>
@@ -132,28 +136,43 @@
         </div>
     </section>
 
+    </div>
+    @endisland
+
     <div class="vxf-cols">
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        @island(name: 'queue')
+        @php
+            $manager = $this->isManager();
+            $tz = \App\Support\BusinessTime::zone();
+            $total = $this->queueTotal;
+            $per = \App\Filament\Pages\FulfillmentHome::QUEUE_PER_PAGE;
+            $pages = $this->queuePageCount();
+            $requireReport = \App\Services\FulfillmentQueue::requiresApprovedReport();
+            $approved = $requireReport ? $this->queueApproved : [];
+            $ordersLink = \App\Filament\Resources\FulfillmentResource::canAccess();
+        @endphp
+        <div class="vxf-island" wire:poll.60s>
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
-                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }} <span class="vxf-pill">{{ $this->queue->count() }}</span></h2>
-                <div class="vxf-tabs" role="group" aria-label="Job length">
+                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
+                <div class="vxf-tabs" role="group" aria-label="Job length" x-data="{ tab: @js($jobs) }">
                     @foreach (['all' => 'All', 'slow' => 'Long jobs', 'quick' => 'Quick'] as $key => $label)
-                        <button type="button" class="vxf-tab" wire:click="$set('length', '{{ $key }}')" aria-pressed="{{ $length === $key ? 'true' : 'false' }}" aria-selected="{{ $length === $key ? 'true' : 'false' }}">{{ $label }}</button>
+                        <button type="button" class="vxf-tab" x-on:click="tab = '{{ $key }}'" wire:click="$set('jobs', '{{ $key }}')" x-bind:aria-pressed="tab === '{{ $key }}' ? 'true' : 'false'" aria-pressed="{{ $jobs === $key ? 'true' : 'false' }}">{{ $label }}</button>
                     @endforeach
                 </div>
             </div>
             @if ($this->queue->isEmpty())
-                <p class="vxf-empty">{{ $length !== 'all' ? 'No ' . ($length === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>
+                <p class="vxf-empty">{{ $jobs !== 'all' ? 'No ' . ($jobs === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>
             @else
-                <div class="vxf-table-wrap">
+                <div class="vxf-table-wrap" wire:loading.class="vxf-dim" wire:target="jobs, setQueuePage">
                     <table class="vxf-table">
                         <thead><tr><th scope="col">Show</th><th scope="col">Streamed</th><th scope="col">Orders · Pkgs</th><th scope="col">Station · Packer</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
                         <tbody>
-                            @foreach ($this->queueSlice() as $run)
+                            @foreach ($this->queue as $run)
                                 @php $show = $run->show; $people = $run->packers->isNotEmpty() ? $run->packers : $show->fulfillmentUsers;
                                     $state = ($run->isOnStation() && $run->open_flags_count) ? 'hold' : $run->status;
-                                    $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && $run->status === 'ready' && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
+                                    $needsReport = $requireReport && $run->status === 'ready' && ! in_array((int) $show->id, $approved, true); @endphp
                                 <tr wire:key="q-{{ $run->id }}">
                                     <td style="min-width:200px"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
@@ -165,8 +184,8 @@
                                         @if ($needsReport)<span class="vxf-sub">Waiting on report approval</span>@endif
                                     </td>
                                     <td style="text-align:right;white-space:nowrap">
-                                        @if (\App\Filament\Resources\FulfillmentResource::canAccess())<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
-                                        @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
+                                        @if ($ordersLink)<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
+                                        @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-assign', {{ \Illuminate\Support\Js::from(['runId' => $run->id, 'title' => $show->title, 'users' => $show->fulfillmentUsers->pluck('id')->all(), 'station' => $run->station_id]) }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
                                         @if ($needsReport)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" title="Packing starts once the streamer report is approved" style="opacity:.55;cursor:not-allowed">Start</span>
                                         @else
@@ -178,19 +197,25 @@
                         </tbody>
                     </table>
                 </div>
-                @if ($this->queuePageCount() > 1)
+                @if ($pages > 1)
                     <nav class="vxf-pager" aria-label="Ready to pack pages">
                         <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setQueuePage({{ $queuePage - 1 }})" @disabled($queuePage <= 1) aria-label="Previous page"><x-heroicon-o-chevron-left /></button>
-                        @for ($i = 1; $i <= $this->queuePageCount(); $i++)
-                            <button type="button" class="vxf-pager__dot {{ $i === $queuePage ? 'is-on' : '' }}" wire:click="setQueuePage({{ $i }})" aria-label="Page {{ $i }}" @if ($i === $queuePage) aria-current="page" @endif></button>
-                        @endfor
-                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setQueuePage({{ $queuePage + 1 }})" @disabled($queuePage >= $this->queuePageCount()) aria-label="Next page"><x-heroicon-o-chevron-right /></button>
-                        <span class="vxf-sub vxf-num">{{ ($queuePage - 1) * \App\Filament\Pages\FulfillmentHome::QUEUE_PER_PAGE + 1 }}–{{ min($queuePage * \App\Filament\Pages\FulfillmentHome::QUEUE_PER_PAGE, $this->queue->count()) }} of {{ $this->queue->count() }}</span>
+                        @foreach (array_unique([1, max(1, $queuePage - 1), $queuePage, min($pages, $queuePage + 1), $pages]) as $i)
+                            <button type="button" class="vxf-pager__num {{ $i === $queuePage ? 'is-on' : '' }}" wire:click="setQueuePage({{ $i }})" aria-label="Page {{ $i }}" @if ($i === $queuePage) aria-current="page" @endif>{{ $i }}</button>
+                        @endforeach
+                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setQueuePage({{ $queuePage + 1 }})" @disabled($queuePage >= $pages) aria-label="Next page"><x-heroicon-o-chevron-right /></button>
+                        <span class="vxf-sub vxf-num">{{ ($queuePage - 1) * $per + 1 }}–{{ min($queuePage * $per, $total) }} of {{ $total }}</span>
                     </nav>
                 @endif
             @endif
         </section>
 
+        </div>
+        @endisland
+
+        @island(name: 'feed')
+        @php $tz = \App\Support\BusinessTime::zone(); @endphp
+        <div class="vxf-island" wire:poll.30s>
         <section class="vxf-card" aria-labelledby="vxf-activity">
             <div class="vxf-card__head"><h2 id="vxf-activity">Today's activity</h2>
                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
@@ -211,8 +236,18 @@
             @endif
         </section>
         </div>
+        @endisland
+        </div>
 
         <aside style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            @island(name: 'side')
+            @php
+                $manager = $this->isManager();
+                $stats = $this->stats;
+                $tz = \App\Support\BusinessTime::zone();
+                $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
+            @endphp
+            <div class="vxf-island" wire:poll.30s>
             @if ($this->signoffQueue->isNotEmpty())
                 @php $queue = $this->signoffQueue; @endphp
                 <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff" x-data="{ all: false }">
@@ -305,50 +340,17 @@
                     <span><strong>Messages</strong><span class="vxf-sub">Talk to the fulfillment team</span></span>
                 </a>
             @endif
+            </div>
+            @endisland
         </aside>
     </div>
 
-    @if ($assignRunId || $assignPickShow)
-        @php $assignRun = $assignRunId ? \App\Models\FulfillmentRun::query()->with('show:id,title')->find($assignRunId) : null; @endphp
-        <div class="vxf-drawer-backdrop" wire:click="closeAssign"></div>
-        <div class="vxf-drawer" role="dialog" aria-modal="true" aria-labelledby="vxf-assign-title" x-data x-init="$nextTick(() => $el.querySelector('select')?.focus())" @keydown.escape.window="$wire.closeAssign()">
-            <div class="vxf-drawer__head">
-                <h2 id="vxf-assign-title">Assign show</h2>
-                <button type="button" class="vxf-icon-btn" wire:click="closeAssign" aria-label="Close"><x-heroicon-o-x-mark /></button>
-            </div>
-            <div class="vxf-drawer__body">
-                @if ($assignPickShow)
-                    <label class="vxf-field">Show
-                        <select class="vxf-select" wire:model.live="assignRunId">
-                            <option value="">Choose a show ready to pack</option>
-                            @foreach ($this->readyRunOptions() as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
-                        </select>
-                    </label>
-                    @error('assignRunId')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
-                    @if (! $this->readyRunOptions())<p class="vxf-sub">No shows are ready to pack right now.</p>@endif
-                @else
-                    <p style="margin:0;font-weight:700">{{ $assignRun?->show?->title }}</p>
-                @endif
-                <label class="vxf-field">Packers (one by default; add more to share the show)
-                    <select class="vxf-select" multiple size="6" wire:model="assignUsers">
-                        @foreach ($this->teamOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
-                    </select>
-                </label>
-                @error('assignUsers')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
-                <label class="vxf-field">Station (optional)
-                    <select class="vxf-select" wire:model="assignStation">
-                        <option value="">Choose when starting</option>
-                        @foreach (\App\Models\FulfillmentStation::query()->where('active', true)->orderBy('sort')->get() as $station)<option value="{{ $station->id }}">{{ $station->name }}</option>@endforeach
-                    </select>
-                </label>
-                <p class="vxf-sub">Newly assigned people get a notification. Hold Ctrl / ⌘ to pick more than one.</p>
-            </div>
-            <div class="vxf-drawer__foot">
-                <button type="button" class="vxf-btn" wire:click="closeAssign">Cancel</button>
-                <button type="button" class="vxf-btn vxf-btn--primary" wire:click="saveAssign" wire:loading.attr="disabled">Save assignment</button>
-            </div>
-        </div>
+    @if ($manager)
+        @include('fulfillment.assign-modal')
     @endif
-    @include('fulfillment.signoff-review')
+
+    @island(name: 'signoff')
+        @include('fulfillment.signoff-review')
+    @endisland
 </div>
 </x-filament-panels::page>

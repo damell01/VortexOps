@@ -80,11 +80,14 @@ trait ReviewsFulfillmentSignoff
     {
         $this->signoffId = null;
         unset($this->signoffRun, $this->signoffData, $this->signoffQueue);
+        // On a page that draws the review in an island, re-render just that.
+        $this->renderIsland('signoff');
     }
 
     public function setSignoffPage(int $page): void
     {
         $this->signoffPage = max(1, $page);
+        $this->renderIsland('signoff');
     }
 
     /** One confirm: the fulfillment admin has reviewed the show and signs it off. */

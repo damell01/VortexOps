@@ -308,12 +308,15 @@ class FulfillmentCenterWorkflowTest extends TestCase
 
         Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
             ->assertSee('Ready for sign-off')->assertDontSee('Sign off show')
-            ->call('openSignoff', $run->id)
+            ->call('openSignoff', $run->id)->assertSet('signoffId', $run->id);
+        // The review draws over Home (it lives in its own island, rendered with the page).
+        $home = Livewire::withQueryParams(['signoff' => $run->id])->actingAs($this->manager)->test(FulfillmentHome::class)
             ->assertSee('Buyers &amp; packages', false)->assertSee('Sign off show')
-            ->call('signOff')
-            ->assertSee('Signed off by Crystal Rice')
-            ->call('closeSignoff')
-            ->assertDontSee('Ready for sign-off');
+            ->call('signOff');
+        $this->assertSame(FulfillmentRun::APPROVED, $run->fresh()->status);
+        Livewire::withQueryParams(['signoff' => $run->id])->actingAs($this->manager)->test(FulfillmentHome::class)
+            ->assertSee('Signed off by Crystal Rice')->assertDontSee('Ready for sign-off');
+        $home->call('closeSignoff')->assertSet('signoffId', null);
         $this->assertSame(FulfillmentRun::APPROVED, $run->fresh()->status);
     }
 
@@ -472,18 +475,25 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $idle = FulfillmentStation::query()->where('id', '!=', $this->station->id)->firstOrFail();
 
         $page = Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
-            ->assertSee('Assign show')
-            ->call('openAssignToStation', $idle->id)
-            ->assertSet('assignStation', $idle->id)->assertSee('Choose a show ready to pack')
-            ->call('saveAssign')->assertHasErrors('assignRunId')
-            ->set('assignRunId', $run->id)->assertSet('assignUsers', [(string) $this->packer->id])
-            ->set('assignUsers', [(string) $this->helper->id])
-            ->call('saveAssign')->assertHasNoErrors();
+            ->assertSee('Assign show')->assertSee('vxf-assign', false);
+        // The modal searches ready shows without re-rendering the page...
+        $found = $page->instance()->assignShows('Big Giveys');
+        $this->assertSame([$run->id], array_column($found, 'id'));
+        $this->assertSame([$this->packer->id], $found[0]['users']);
+        $this->assertSame([], $page->instance()->assignShows('no such show'));
+        // ...and saves people + station in one call.
+        $result = $page->instance()->saveAssignment($run->id, [$this->helper->id], $idle->id);
+        $this->assertTrue($result['ok']);
         $this->assertSame($idle->id, $run->fresh()->station_id);
         $this->assertSame([$this->helper->id], $show->fulfillmentUsers()->pluck('users.id')->all());
+        $bad = $page->instance()->saveAssignment($run->id, [999999], null);
+        $this->assertFalse($bad['ok']);
+        $this->assertStringContainsString('fulfillment team', $bad['message']);
+        $this->assertSame(['Station 1', $idle->name], array_slice(array_column($page->instance()->stationChoices, 'name'), 0, 2));
 
-        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->assertDontSee('Assign show');
-        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->call('openAssignToStation', $idle->id)->assertForbidden();
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->assertDontSee('Assign show')->assertDontSee('vxf-assign', false);
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->call('assignShows', '')->assertForbidden();
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->call('saveAssignment', $run->id, [$this->packer->id])->assertForbidden();
     }
 
     public function test_station_board_offers_light_and_dark_and_shows_real_order_numbers(): void
@@ -511,7 +521,8 @@ class FulfillmentCenterWorkflowTest extends TestCase
         foreach (range(1, 6) as $i) { $s = $this->show(['q' . $i => 1]); $s->update(['title' => 'Queue show ' . $i]); }
         app(FulfillmentQueue::class)->sync();
         $home = Livewire::actingAs($this->manager)->test(FulfillmentHome::class);
-        $this->assertSame(5, $home->instance()->queueSlice()->count());
+        $this->assertSame(5, $home->instance()->queue->count());
+        $this->assertSame(7, $home->instance()->queueTotal);
         $this->assertGreaterThan(1, $home->instance()->queuePageCount());
         $home->call('setQueuePage', 2);
         $this->assertSame(2, $home->get('queuePage'));

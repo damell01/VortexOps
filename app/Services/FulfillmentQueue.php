@@ -155,22 +155,55 @@ final class FulfillmentQueue
         $run->forceFill(['ready_notified_at' => now()])->save();
     }
 
-    /** The ready-to-pack queue as plain rows for the Home page. */
-    /** @param 'all'|'slow'|'quick' $length long jobs (slow-pack shows) or the quick ones */
-    public function queueRows(?User $viewer, int $limit = 50, string $length = 'all'): Collection
+    /**
+     * The ready-to-pack queue for the Home page, newest work first: packing,
+     * then paused, then ready by when they became ready. Paged by the caller.
+     * Runs only exist for shows the ready check already accepted, so this
+     * stays a plain indexed query instead of re-running that check.
+     *
+     * @param  'all'|'slow'|'quick'  $length  long jobs (slow-pack shows) or the quick ones
+     */
+    public function queueQuery(?User $viewer, string $length = 'all'): Builder
     {
         $manager = \App\Support\FulfillmentAccess::isManager($viewer);
-        $runs = FulfillmentRun::query()
-            ->whereIn('status', FulfillmentRun::OPEN)
-            ->whereHas('show', fn (Builder $show) => $show->whereIn('shows.id', $this->readyShowsQuery()->select('shows.id')))
-            ->when(in_array($length, ['slow', 'quick'], true), fn (Builder $q) => $q->whereHas('show', fn (Builder $show) => $show->where('is_slow_pack', $length === 'slow')))
+
+        return FulfillmentRun::query()
+            ->whereIn('fulfillment_runs.status', FulfillmentRun::OPEN)
+            ->join('shows', 'shows.id', '=', 'fulfillment_runs.show_id')
+            ->where('shows.is_operational', true)->where('shows.status', '!=', 'cancelled')
+            ->where('shows.show_date', '>=', today()->subDays(self::WINDOW_DAYS)->toDateString())
+            ->when(ChannelContext::isScoped(), fn (Builder $q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+            ->when(in_array($length, ['slow', 'quick'], true), fn (Builder $q) => $q->where('shows.is_slow_pack', $length === 'slow'))
+            ->when(! $manager && $viewer, fn (Builder $q) => $q->whereExists(fn ($u) => $u->from('show_fulfillment_user')
+                ->whereColumn('show_fulfillment_user.show_id', 'shows.id')->where('show_fulfillment_user.user_id', $viewer->id)))
+            ->select('fulfillment_runs.*');
+    }
+
+    /** One page of the queue, with only what the rows show. */
+    public function queuePage(?User $viewer, string $length, int $page, int $perPage): Collection
+    {
+        return $this->queueQuery($viewer, $length)
             ->with(['show:id,title,show_date,start_time,whatnot_channel_id,status,is_slow_pack', 'show.channel:id,name', 'show.streamers:id,name',
                 'show.fulfillmentUsers:id,name', 'station:id,name', 'packers:id,name'])
-            ->when(! $manager && $viewer, fn (Builder $q) => $q->whereHas('show.fulfillmentUsers', fn ($u) => $u->where('users.id', $viewer->id)))
-            ->orderByRaw("CASE status WHEN 'packing' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END")
-            ->orderBy('ready_at')
-            ->limit($limit)->get();
+            ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
+            ->orderByRaw("CASE fulfillment_runs.status WHEN 'packing' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END")
+            ->orderBy('fulfillment_runs.ready_at')->orderBy('fulfillment_runs.id')
+            ->forPage($page, $perPage)->get();
+    }
 
-        return $runs;
+    /** Of these shows, the ones whose streamer report is approved (one query for a page of rows). */
+    public static function approvedReportShowIds(array $showIds): array
+    {
+        if (! $showIds) return [];
+
+        return \App\Models\StreamerLogEntry::query()->whereIn('show_id', $showIds)
+            ->where(fn ($q) => $q->where('status', 'admin_approved')->orWhere('approval_status', 'approved'))
+            ->whereHas('items')->pluck('show_id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** @deprecated kept for callers outside Home; prefer queuePage(). */
+    public function queueRows(?User $viewer, int $limit = 50, string $length = 'all'): Collection
+    {
+        return $this->queuePage($viewer, $length, 1, $limit);
     }
 }

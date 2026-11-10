@@ -127,8 +127,8 @@
         @teleport('body')
             @if ($shiftOpen)
             <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
-            <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
-                <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+            <section x-data="{ visible: true }" x-show="visible" class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="visible = false; $wire.set('shiftOpen', false)">
+                <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close" @click="visible = false"><x-heroicon-o-x-mark /></button></header>
                 <form wire:submit.prevent="saveShift" class="vxf-shift-modal__form">
                     <div class="vxf-shift-modal__body">
                         <label class="vxf-field">Team Member * <select class="vxf-select" wire:model="shift.user_id" required><option value="">Choose team member…</option>@foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
@@ -161,7 +161,7 @@
                         @error('repeatDays')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                         @error('repeatUntil')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                     </div>
-                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
+                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)" @click="visible = false">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
                 </form>
             </section>
         @endif

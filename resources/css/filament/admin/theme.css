@@ -940,21 +940,6 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-finance-table .fi-ta-row:hover{background:rgb(124 58 237 / .045)}
 .vx-finance-table .fi-badge{border-radius:8px}
 
-/* Give the navigation and search distinct rows when the header is crowded. */
-@media(min-width:1024px){
- .fi-topbar nav:has(.vx-desktop-mega-nav){display:flex!important;flex-wrap:wrap!important;gap:12px!important;height:auto!important;min-height:76px;padding-block:10px!important}
- .fi-topbar:has(.vx-desktop-mega-nav){height:auto!important}
- .vx-desktop-mega-nav{min-width:0!important;flex:1 1 auto!important;max-width:100%;height:auto!important;flex-wrap:wrap!important}
- .vx-mega-channel{flex:0 0 auto;max-width:220px}
- .fi-topbar .fi-global-search{flex:0 1 260px!important;min-width:160px;max-width:260px;position:relative!important;margin-left:12px!important}
- .fi-topbar .fi-global-search-field{width:100%!important;max-width:100%}
- .fi-topbar .fi-global-search-field .fi-input-wrp{width:100%!important}
-}
-@media(min-width:1024px) and (max-width:1599px){
- .vx-desktop-mega-nav{flex:1 1 100%!important;justify-content:flex-start}
- .fi-topbar .fi-global-search{margin-left:auto!important;flex-basis:320px!important;max-width:420px}
-}
-
 /* Menu link icons on the phone menu, matching the desktop menu's. */
 .vx-mobile-submenu .vx-mm-link{display:inline-flex;align-items:center;gap:12px;min-width:0}
 .vx-mobile-submenu a svg.vx-mm-link-icon{width:18px!important;height:18px!important;color:#7c3aed;flex:none}
@@ -1313,31 +1298,11 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 .vxt-stats .vxr-stat { min-height: 0; }
 .vxt-stats .vxr-stat-icon { font-size: 20px; }
 
-/* ── Design system: top navigation (mockup) ─────────────────────────────
-   Light: white bar, dark labels, soft purple pill for hover and the section
-   you are in. Dark keeps the navy bar. */
-@media(min-width:1024px){
-  html:not(.dark) .fi-topbar{background:var(--vx-surface)!important;border-bottom:1px solid var(--vx-border)!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}
-  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){color:var(--vx-text)}
-  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger) svg{color:var(--vx-muted)}
-  .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){transition:background-color .15s,color .15s}
-  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover,
-  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger)[aria-expanded="true"]{background:var(--vx-brand-soft);color:var(--vx-brand)}
-  html:not(.dark) .fi-topbar :is(.vx-mega-trigger.is-here,[aria-current="page"]){background:var(--vx-brand-soft);color:var(--vx-brand);box-shadow:inset 0 0 0 1px rgba(124,58,237,.18)}
-  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover svg,
-  html:not(.dark) .fi-topbar .vx-mega-trigger.is-here svg{color:var(--vx-brand)}
-  .dark .fi-topbar .vx-mega-trigger.is-here{background:rgba(124,58,237,.24);color:#fff}
-  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select-wrp{border-color:var(--vx-border);background:var(--vx-surface-2)}
-  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select{color:var(--vx-text)}
-  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel :is(.vx-channel-switcher-icon,.vx-channel-switcher-chevron){color:var(--vx-muted)}
-  html:not(.dark) .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){background:var(--vx-surface-2);border-color:var(--vx-border)}
-  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn{color:var(--vx-muted)}
-  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn:hover{background:var(--vx-brand-soft);color:var(--vx-brand)}
-  .dark .vx-mega-menu{background:var(--vx-surface);border-color:var(--vx-border)}
-  .dark .vx-mega-menu a{color:var(--vx-text)}
-  .dark .vx-mega-menu a:hover{background:rgba(124,58,237,.18);color:#fff}
-  .dark .vx-mega-section{border-top-color:var(--vx-border)}
-}
+/* Desktop topbar colors are owned by desktop-mega-nav.blade.php in both themes. */
+.dark .vx-mega-menu{background:var(--vx-surface);border-color:var(--vx-border)}
+.dark .vx-mega-menu a{color:var(--vx-text)}
+.dark .vx-mega-menu a:hover{background:rgba(124,58,237,.18);color:#fff}
+.dark .vx-mega-section{border-top-color:var(--vx-border)}
 
 /* ── Design system: Filament stat widgets as mockup tiles ─────────────── */
 .fi-wi-stats-overview-stats-ctn{gap:12px!important}

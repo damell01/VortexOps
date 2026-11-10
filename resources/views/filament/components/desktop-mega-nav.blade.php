@@ -282,6 +282,25 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .fi-global-search input {background:transparent!important;border:0!important;border-radius:13px!important}
   .fi-topbar .fi-global-search :is(input,.fi-input-wrp) :focus-visible {outline-color:#d7baff!important}
 
+  /* Compact command-palette presentation for Filament's permission-filtered search. */
+  .fi-topbar .fi-global-search {width:clamp(240px,27vw,385px)!important;max-width:385px!important}
+  .fi-topbar .fi-global-search .fi-input-wrp {
+    min-height:42px!important;border-radius:22px!important;
+    background:rgba(255,255,255,.1)!important;
+    border:1px solid rgba(212,184,255,.35)!important;
+  }
+  .fi-topbar .fi-global-search .fi-input-wrp:focus-within {
+    border-color:#b78aff!important;box-shadow:0 0 0 3px rgba(169,111,255,.2)!important;
+  }
+  .fi-global-search-results-ctn {
+    border-radius:16px!important;border:1px solid #e5ddf4!important;
+    box-shadow:0 24px 65px rgba(18,10,45,.24)!important;
+    max-height:min(75dvh,660px)!important;overflow-y:auto!important;
+  }
+  .fi-global-search-results-ctn a {border-radius:9px!important}
+  .fi-global-search-results-ctn a:is(:hover,:focus-visible) {background:#f1e9ff!important}
+  .dark .fi-global-search-results-ctn {background:#231b33!important;border-color:#54416b!important;color:#f5f0ff!important}
+  .dark .fi-global-search-results-ctn a:is(:hover,:focus-visible) {background:#44305d!important}
   .fi-topbar .fi-global-search-results-ctn {
     z-index:110!important;color:#1d1732!important;
   }

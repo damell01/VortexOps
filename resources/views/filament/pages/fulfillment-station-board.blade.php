@@ -298,6 +298,7 @@
                         @unless ($paused)
                             <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="openFlag"><x-heroicon-o-flag /><span>Flag Issue</span></button>
                             <button type="button" class="vxf-acttile vxf-acttile--warn" wire:click="pause"><x-heroicon-o-pause /><span>Pause</span></button>
+                            <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="blockStation" wire:confirm="Mark this station blocked, pause packing, and alert the fulfillment managers?"><x-heroicon-o-no-symbol /><span>Station Blocked</span></button>
                         @endunless
                         <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="openReview"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
                     </div>

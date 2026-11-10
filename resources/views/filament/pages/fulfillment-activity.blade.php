@@ -27,6 +27,43 @@
     {{-- ── Schedule ─────────────────────────────────────────────────── --}}
     @if ($tab === 'schedule')
         @php $start = $this->weekStart(); $days = collect(range(0, 6))->map(fn ($i) => $start->addDays($i)); $shifts = $this->weekShifts; @endphp
+        @if ($manager)
+            <section class="mb-3 rounded-xl border border-[var(--vx-divider)] bg-white p-3 dark:bg-gray-900" aria-label="Open staffing shifts">
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div><h2 class="text-sm font-bold">Open staffing shifts</h2><p class="text-xs text-gray-500">Create Day or Night shifts before assigning employees. Existing employee shifts remain unchanged.</p></div>
+                    <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openBlock">+ New open shift</button>
+                </div>
+                <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    @forelse ($this->blockRows() as $block)
+                        <div class="rounded-lg border border-[var(--vx-divider)] p-3">
+                            <div class="flex items-center justify-between gap-2"><strong class="text-sm">{{ $block->label }}</strong><span class="text-xs font-semibold">{{ $block->assigned_staff == 0 ? 'Unassigned' : ($block->assigned_staff < $block->required_staff ? 'Partially staffed' : 'Fully staffed') }}</span></div>
+                            <div class="mt-1 text-xs text-gray-500">{{ \Carbon\CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D M j, g:i A') }} – {{ \Carbon\CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D g:i A') }}</div>
+                            <div class="mt-2 text-xs font-semibold">{{ $block->assigned_staff }} / {{ $block->required_staff }} employees · {{ max(0, $block->required_staff - $block->assigned_staff) }} open slots</div>
+                        </div>
+                    @empty
+                        <p class="text-sm text-gray-500">No flexible shifts created this week.</p>
+                    @endforelse
+                </div>
+            </section>
+            @if ($blockOpen)
+                <div class="vxf-shift-modal-backdrop" wire:click="$set('blockOpen', false)"></div>
+                <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-open-shift-title" @keydown.escape.window="$wire.set('blockOpen', false)">
+                    <header class="vxf-shift-modal__header"><div><h2 id="vx-open-shift-title">Create open shift</h2><p class="vxf-sub">Assign employees later.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('blockOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+                    <form wire:submit.prevent="saveBlock" class="vxf-shift-modal__form">
+                        <div class="vxf-shift-modal__body">
+                            <label class="vxf-field">Shift type <select class="vxf-select" wire:model="blockKind" wire:change="chooseBlockKind($event.target.value)"><option value="day">Day Team · 6 AM–6 PM</option><option value="night">Night Team · 6 PM–6 AM</option><option value="custom">Custom</option></select></label>
+                            <label class="vxf-field">Date <input class="vxf-input" type="date" wire:model="blockDate" required></label>
+                            <div class="grid grid-cols-2 gap-2"><label class="vxf-field">Start <input class="vxf-input" type="time" wire:model="blockStart" required></label><label class="vxf-field">End <input class="vxf-input" type="time" wire:model="blockEnd" required></label></div>
+                            <label class="vxf-field">Required employees <input class="vxf-input" type="number" min="1" max="100" wire:model="blockRequired" required></label>
+                            <label class="vxf-field">Notes <textarea class="vxf-input" wire:model="blockNotes" rows="2"></textarea></label>
+                            @error('blockDate')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('blockRequired')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <footer class="flex justify-end gap-2 p-3"><button type="button" class="vxf-btn" wire:click="$set('blockOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary">Save Shift</button></footer>
+                    </form>
+                </section>
+            @endif
+        @endif
         <section class="vxf-card" aria-labelledby="vxf-week">
             <div class="vxf-card__head" style="flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">

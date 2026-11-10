@@ -55,20 +55,8 @@ class FulfillmentCenter extends Page
 
     public static function canAccess(): bool
     {
-        // Production-only launch hold. The resource and legacy page are closed.
+        // Production-only launch hold; leave Dev fulfillment available.
         return false;
-
-        /*
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
-        $user = auth()->user();
-        return AdminModules::isEnabled('fulfillment')
-            && ($user?->isAdmin() || $user?->isFulfillment() || $user?->isFulfillmentAdmin());
-    }
-
-        */
     }
 
     public function getSubheading(): ?string

@@ -82,8 +82,41 @@ class FulfillmentActivity extends Page
     public function openBlock(): void
     {
         abort_unless($this->isManager(), 403);
+        $this->editingBlockId = null;
         $this->blockDate = $this->weekStart()->toDateString();
         $this->blockOpen = true;
+    }
+
+    public ?int $editingBlockId = null;
+    public string $staffingView = 'shift';
+
+    public function setStaffingView(string $view): void
+    {
+        if (in_array($view, ['shift', 'employee'], true)) $this->staffingView = $view;
+    }
+
+    public function editBlock(int $id): void
+    {
+        abort_unless($this->isManager(), 403);
+        $block = DB::table('fulfillment_shift_blocks')->where('id', $id)->first();
+        abort_unless($block && $block->status !== 'cancelled', 404);
+        $start = CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(BusinessTime::zone());
+        $end = CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(BusinessTime::zone());
+        $this->editingBlockId = $id;
+        $this->blockDate = $start->format('Y-m-d');
+        $this->blockStart = $start->format('H:i');
+        $this->blockEnd = $end->format('H:i');
+        $this->blockKind = $block->kind;
+        $this->blockRequired = $block->required_staff;
+        $this->blockNotes = $block->notes ?? '';
+        $this->blockOpen = true;
+    }
+
+    public function cancelBlock(int $id): void
+    {
+        abort_unless($this->isManager(), 403);
+        app(\App\Services\FulfillmentShiftBlockService::class)->cancel(auth()->user(), $id);
+        Notification::make()->title('Shift cancelled; historical assignments retained')->success()->send();
     }
 
     public function saveBlock(): void
@@ -101,16 +134,27 @@ class FulfillmentActivity extends Page
         $start = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockStart, $tz);
         $end = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockEnd, $tz);
         if ($end->lessThanOrEqualTo($start)) $end = $end->addDay();
-        app(\App\Services\FulfillmentShiftBlockService::class)->create(auth()->user(), [
+        $payload = [
             'starts_at' => $start->utc()->toDateTimeString(),
             'ends_at' => $end->utc()->toDateTimeString(),
             'kind' => $this->blockKind,
             'label' => $this->blockKind === 'day' ? 'Day Team' : ($this->blockKind === 'night' ? 'Night Team' : 'Custom Shift'),
             'required_staff' => $this->blockRequired,
             'notes' => $this->blockNotes,
-        ]);
+        ];
+        try {
+            if ($this->editingBlockId) {
+                app(\App\Services\FulfillmentShiftBlockService::class)->update(auth()->user(), $this->editingBlockId, $payload);
+            } else {
+                app(\App\Services\FulfillmentShiftBlockService::class)->create(auth()->user(), $payload);
+            }
+        } catch (ValidationException $e) {
+            $this->addError('blockDate', collect($e->errors())->flatten()->first() ?? 'Check shift details.');
+            return;
+        }
         $this->blockOpen = false;
-        Notification::make()->title('Open shift created')->success()->send();
+        Notification::make()->title($this->editingBlockId ? 'Shift updated' : 'Open shift created')->success()->send();
+        $this->editingBlockId = null;
     }
 
     public ?int $assignBlockId = null;

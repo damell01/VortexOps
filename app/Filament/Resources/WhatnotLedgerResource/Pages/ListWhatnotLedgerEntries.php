@@ -732,9 +732,47 @@ class ListWhatnotLedgerEntries extends Page
     {
         $this->pageNo = max(1, min($this->pageNo, $this->lastPage()));
 
-        return $this->sortedQuery()
+        $entries = $this->sortedQuery()
             ->forPage($this->pageNo, $this->perPage)
             ->get();
+
+        if ($entries->isEmpty()) return $entries;
+
+        // One lookup per page, not a query per ledger row. Only display a show
+        // when the approved attribution identifies it, or when the order
+        // unambiguously belongs to one show in the same channel.
+        $attributions = DB::table('ledger_attributions as a')
+            ->join('shows as s', 's.id', '=', 'a.show_id')
+            ->whereIn('a.whatnot_ledger_entry_id', $entries->pluck('id')->all())
+            ->where('a.status', 'approved')
+            ->whereNotNull('a.show_id')
+            ->get(['a.whatnot_ledger_entry_id', 's.id as show_id', 's.title as show_title', 's.whatnot_channel_id'])
+            ->keyBy('whatnot_ledger_entry_id');
+
+        $orderIds = $entries->pluck('whatnot_order_id')->filter()->unique()->values()->all();
+        $orders = empty($orderIds) ? collect() : DB::table('whatnot_show_orders as o')
+            ->join('shows as s', 's.id', '=', 'o.show_id')
+            ->whereIn('o.whatnot_order_id', $orderIds)
+            ->whereNotNull('o.show_id')
+            ->get(['o.whatnot_order_id', 'o.buyer_username', 'o.buyer_display_name',
+                's.id as show_id', 's.title as show_title', 's.whatnot_channel_id'])
+            ->groupBy('whatnot_order_id');
+
+        foreach ($entries as $entry) {
+            $attribution = $attributions->get($entry->id);
+            $matchingOrders = $orders->get((string) $entry->whatnot_order_id, collect())
+                ->filter(fn ($order) => (int) $order->whatnot_channel_id === (int) $entry->whatnot_channel_id);
+            $showId = $attribution?->show_id;
+            if (! $showId && $matchingOrders->pluck('show_id')->unique()->count() === 1) {
+                $showId = $matchingOrders->first()->show_id;
+            }
+            $showOrder = $showId ? $matchingOrders->first(fn ($order) => (int) $order->show_id === (int) $showId) : null;
+            $entry->setAttribute('linked_show_id', $showId);
+            $entry->setAttribute('linked_show_title', $attribution?->show_title ?? $showOrder?->show_title);
+            $entry->setAttribute('linked_buyer', $showOrder?->buyer_username ?: ($showOrder?->buyer_display_name ?: null));
+        }
+
+        return $entries;
     }
 
     public function getSelectedProperty(): ?WhatnotLedgerEntry

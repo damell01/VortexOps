@@ -41,7 +41,7 @@
     @endif
 
     @if($stage === 'processing')
-        <section wire:poll.10000ms="checkProcessing" class="vx-card vx-section"><div class="vx-status"><div class="vx-spin"></div><div><div class="font-bold text-violet-900 dark:text-violet-100">AI analysis is running in the background</div><div class="mt-1 text-xs text-violet-700 dark:text-violet-300">You can leave this page. The original source stays attached so it can be compared with the extracted results.</div><div class="mt-2 text-[10px] text-violet-500">Task #{{ $aiTaskId }} · checking every 10 seconds</div></div></div><div class="mt-4 flex gap-2"><a href="{{ $palletUrl }}" class="vx-btn primary">Return to Pallet</a><button wire:click="checkProcessing" class="vx-btn">Check Now</button></div></section>
+        <section wire:poll.visible.10000ms="checkProcessing" class="vx-card vx-section"><div class="vx-status"><div class="vx-spin"></div><div><div class="font-bold text-violet-900 dark:text-violet-100">AI analysis is running in the background</div><div class="mt-1 text-xs text-violet-700 dark:text-violet-300">You can leave this page. The original source stays attached so it can be compared with the extracted results.</div><div class="mt-2 text-[10px] text-violet-500">Task #{{ $aiTaskId }} · checking every 10 seconds</div></div></div><div class="mt-4 flex gap-2"><a href="{{ $palletUrl }}" class="vx-btn primary">Return to Pallet</a><button wire:click="checkProcessing" class="vx-btn">Check Now</button></div></section>
     @endif
 
     @if($stage === 'verify')

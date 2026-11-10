@@ -876,3 +876,19 @@ html.dark .vxf-full{background:#0b1020}
 .vxf:has(.vxf-home-tabs) .vxf-signbar .vxf-sub{display:none}
 .vxf:has(.vxf-home-tabs) .vxf-signbar .vxf-btn{min-height:32px}
 @media(max-width:640px){.vxf:has(.vxf-home-tabs) .vxf-stations--track>.vxf-station{flex:0 0 min(84vw,290px)}.vxf:has(.vxf-home-tabs) .vxf-summary-col{display:flex!important}.vxf:has(.vxf-home-tabs) .vxf-home-tabs a{padding:8px 10px}}
+
+
+/* Mobile show queue becomes readable stacked cards instead of a clipped table. */
+@media(max-width:700px){
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table-wrap{overflow:visible}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table,.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table tbody{display:block;width:100%}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;padding:10px;border-bottom:1px solid var(--vxf-line)}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td{display:block;min-width:0!important;padding:2px!important;border:0;white-space:normal!important;font-size:12px}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td:first-child{grid-column:1/-1;font-size:13px}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td:last-child{grid-column:1/-1}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td:nth-child(2)::before{content:"Date · ";font-weight:700;color:var(--vxf-muted)}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td:nth-child(3)::before{content:"Orders · ";font-weight:700;color:var(--vxf-muted)}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-table td:nth-child(4)::before{content:"Station · ";font-weight:700;color:var(--vxf-muted)}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col .vxf-pager{flex-wrap:wrap}
+}

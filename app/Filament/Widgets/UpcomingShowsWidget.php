@@ -34,9 +34,9 @@ class UpcomingShowsWidget extends Widget
             ->where('is_operational', true)
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->where(function ($query) use ($nowTime) {
-                $query->whereDate('show_date', '>', today())
+                $query->where('show_date', '>=', today()->addDay()->startOfDay())
                     ->orWhere(function ($today) use ($nowTime) {
-                        $today->whereDate('show_date', today())
+                        $today->whereBetween('show_date', [today()->startOfDay(), today()->endOfDay()])
                             ->where(function ($time) use ($nowTime) {
                                 $time->whereNull('start_time')
                                     ->orWhereTime('start_time', '>', $nowTime);

@@ -27,8 +27,8 @@ class RecentShowsWidget extends Widget
             ->where('is_operational', true)
             ->whereNotIn('status', ['cancelled'])
             // Do not show today's streams here. Analytics can still be settling.
-            ->whereDate('show_date', '<=', today()->subDay())
-            ->whereDate('show_date', '>=', today()->subDays(8));
+            ->where('show_date', '<', today()->startOfDay())
+            ->where('show_date', '>=', today()->subDays(8)->startOfDay());
 
         $user = auth()->user();
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {

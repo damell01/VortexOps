@@ -144,7 +144,11 @@ final class FulfillmentQueue
     public function announceReady(FulfillmentRun $run, Show $show): void
     {
         if ($run->ready_notified_at) return;
-        $assigned = $show->fulfillmentUsers()->get();
+        // The sync queue already eager-loads assignments; reuse them instead
+        // of issuing another query for every newly ready show.
+        $assigned = $show->relationLoaded('fulfillmentUsers')
+            ? $show->fulfillmentUsers
+            : $show->fulfillmentUsers()->get();
         $packages = $run->expected_packages !== null ? $run->expected_packages . ' packages' : 'package count pending';
         Notifier::send('fulfillment_show_ready', new VortexAlert(
             event: 'fulfillment_show_ready',

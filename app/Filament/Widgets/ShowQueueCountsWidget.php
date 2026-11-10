@@ -48,7 +48,7 @@ class ShowQueueCountsWidget extends Widget
 
         $unassignedFulfillment = Show::query()
             ->inChannelContext()
-            ->whereDate('show_date', '<=', today())
+            ->where('show_date', '<', today()->addDay()->startOfDay())
             ->whereNotIn('status', ['closed', 'cancelled'])
             ->whereHas('shipments')
             ->whereDoesntHave('fulfillmentUsers')

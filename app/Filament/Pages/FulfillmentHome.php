@@ -214,6 +214,16 @@ class FulfillmentHome extends Page
             ->where('ends_at', '>', now())->orderBy('starts_at')->first();
     }
 
+    /** Finished shows waiting for the fulfillment admin's final sign-off. */
+    #[Computed]
+    public function awaitingSignoff(): \Illuminate\Support\Collection
+    {
+        if (! $this->isManager()) return collect();
+
+        return FulfillmentRun::query()->with(['show:id,title', 'acknowledger:id,name', 'packers:id,name'])
+            ->where('status', FulfillmentRun::COMPLETED)->orderBy('finished_at')->limit(5)->get();
+    }
+
     #[Computed]
     public function openIssues(): \Illuminate\Support\Collection
     {

@@ -31,12 +31,11 @@
 </dl>
 @if ($run->discrepancies)<p><strong>Discrepancies:</strong> {{ implode(' ', $run->discrepancies) }}</p>@endif
 <table>
-    <thead><tr><th>Letter</th><th>Buyer</th><th>Orders</th><th>Items</th><th>Status</th><th>Packed by</th><th>Packed at</th><th>Checked</th></tr></thead>
+    <thead><tr><th>Letter</th><th>Buyer</th><th>Orders</th><th>Items</th><th>Status</th><th>Packed by</th><th>Packed at</th></tr></thead>
     <tbody>
     @foreach ($run->buyers as $b)
         <tr><td class="letter">{{ $b->letter }}</td><td>{{ $b->buyer_username }}</td><td>{{ implode(', ', (array) $b->order_ids) }}</td><td>{{ $b->item_count }}</td>
-            <td>{{ ucfirst($b->status) }}</td><td>{{ $b->packer?->name }}</td><td>{{ $b->packed_at?->timezone($tz)->format('g:i:s A') }}</td>
-            <td>{{ $b->packages->isNotEmpty() ? $b->packages->whereNotNull('checked_at')->count() . '/' . $b->packages->count() : ($b->checked_at ? '✓' : '') }}</td></tr>
+            <td>{{ ucfirst($b->status) }}</td><td>{{ $b->packer?->name }}</td><td>{{ $b->packed_at?->timezone($tz)->format('g:i:s A') }}</td></tr>
     @endforeach
     </tbody>
 </table>
@@ -46,7 +45,7 @@
 @endif
 <div class="sign">
     <div>Packer confirmed done: {{ $run->acknowledged_at ? $run->acknowledger?->name . ' · ' . $run->acknowledged_at->timezone($tz)->format('M j, g:i A') : '' }}</div>
-    <div>Final sign-off: {{ $run->approved_at ? ($run->signoff_signature ? '“' . $run->signoff_signature . '” · ' : '') . $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j, g:i A') : '' }}</div>
+    <div>Final sign-off: {{ $run->approved_at ? $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j, g:i A') : '' }}</div>
     @if ($run->approval_notes)<div>Note: {{ $run->approval_notes }}</div>@endif
 </div>
 </body>

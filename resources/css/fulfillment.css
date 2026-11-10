@@ -97,6 +97,8 @@
 .vxf-dot svg{width:16px;height:16px}
 .vxf-dot--warn{background:#fff7ed;color:#c2410c}
 .dark .vxf-dot--warn{background:#3a2208;color:#fdba74}
+.vxf-dot--ok{background:#ecfdf5;color:#15803d}
+.dark .vxf-dot--ok{background:#0c2e1f;color:#6ee7b7}
 .vxf-avatar{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:99px;background:#ede9fe;color:#5b21b6;font-size:10.5px;font-weight:800;flex-shrink:0}
 .vxf-avatars{display:inline-flex}.vxf-avatars .vxf-avatar{border:2px solid var(--vxf-card);margin-right:-6px}
 
@@ -719,23 +721,37 @@ a.vxtv__card:hover{transform:translateY(-3px);border-color:var(--tv-brand)}
 .vxf-btn--lg{padding:12px 18px;font-size:15px}
 .vxf-btn[disabled]{opacity:.5;cursor:not-allowed}
 
-/* Final sign-off (fulfillment admin) */
-.vxf-signoff{display:grid;gap:14px}
-.vxf-signoff__bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.vxf-signoff__meter{flex:1 1 200px;height:10px;border-radius:999px;background:var(--vxf-soft);overflow:hidden;border:1px solid var(--vxf-line)}
-.vxf-signoff__meter i{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#16a34a);transition:width .25s ease}
-.vxf-signoff__list{display:grid;gap:6px;max-height:340px;overflow:auto;padding-right:2px}
-.vxf-signoff__buyer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--vxf-line);border-radius:12px}
-.vxf-signoff__buyer > b{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,#7c3aed 14%,var(--vxf-card));color:#6d28d9;font-weight:800;flex:none}
-.vxf-signoff__name{min-width:130px;flex:1 1 130px;font-weight:600}
-.vxf-signoff__chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;flex:2 1 240px}
-.vxf-tick{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--vxf-line);font-size:12.5px;cursor:pointer;background:var(--vxf-card);color:var(--vxf-ink)}
-.vxf-tick svg{width:16px!important;height:16px!important;flex:none;color:var(--vxf-muted)}
-.vxf-tick.is-on{border-color:color-mix(in srgb,#16a34a 55%,var(--vxf-line));background:color-mix(in srgb,#16a34a 12%,var(--vxf-card))}
-.vxf-tick.is-on svg{color:#16a34a}
-.vxf-tick:disabled{cursor:default}
-.vxf-sign{display:grid;gap:10px;padding:14px;border-radius:14px;border:1px solid var(--vxf-line);background:var(--vxf-soft)}
-.vxf-sign__line{font-family:"Brush Script MT","Segoe Script","Snell Roundhand",cursive;font-size:26px;border:0;border-bottom:2px solid var(--vxf-ink);background:transparent;color:var(--vxf-ink);padding:4px 2px;width:100%;outline:none}
-.vxf-sign__done{display:flex;gap:12px;align-items:center;padding:14px;border-radius:14px;border:1px solid color-mix(in srgb,#16a34a 45%,var(--vxf-line));background:color-mix(in srgb,#16a34a 9%,var(--vxf-card))}
-.vxf-sign__done svg{width:30px;height:30px;color:#16a34a;flex:none}
-.vxf-sign__done em{font-family:"Brush Script MT","Segoe Script","Snell Roundhand",cursive;font-style:normal;font-size:24px}
+/* Final sign-off: full-screen review (fulfillment admin) */
+.vxf-full{position:fixed;inset:0;z-index:62;background:var(--vxf-soft,#f6f5fe);color:var(--vxf-ink);display:grid;grid-template-rows:auto 1fr auto;animation:vxf-fade .16s ease-out}
+@keyframes vxf-fade{from{opacity:0;transform:scale(.995)}to{opacity:1;transform:none}}
+html.dark .vxf-full{background:#0b1020}
+.vxf-full__head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px clamp(16px,4vw,40px) 14px;background:var(--vxf-card);border-bottom:1px solid var(--vxf-line)}
+.vxf-full__head h2{margin:2px 0 4px;font-size:clamp(20px,2.4vw,28px);font-weight:800;letter-spacing:-.01em}
+.vxf-full__body{overflow:auto;padding:18px clamp(16px,4vw,40px);display:grid;gap:16px;align-content:start}
+.vxf-full__grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr);gap:16px;align-items:start}
+.vxf-full__side{display:grid;gap:12px}
+@media (max-width:900px){.vxf-full__grid{grid-template-columns:1fr}}
+.vxf-full__foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px clamp(16px,4vw,40px);background:var(--vxf-card);border-top:1px solid var(--vxf-line);box-shadow:0 -10px 30px -20px rgba(15,23,42,.35)}
+.vxf-so-note{max-width:360px;flex:1 1 220px}
+.vxf-so-list{list-style:none;margin:0;padding:0}
+.vxf-so-list li{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--vxf-line)}
+.vxf-so-letter{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;font-weight:800;background:color-mix(in srgb,#7c3aed 14%,var(--vxf-card));color:#6d28d9}
+.vxf-so-letter.is-ok{background:color-mix(in srgb,#16a34a 16%,var(--vxf-card));color:#15803d}
+.vxf-so-who{display:grid;min-width:150px;flex:1 1 150px}
+.vxf-so-pkgs{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;flex:2 1 220px}
+.vxf-so-pkg{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;border:1px solid var(--vxf-line);font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.vxf-so-pkg svg{width:15px!important;height:15px!important;flex:none;color:var(--vxf-muted)}
+.vxf-so-pkg.is-ok{border-color:color-mix(in srgb,#16a34a 45%,var(--vxf-line));background:color-mix(in srgb,#16a34a 10%,var(--vxf-card))}
+.vxf-so-pkg.is-ok svg{color:#16a34a}
+.vxf-so-steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:0}
+.vxf-so-steps li{position:relative;padding:0 0 14px 24px;display:grid}
+.vxf-so-steps li::before{content:"";position:absolute;left:4px;top:4px;width:11px;height:11px;border-radius:50%;border:2px solid var(--vxf-line);background:var(--vxf-card)}
+.vxf-so-steps li:not(:last-child)::after{content:"";position:absolute;left:9px;top:17px;bottom:2px;width:2px;background:var(--vxf-line)}
+.vxf-so-steps li.is-done::before{background:#16a34a;border-color:#16a34a}
+.vxf-so-steps li.is-next::before{border-color:#7c3aed;box-shadow:0 0 0 4px color-mix(in srgb,#7c3aed 20%,transparent)}
+.vxf-so-steps span{font-size:12.5px;color:var(--vxf-muted)}
+.vxf-so-issue{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--vxf-line)}
+.vxf-so-issue:first-of-type{border-top:0}
+.vxf-so-done{display:flex;align-items:center;gap:10px}
+.vxf-so-done svg{width:30px;height:30px;color:#16a34a;flex:none}
+.vxf-so-done > div{display:grid}

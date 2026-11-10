@@ -158,12 +158,19 @@ else
   echo "No migrations changed: skipping migrate"
 fi
 
-# Dev only: keep a Fulfillment Center demo on the site (shows mid-packing, an
-# issue, a paused station, schedule, whiteboard activity). It is rebuilt only
-# when missing or a few days old, never touches real shows, and the command
-# itself refuses to run in production. A failure here never fails a deploy.
-if [ "$ENVIRONMENT" = "development" ] && [ -f app/Console/Commands/FulfillmentDemo.php ]; then
-  php artisan fulfillment:demo --refresh --hide-password || echo "Fulfillment demo skipped (see above)"
+# Everywhere but Production: keep the Fulfillment Center demo on the site, with
+# a manager and a packer sign-in (fulfillment-admin@ / fulfillment-worker@
+# vortexops.test) and shows in every state to test the whole flow. It is
+# rebuilt only when missing or a few days old, never touches real shows, and
+# the command itself refuses to run in production. Run by hand, the sign-ins
+# and password are printed; from GitHub Actions the password is left out of
+# the log. FULFILLMENT_DEMO=0 skips it, FULFILLMENT_DEMO=fresh rebuilds it.
+# A failure here never fails a deploy.
+if [ "$ENVIRONMENT" != "production" ] && [ "${FULFILLMENT_DEMO:-1}" != "0" ] && [ -f app/Console/Commands/FulfillmentDemo.php ]; then
+  DEMO_ARGS="--refresh"
+  [ "${FULFILLMENT_DEMO:-1}" = "fresh" ] && DEMO_ARGS=""
+  [ -n "${DEPLOY_FROM_CI:-}" ] && DEMO_ARGS="$DEMO_ARGS --hide-password"
+  php artisan fulfillment:demo $DEMO_ARGS || echo "Fulfillment demo skipped (see above)"
 fi
 
 # Idempotent: keep the same encrypted Web Push keys across deployments.

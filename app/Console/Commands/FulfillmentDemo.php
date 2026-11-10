@@ -214,8 +214,7 @@ class FulfillmentDemo extends Command
         $pack($r6, 99, $monica);
         $runs->finish($r6, $monica);
         $runs->acknowledge($r6, $monica);
-        $runs->setChecked($r6, $crystal, $runs->signOffProgress($r6)['kind'], null, true);
-        $runs->signOff($r6, $crystal, 'Crystal Rice', 'Counts match the labels');
+        $runs->signOff($r6, $crystal, 'Counts match the labels');
         DB::table('fulfillment_runs')->whereIn('id', [$r5, $r6])->update(['started_at' => now()->subDays(1)->setTime(14, 5), 'finished_at' => now()->subDays(1)->setTime(16, 40)]);
         Shipment::query()->where('show_id', $boxGiveys->id)->each(fn ($s, $i) => $s->update(['status' => $i % 3 === 0 ? 'in_transit' : 'delivered']));
         Shipment::query()->where('show_id', $restock->id)->each(fn ($s, $i) => $s->update(['status' => $i % 2 ? 'shipped' : 'in_transit']));
@@ -300,8 +299,7 @@ class FulfillmentDemo extends Command
         $this->line('    1. Manager: Fulfillment Home shows Station 1 packing, Station 2 on hold with a damaged-item issue,');
         $this->line('       Station 4 paused, Station 3 ready for the packer and Station 5 free.');
         $this->line('    2. Manager: Assign show on Station 5 -> "Saturday Full Send" (queue page 2) with a packer.');
-        $this->line('       Schedule & Activity -> Show logs -> "Review & sign off" on "$100,000 Restock": check off');
-        $this->line('       the packages, type your name and Sign off show.');
+        $this->line('       Home -> "Ready for sign-off" -> "$100,000 Restock": review the show and press Sign off show.');
         $this->line('    3. Packer (another browser or phone): Home -> Start on "Massive Warehouse", Pack buyers in order,');
         $this->line('       Flag an issue, Pause and resume, then Finish Show -> review -> Confirm, show is done.');
         $this->line('    4. Manager: watch it on the TV Whiteboard, resolve the issue (Open issues), sign the show off,');

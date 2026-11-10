@@ -62,6 +62,18 @@ php artisan db:seed --class=DatabaseSeeder --force 2>/dev/null || true
 echo "✓ Database updated"
 echo ""
 
+# Not production: keep the Fulfillment Center demo (manager + packer sign-ins
+# and shows in every state). FULFILLMENT_DEMO=0 skips, =fresh rebuilds.
+if [ "$ENVIRONMENT" != "production" ] && [ "${FULFILLMENT_DEMO:-1}" != "0" ] && php artisan list --raw 2>/dev/null | grep -q '^fulfillment:demo'; then
+    echo "🎬 Fulfillment demo..."
+    if [ "${FULFILLMENT_DEMO:-1}" = "fresh" ]; then
+        php artisan fulfillment:demo || echo "⚠ Fulfillment demo skipped"
+    else
+        php artisan fulfillment:demo --refresh || echo "⚠ Fulfillment demo skipped"
+    fi
+    echo ""
+fi
+
 # ──────────────────────────────────────────────────────────────
 # 5. STORAGE & LINKS
 # ──────────────────────────────────────────────────────────────

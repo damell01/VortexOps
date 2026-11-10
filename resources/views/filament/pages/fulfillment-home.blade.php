@@ -212,6 +212,27 @@
                 </div>
             </section>
 
+            @if ($this->awaitingSignoff->isNotEmpty())
+                <section class="vxf-card" aria-labelledby="vxf-signoff">
+                    <div class="vxf-card__head">
+                        <h2 id="vxf-signoff">Ready for sign-off</h2>
+                        <span class="vxf-pill vxf-pill--completed">{{ $this->awaitingSignoff->count() }}</span>
+                    </div>
+                    <ul class="vxf-list">
+                        @foreach ($this->awaitingSignoff as $done)
+                            <li>
+                                <span class="vxf-dot vxf-dot--ok" aria-hidden="true"><x-heroicon-o-check-badge /></span>
+                                <div style="min-width:0;flex:1">
+                                    <strong>{{ $done->show?->title }}</strong>
+                                    <span class="vxf-sub">{{ $done->completed_packages }} packages · {{ $done->acknowledged_at ? 'confirmed by ' . $done->acknowledger?->name : 'packed by ' . ($done->packers->pluck('name')->join(', ') ?: '—') }} · {{ $done->finished_at?->diffForHumans(short: true) }}</span>
+                                </div>
+                                <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows', 'signoff' => $done->id]) }}">Review</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
             <section class="vxf-card" aria-labelledby="vxf-issues">
                 <div class="vxf-card__head">
                     <h2 id="vxf-issues">Open issues</h2>

@@ -49,7 +49,6 @@ class FulfillmentEvent extends Model
             'finished' => 'Packing completed',
             'acknowledged' => 'Packer confirmed the show is done',
             'approved' => 'Final sign-off',
-            'checked_off' => 'Checked off for sign-off',
             'cancelled' => 'Cancelled',
             default => ucfirst(str_replace('_', ' ', $type)),
         };

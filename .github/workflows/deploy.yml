@@ -68,6 +68,7 @@ jobs:
             git reset --hard "$VERIFIED_SHA"
 
             export DEPLOY_OLD_SHA="$OLD_SHA"
+            export DEPLOY_FROM_CI=1
             bash scripts/baremetal-deploy.sh "$BRANCH"
 
             # Populate streamer logins/aliases/assignments now; the scheduler keeps new shows covered.

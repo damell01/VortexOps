@@ -187,7 +187,7 @@
                                 <td><span class="vxf-pill vxf-pill--{{ $pill($run->status) }}">{{ \App\Models\FulfillmentRun::statusLabel($run->status) }}</span>
                                     @if ($run->open_flags_count)<span class="vxf-pill vxf-pill--issue">{{ $run->open_flags_count }} issue</span>@endif</td>
                                 <td style="text-align:right;white-space:nowrap">
-                                    @if ($run->status === 'completed' && $manager)<button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openLog({{ $run->id }})"><x-heroicon-o-pencil-square /> Review &amp; sign off</button>
+                                    @if ($run->status === 'completed' && $manager)<button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openSignoff({{ $run->id }})"><x-heroicon-o-check-badge /> Review &amp; sign off</button>
                                     @else<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openLog({{ $run->id }})">Open log</button>@endif</td>
                             </tr>
                         @empty
@@ -336,7 +336,7 @@
             </div>
             <div class="vxf-drawer__body">
                 <div class="vxf-tabs" role="tablist" aria-label="Show log sections">
-                    @foreach ((in_array($run->status, ['completed', 'approved'], true) ? ['signoff' => 'Sign-off'] : []) + ['overview' => 'Overview', 'buyers' => 'Buyers', 'packages' => 'Packages', 'activity' => 'Activity', 'issues' => 'Issues'] as $k => $l)
+                    @foreach (['overview' => 'Overview', 'buyers' => 'Buyers', 'packages' => 'Packages', 'activity' => 'Activity', 'issues' => 'Issues'] as $k => $l)
                         <button type="button" role="tab" class="vxf-tab" aria-selected="{{ $logTab === $k ? 'true' : 'false' }}" wire:click="$set('logTab','{{ $k }}')">{{ $l }}@if ($k === 'issues' && $d['flags']->where('status','open')->count()) ({{ $d['flags']->where('status','open')->count() }})@endif</button>
                     @endforeach
                 </div>
@@ -358,7 +358,7 @@
                         <div><dt>PWE</dt><dd>{{ $run->reported_pwes ?? '—' }}</dd></div>
                         <div><dt>Items verified</dt><dd>{{ $d['verified'] }}{{ $d['rejected'] ? ' · ' . $d['rejected'] . ' rejected scans' : '' }}</dd></div>
                         <div><dt>Confirmed done</dt><dd>{{ $run->acknowledged_at ? $run->acknowledger?->name . ' · ' . $run->acknowledged_at->timezone($tz)->format('M j g:i A') : 'Not yet' }}</dd></div>
-                        <div><dt>Final sign-off</dt><dd>{{ $run->approved_at ? $run->approver?->name . ($run->signoff_signature ? ' (signed “' . $run->signoff_signature . '”)' : '') . ' · ' . $run->approved_at->timezone($tz)->format('M j g:i A') : 'Not yet' }}</dd></div>
+                        <div><dt>Final sign-off</dt><dd>{{ $run->approved_at ? $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j g:i A') : 'Not yet' }}</dd></div>
                     </dl>
                     @if ($d['contributions']->isNotEmpty())
                         <div class="vxf-card vxf-card__body"><strong>Who packed what</strong>
@@ -368,76 +368,6 @@
                         <div class="vxf-alert" role="note"><div><strong>Discrepancies</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $x)<li>{{ $x }}</li>@endforeach</ul></div></div>
                     @endif
                     @if ($run->approval_notes)<p class="vxf-sub">Sign-off note: {{ $run->approval_notes }}</p>@endif
-                @endif
-
-                @if ($logTab === 'signoff')
-                    @php
-                        $so = $d['signoff']; $byPackage = $so['kind'] === 'package';
-                        $canSign = $manager && $run->status === 'completed';
-                        $openIssues = $d['flags']->where('status', 'open')->count();
-                        $pctChecked = $so['total'] ? round($so['checked'] / $so['total'] * 100) : 0;
-                    @endphp
-                    <div class="vxf-signoff">
-                        @if ($run->status === 'approved')
-                            <div class="vxf-sign__done"><x-heroicon-s-check-badge />
-                                <div><strong>Signed off by {{ $run->approver?->name }}</strong> · {{ $run->approved_at?->timezone($tz)->format('M j, Y g:i A') }}
-                                    @if ($run->signoff_signature)<div><em>{{ $run->signoff_signature }}</em></div>@endif
-                                    @if ($run->approval_notes)<span class="vxf-sub">Note: {{ $run->approval_notes }}</span>@endif</div></div>
-                        @else
-                            <p class="vxf-sub" style="margin:0">{{ $run->acknowledged_at ? 'Packed and confirmed done by ' . $run->acknowledger?->name . ' · ' . $run->acknowledged_at->timezone($tz)->format('M j g:i A') . '.' : 'Packing is finished.' }}
-                                Check off every {{ $byPackage ? 'package' : 'buyer' }}, then sign the show off. Checks save as you go.</p>
-                        @endif
-                        @if ($run->discrepancies && $run->status !== 'approved')
-                            <div class="vxf-alert" role="note"><div><strong>Look at these first</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $x)<li>{{ $x }}</li>@endforeach</ul></div></div>
-                        @endif
-
-                        <div class="vxf-signoff__bar">
-                            <strong>{{ $so['checked'] }} of {{ $so['total'] }} {{ $byPackage ? 'packages' : 'buyers' }} checked</strong>
-                            <div class="vxf-signoff__meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $pctChecked }}" aria-label="Checked off"><i style="width:{{ $pctChecked }}%"></i></div>
-                            @if ($canSign)
-                                @if ($so['checked'] < $so['total'])<button type="button" class="vxf-btn vxf-btn--sm" wire:click="setChecked(null, true)"><x-heroicon-o-check /> Check all</button>
-                                @else<button type="button" class="vxf-btn vxf-btn--sm" wire:click="setChecked(null, false)">Clear checks</button>@endif
-                            @endif
-                        </div>
-
-                        <div class="vxf-signoff__list">
-                            @foreach ($d['buyers'] as $b)
-                                @php $mine = $byPackage ? $d['packages']->where('buyer_id', $b->id) : collect([$b]); @endphp
-                                @continue($byPackage && $mine->isEmpty())
-                                <div class="vxf-signoff__buyer">
-                                    <b>{{ $b->letter }}</b>
-                                    <span class="vxf-signoff__name">{{ $b->buyer_username }}<span class="vxf-sub">{{ $b->packer?->name ? 'Packed by ' . $b->packer->name : ucfirst($b->status) }}</span></span>
-                                    <div class="vxf-signoff__chips">
-                                    @foreach ($mine as $item)
-                                        @php $on = (bool) $item->checked_at; @endphp
-                                        <button type="button" class="vxf-tick {{ $on ? 'is-on' : '' }}" aria-pressed="{{ $on ? 'true' : 'false' }}" @disabled(! $canSign)
-                                            wire:click="setChecked({{ $item->id }}, {{ $on ? 'false' : 'true' }})" wire:loading.attr="disabled"
-                                            title="{{ $on && $item->checked_at ? 'Checked ' . $item->checked_at->timezone($tz)->format('M j g:i A') : 'Not checked' }}">
-                                            @if ($on)<x-heroicon-s-check-circle />@else<x-heroicon-o-stop />@endif
-                                            {{ $byPackage ? (! empty($item->order_ids) ? 'Order ' . implode(', ', (array) $item->order_ids) : 'Package ' . $loop->iteration) : 'Buyer packed' }}
-                                        </button>
-                                    @endforeach
-                                    </div>
-                                </div>
-                            @endforeach
-                            @if ($so['total'] === 0)<p class="vxf-empty">Nothing to check on this show.</p>@endif
-                        </div>
-
-                        @if ($canSign)
-                            <form class="vxf-sign" wire:submit="signOff">
-                                <strong>Final sign-off</strong>
-                                @if ($openIssues)<p class="vxf-flash vxf-flash--bad" style="margin:0" role="alert">{{ $openIssues }} open {{ \Illuminate\Support\Str::plural('issue', $openIssues) }} on this show. Resolve {{ $openIssues === 1 ? 'it' : 'them' }} in the Issues tab first.</p>@endif
-                                <p class="vxf-sub" style="margin:0">By signing, I confirm I checked every {{ $byPackage ? 'package' : 'buyer' }} for this show and it is complete.</p>
-                                <label class="vxf-field">Type your full name to sign
-                                    <input class="vxf-sign__line" wire:model="signature" autocomplete="name" placeholder="{{ auth()->user()->name }}" aria-describedby="vxf-sign-help"></label>
-                                <label class="vxf-field">Note (optional)<input class="vxf-input" wire:model="approvalNotes" placeholder="e.g. Counts match, two re-packed"></label>
-                                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                                    <button type="submit" class="vxf-btn vxf-btn--primary vxf-btn--lg" @disabled($so['checked'] < $so['total'] || $openIssues)><x-heroicon-o-pencil-square /> Sign off show</button>
-                                    <span id="vxf-sign-help" class="vxf-sub">{{ $so['checked'] < $so['total'] ? ($so['total'] - $so['checked']) . ' left to check' : 'Ready to sign' }} · signed {{ now()->timezone($tz)->format('M j, Y') }}</span>
-                                </div>
-                            </form>
-                        @endif
-                    </div>
                 @endif
 
                 @if ($logTab === 'buyers')
@@ -452,13 +382,12 @@
 
                 @if ($logTab === 'packages')
                     <div class="vxf-table-wrap"><table class="vxf-table">
-                        <thead><tr><th scope="col">Buyer</th><th scope="col">Order</th><th scope="col">Tracking</th><th scope="col">Status</th><th scope="col">Packed by</th><th scope="col">Packed</th><th scope="col">Checked</th></tr></thead>
+                        <thead><tr><th scope="col">Buyer</th><th scope="col">Order</th><th scope="col">Tracking</th><th scope="col">Status</th><th scope="col">Packed by</th><th scope="col">Packed</th></tr></thead>
                         <tbody>@forelse ($d['packages'] as $p)
                             <tr><td><strong class="vxf-mono">{{ $p->buyer?->letter }}</strong> {{ $p->buyer?->buyer_username }}</td><td>{{ ! empty($p->order_ids) ? implode(', ', (array) $p->order_ids) : '—' }}</td>
                                 <td>{{ $p->shipment?->tracking_number ? $p->shipment->carrier . ' ' . $p->shipment->tracking_number : '—' }}</td><td>{{ ucfirst($p->status) }}</td>
-                                <td>{{ $p->packer?->name ?? '—' }}</td><td class="vxf-num">{{ $p->packed_at?->timezone($tz)->format('M j g:i:s A') ?? '—' }}</td>
-                                <td>{{ $p->checked_at ? ($p->checker?->name ?? '✓') . ' · ' . $p->checked_at->timezone($tz)->format('M j g:i A') : '—' }}</td></tr>
-                        @empty<tr><td colspan="7" class="vxf-empty">No shipment records for this show, so packing is tracked per buyer.</td></tr>@endforelse</tbody></table></div>
+                                <td>{{ $p->packer?->name ?? '—' }}</td><td class="vxf-num">{{ $p->packed_at?->timezone($tz)->format('M j g:i:s A') ?? '—' }}</td></tr>
+                        @empty<tr><td colspan="6" class="vxf-empty">No shipment records for this show, so packing is tracked per buyer.</td></tr>@endforelse</tbody></table></div>
                 @endif
 
                 @if ($logTab === 'activity')
@@ -496,10 +425,119 @@
                 @if ($run->status === 'completed' && ! $run->acknowledged_at && $run->packers->contains('id', auth()->id()))
                     <button type="button" class="vxf-btn" wire:click="acknowledge">Confirm show is done</button>
                 @endif
-                @if ($manager && $run->status === 'completed' && $logTab !== 'signoff')
-                    <button type="button" class="vxf-btn vxf-btn--primary" wire:click="$set('logTab','signoff')"><x-heroicon-o-pencil-square /> Go to sign-off</button>
+                @if ($manager && $run->status === 'completed')
+                    <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openSignoff({{ $run->id }})"><x-heroicon-o-check-badge /> Review &amp; sign off</button>
                 @endif
             </div>
+        </div>
+    @endif
+    @if ($this->signoffRun)
+        @php
+            $run = $this->signoffRun; $d = $this->signoffData;
+            $packed = $d['packages']->where('status', 'packed')->count(); $pkgTotal = $d['packages']->count();
+            $buyersTotal = $d['buyers']->count(); $buyersPacked = $d['buyers']->where('status', 'packed')->count();
+            $openIssues = $d['flags']->where('status', 'open'); $signed = $run->status === 'approved';
+            $per = \App\Filament\Pages\FulfillmentActivity::SIGNOFF_BUYERS_PER_PAGE;
+            $pages = max(1, (int) ceil($buyersTotal / $per)); $page = min($signoffPage, $pages);
+            $pageBuyers = $d['buyers']->values()->forPage($page, $per);
+            $byBuyer = $d['packages']->groupBy('buyer_id');
+            $secs = $run->activeSeconds();
+        @endphp
+        <div class="vxf-full" role="dialog" aria-modal="true" aria-labelledby="vxf-so-title" @keydown.escape.window="$wire.closeSignoff()">
+            <header class="vxf-full__head">
+                <div style="min-width:0">
+                    <p class="vxf-eyebrow">{{ $signed ? 'Signed off' : 'Final sign-off' }}</p>
+                    <h2 id="vxf-so-title">{{ $run->show?->title }}</h2>
+                    <p class="vxf-sub" style="margin:0">{{ $run->show?->show_date?->format('D, M j') }}{{ $run->show?->channel ? ' · ' . $run->show->channel->name : '' }}{{ $run->station ? ' · ' . $run->station->name : '' }} · Packed by {{ $run->packers->pluck('name')->join(', ') ?: '—' }}</p>
+                </div>
+                <button type="button" class="vxf-icon-btn" wire:click="closeSignoff" aria-label="Close"><x-heroicon-o-x-mark /></button>
+            </header>
+
+            <div class="vxf-full__body">
+                <div class="vxf-review__stats">
+                    <div class="vxf-review__stat {{ $buyersPacked === $buyersTotal ? 'is-ok' : 'is-bad' }}"><b>{{ $buyersPacked }}<small>/{{ $buyersTotal }}</small></b><span>buyers packed</span></div>
+                    @if ($pkgTotal)<div class="vxf-review__stat {{ $packed === $pkgTotal ? 'is-ok' : 'is-bad' }}"><b>{{ $packed }}<small>/{{ $pkgTotal }}</small></b><span>packages packed</span></div>@endif
+                    <div class="vxf-review__stat {{ $openIssues->count() ? 'is-warn' : 'is-ok' }}"><b>{{ $openIssues->count() }}</b><span>open {{ \Illuminate\Support\Str::plural('issue', $openIssues->count()) }}{{ $d['flags']->count() > $openIssues->count() ? ' · ' . ($d['flags']->count() - $openIssues->count()) . ' resolved' : '' }}</span></div>
+                    <div class="vxf-review__stat"><b>{{ $secs >= 3600 ? gmdate('G\h i\m', $secs) : intdiv($secs, 60) . 'm' }}</b><span>packing time</span></div>
+                    <div class="vxf-review__stat"><b>{{ $run->order_count ?? '—' }}</b><span>orders</span></div>
+                </div>
+
+                <div class="vxf-full__grid">
+                    <section class="vxf-card" aria-labelledby="vxf-so-buyers">
+                        <div class="vxf-card__head"><h3 id="vxf-so-buyers">Buyers &amp; packages</h3><span class="vxf-sub">{{ $buyersTotal }} buyers</span></div>
+                        <ul class="vxf-so-list">
+                            @forelse ($pageBuyers as $b)
+                                @php $pk = $byBuyer->get($b->id, collect()); @endphp
+                                <li>
+                                    <b class="vxf-so-letter {{ $b->status === 'packed' ? 'is-ok' : '' }}">{{ $b->letter }}</b>
+                                    <div class="vxf-so-who"><strong>{{ $b->buyer_username }}</strong>
+                                        <span class="vxf-sub">{{ $b->status === 'packed' ? 'Packed by ' . ($b->packer?->name ?? '—') . ($b->packed_at ? ' · ' . $b->packed_at->timezone($tz)->format('g:i A') : '') : ucfirst($b->status) }}</span></div>
+                                    <div class="vxf-so-pkgs">
+                                        @forelse ($pk as $p)
+                                            <span class="vxf-so-pkg {{ $p->status === 'packed' ? 'is-ok' : '' }}">@if ($p->status === 'packed')<x-heroicon-s-check-circle />@else<x-heroicon-o-clock />@endif {{ ! empty($p->order_ids) ? '#' . implode(', #', (array) $p->order_ids) : 'Package' }}</span>
+                                        @empty
+                                            <span class="vxf-sub">{{ $b->order_count }} {{ \Illuminate\Support\Str::plural('order', $b->order_count) }}</span>
+                                        @endforelse
+                                    </div>
+                                </li>
+                            @empty
+                                <li class="vxf-empty">No buyers on this show.</li>
+                            @endforelse
+                        </ul>
+                        @if ($pages > 1)
+                            <div class="vxf-pager"><button type="button" class="vxf-icon-btn" wire:click="setSignoffPage({{ $page - 1 }})" @disabled($page <= 1) aria-label="Previous buyers"><x-heroicon-o-chevron-left /></button>
+                                <span class="vxf-sub">{{ ($page - 1) * $per + 1 }}–{{ min($buyersTotal, $page * $per) }} of {{ $buyersTotal }}</span>
+                                <button type="button" class="vxf-icon-btn" wire:click="setSignoffPage({{ $page + 1 }})" @disabled($page >= $pages) aria-label="Next buyers"><x-heroicon-o-chevron-right /></button></div>
+                        @endif
+                    </section>
+
+                    <aside class="vxf-full__side">
+                        <section class="vxf-card vxf-card__body" aria-labelledby="vxf-so-time">
+                            <h3 id="vxf-so-time" style="margin:0">Timeline</h3>
+                            <ol class="vxf-so-steps">
+                                <li class="is-done"><strong>Packing started</strong><span>{{ $run->started_at?->timezone($tz)->format('M j · g:i A') ?? '—' }}</span></li>
+                                <li class="is-done"><strong>Packing finished</strong><span>{{ $run->finished_at?->timezone($tz)->format('M j · g:i A') ?? '—' }}</span></li>
+                                <li class="{{ $run->acknowledged_at ? 'is-done' : '' }}"><strong>Packer confirmed done</strong><span>{{ $run->acknowledged_at ? $run->acknowledger?->name . ' · ' . $run->acknowledged_at->timezone($tz)->format('M j · g:i A') : 'Not yet' }}</span></li>
+                                <li class="{{ $signed ? 'is-done' : 'is-next' }}"><strong>Final sign-off</strong><span>{{ $signed ? $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j · g:i A') : 'You' }}</span></li>
+                            </ol>
+                        </section>
+                        @if ($run->discrepancies)
+                            <div class="vxf-alert" role="note"><div><strong>Look at these</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $x)<li>{{ $x }}</li>@endforeach</ul></div></div>
+                        @endif
+                        <section class="vxf-card vxf-card__body" aria-labelledby="vxf-so-issues">
+                            <h3 id="vxf-so-issues" style="margin:0">Issues</h3>
+                            @forelse ($d['flags']->take(5) as $flag)
+                                <div class="vxf-so-issue"><strong>{{ \App\Services\FulfillmentFlagService::label($flag->type) }}</strong> <span class="vxf-pill vxf-pill--{{ $flag->status === 'open' ? 'paused' : 'approved' }}">{{ ucfirst($flag->status) }}</span>
+                                    <span class="vxf-sub">{{ $flag->buyer ? $flag->buyer->letter . ' · ' . $flag->buyer->buyer_username . ' · ' : '' }}{{ $flag->details }}</span>
+                                    @if ($flag->resolution)<span class="vxf-sub">Resolved: {{ $flag->resolution }}</span>@endif</div>
+                            @empty
+                                <p class="vxf-sub" style="margin:0">No issues on this show.</p>
+                            @endforelse
+                        </section>
+                    </aside>
+                </div>
+            </div>
+
+            <footer class="vxf-full__foot">
+                @if ($signed)
+                    <div class="vxf-so-done"><x-heroicon-s-check-badge /><div><strong>Signed off by {{ $run->approver?->name }}</strong><span class="vxf-sub">{{ $run->approved_at->timezone($tz)->format('M j, Y · g:i A') }}{{ $run->approval_notes ? ' · ' . $run->approval_notes : '' }}</span></div></div>
+                    <div style="display:flex;gap:8px;margin-left:auto">
+                        <a class="vxf-btn" href="{{ route('fulfillment.run.print', $run) }}" target="_blank" rel="noopener"><x-heroicon-o-printer /> Print record</a>
+                        <button type="button" class="vxf-btn vxf-btn--primary" wire:click="closeSignoff">Done</button>
+                    </div>
+                @else
+                    @if ($openIssues->count())
+                        <p class="vxf-flash vxf-flash--bad" style="margin:0" role="alert">Resolve the open {{ \Illuminate\Support\Str::plural('issue', $openIssues->count()) }} (Issues tab) before signing off.</p>
+                    @else
+                        <label class="sr-only" for="vxf-so-note">Note (optional)</label>
+                        <input id="vxf-so-note" class="vxf-input vxf-so-note" placeholder="Note (optional)" wire:model="approvalNotes">
+                    @endif
+                    <div style="display:flex;gap:8px;margin-left:auto">
+                        <button type="button" class="vxf-btn" wire:click="closeSignoff">Not yet</button>
+                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" wire:click="signOff" @disabled($openIssues->count())><x-heroicon-o-check-badge /> Sign off show</button>
+                    </div>
+                @endif
+            </footer>
         </div>
     @endif
 </div>

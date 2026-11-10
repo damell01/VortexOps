@@ -302,6 +302,16 @@ Dev share the server), then runs `php artisan cache:probe redis --locks-free`.
 A failed probe, or a database cache lock still held by a Whatnot run, puts
 `.env` back. Sessions and queues are untouched. `VORTEX_REDIS_CACHE=off` opts out.
 
+## Fulfillment demo (Dev / staging)
+
+`php artisan fulfillment:demo` builds a believable Fulfillment Center (shows
+packing, on hold, paused, ready, waiting for sign-off, signed off; a week of
+shifts) plus two sign-ins: `fulfillment-admin@vortexops.test` (manager) and
+`fulfillment-worker@vortexops.test` (packer). Every non-Production deploy
+(`scripts/baremetal-deploy.sh`, `deploy-optimize.sh`, `pull-and-optimize.sh`)
+runs it with `--refresh`. `--logins` prints the sign-ins, `--remove` deletes
+the demo, and it refuses to run when `APP_ENV=production`.
+
 ## Scheduler / queue
 
 - Queue worker: `php artisan queue:work --sleep=3 --tries=3 --timeout=120`

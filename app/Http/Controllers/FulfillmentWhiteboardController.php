@@ -144,7 +144,7 @@ class FulfillmentWhiteboardController extends Controller
         $user = $request->user();
         abort_unless(FulfillmentAccess::isManager($user) || FulfillmentAccess::canWorkRun($user, $run->id), 403);
         $run->load(['show:id,title,show_date,start_time,whatnot_channel_id', 'show.channel:id,name', 'show.streamers:id,name', 'station:id,name,camera_label',
-            'packers:id,name', 'acknowledger:id,name', 'approver:id,name', 'buyers.packer:id,name', 'buyers.packages:id,buyer_id,checked_at', 'flags.reporter:id,name']);
+            'packers:id,name', 'acknowledger:id,name', 'approver:id,name', 'buyers.packer:id,name', 'flags.reporter:id,name']);
 
         return view('fulfillment.print', ['run' => $run, 'tz' => BusinessTime::zone()]);
     }

@@ -357,68 +357,20 @@ class FulfillmentRunService
     }
 
     /**
-     * Sign-off checklist: the fulfillment admin marks a package (or, for a show
-     * packed without shipment records, a buyer) as checked, or unchecks it.
-     * Saved as they go, so a sign-off can be finished later.
-     *
-     * @param  'package'|'buyer'  $kind
+     * The fulfillment admin's final sign-off: after reviewing the show, one
+     * confirm. Same rules as approval (finished, no open issues); the record
+     * keeps who signed off and when.
      */
-    public function setChecked(int $runId, User $actor, string $kind, ?int $id, bool $checked): int
+    public function signOff(int $runId, User $actor, ?string $notes = null): void
     {
-        abort_unless(FulfillmentAccess::isManager($actor), 403);
-        $table = $kind === 'buyer' ? 'fulfillment_run_buyers' : 'fulfillment_run_packages';
-
-        return DB::transaction(function () use ($runId, $actor, $table, $id, $checked) {
-            $run = DB::table('fulfillment_runs')->where('id', $runId)->lockForUpdate()->first();
-            abort_unless($run, 404);
-            if ($run->status !== FulfillmentRun::COMPLETED) {
-                throw ValidationException::withMessages(['run' => $run->status === FulfillmentRun::APPROVED ? 'This show is already signed off.' : 'Packing has to be finished before sign-off.']);
-            }
-            $rows = DB::table($table)->where('run_id', $runId)->when($id, fn ($q) => $q->where('id', $id));
-            $count = $checked
-                ? (clone $rows)->whereNull('checked_at')->update(['checked_at' => now(), 'checked_by' => $actor->id, 'updated_at' => now()])
-                : (clone $rows)->whereNotNull('checked_at')->update(['checked_at' => null, 'checked_by' => null, 'updated_at' => now()]);
-            if ($count && ! $id) FulfillmentLog::record('checked_off', $runId, $actor->id, ['count' => $count, 'note' => $checked ? 'Checked all' : 'Cleared all']);
-
-            return $count;
-        });
-    }
-
-    /** What the sign-off checks: packages when the show has them, otherwise buyers. */
-    public function signOffProgress(int $runId): array
-    {
-        $kind = DB::table('fulfillment_run_packages')->where('run_id', $runId)->exists() ? 'package' : 'buyer';
-        $table = $kind === 'buyer' ? 'fulfillment_run_buyers' : 'fulfillment_run_packages';
-        $total = DB::table($table)->where('run_id', $runId)->count();
-        $checked = DB::table($table)->where('run_id', $runId)->whereNotNull('checked_at')->count();
-
-        return ['kind' => $kind, 'total' => $total, 'checked' => $checked, 'complete' => $total > 0 && $checked === $total];
-    }
-
-    /**
-     * The fulfillment admin's final sign-off: every package checked off, open
-     * issues resolved, and their typed name as the signature.
-     */
-    public function signOff(int $runId, User $actor, string $signature, ?string $notes = null): void
-    {
-        abort_unless(FulfillmentAccess::isManager($actor), 403);
-        $signature = trim(preg_replace('/\s+/', ' ', $signature));
-        if (mb_strlen($signature) < 2) {
-            throw ValidationException::withMessages(['signature' => 'Type your full name to sign off.']);
-        }
-        $progress = $this->signOffProgress($runId);
-        if (! $progress['complete']) {
-            $left = $progress['total'] - $progress['checked'];
-            throw ValidationException::withMessages(['checks' => "Check off every {$progress['kind']} first ({$left} left)."]);
-        }
-        $this->approve($runId, $actor, $notes, mb_substr($signature, 0, 120));
+        $this->approve($runId, $actor, $notes);
     }
 
     /** A manager approves the completion record (the final sign-off). */
-    public function approve(int $runId, User $actor, ?string $notes = null, ?string $signature = null): void
+    public function approve(int $runId, User $actor, ?string $notes = null): void
     {
         abort_unless(FulfillmentAccess::isManager($actor), 403);
-        DB::transaction(function () use ($runId, $actor, $notes, $signature) {
+        DB::transaction(function () use ($runId, $actor, $notes) {
             $run = DB::table('fulfillment_runs')->where('id', $runId)->lockForUpdate()->first();
             abort_unless($run, 404);
             if ($run->status === FulfillmentRun::APPROVED) return;
@@ -430,9 +382,9 @@ class FulfillmentRunService
             }
             DB::table('fulfillment_runs')->where('id', $runId)->update([
                 'status' => FulfillmentRun::APPROVED, 'approved_at' => now(), 'approved_by' => $actor->id,
-                'approval_notes' => $notes ? trim($notes) : null, 'signoff_signature' => $signature, 'updated_at' => now(),
+                'approval_notes' => $notes ? trim($notes) : null, 'updated_at' => now(),
             ]);
-            FulfillmentLog::record('approved', $runId, $actor->id, array_filter(['signature' => $signature, 'notes' => $notes ? trim($notes) : null]));
+            FulfillmentLog::record('approved', $runId, $actor->id, array_filter(['notes' => $notes ? trim($notes) : null]));
         });
     }
 

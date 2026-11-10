@@ -721,8 +721,10 @@ a.vxtv__card:hover{transform:translateY(-3px);border-color:var(--tv-brand)}
 .vxf-btn--lg{padding:12px 18px;font-size:15px}
 .vxf-btn[disabled]{opacity:.5;cursor:not-allowed}
 
-/* Final sign-off: full-screen review (fulfillment admin) */
-.vxf-full{position:fixed;inset:0;z-index:62;background:var(--vxf-soft,#f6f5fe);color:var(--vxf-ink);display:grid;grid-template-rows:auto 1fr auto;animation:vxf-fade .16s ease-out}
+/* Final sign-off: full-screen review (fulfillment admin). The page's enter
+   animation leaves a transform on .fi-page, which would trap position:fixed. */
+.fi-page:has(.vxf-full){transform:none!important;animation:none!important}
+.vxf-full{position:fixed;inset:0;z-index:1000;gap:0;background:var(--vxf-soft,#f6f5fe);color:var(--vxf-ink);display:grid;grid-template-rows:auto 1fr auto;animation:vxf-fade .16s ease-out}
 @keyframes vxf-fade{from{opacity:0;transform:scale(.995)}to{opacity:1;transform:none}}
 html.dark .vxf-full{background:#0b1020}
 .vxf-full__head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px clamp(16px,4vw,40px) 14px;background:var(--vxf-card);border-bottom:1px solid var(--vxf-line)}

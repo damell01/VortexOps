@@ -443,7 +443,12 @@
             $byBuyer = $d['packages']->groupBy('buyer_id');
             $secs = $run->activeSeconds();
         @endphp
-        <div class="vxf-full" role="dialog" aria-modal="true" aria-labelledby="vxf-so-title" @keydown.escape.window="$wire.closeSignoff()">
+        <div class="vxf vxf-full" role="dialog" aria-modal="true" aria-labelledby="vxf-so-title"
+             x-data="{
+                 onKey: null,
+                 init() { document.documentElement.style.overflow = 'hidden'; this.onKey = (e) => { if (e.key === 'Escape' && e.isTrusted) $wire.closeSignoff() }; window.addEventListener('keydown', this.onKey) },
+                 destroy() { window.removeEventListener('keydown', this.onKey); document.documentElement.style.overflow = '' },
+             }">
             <header class="vxf-full__head">
                 <div style="min-width:0">
                     <p class="vxf-eyebrow">{{ $signed ? 'Signed off' : 'Final sign-off' }}</p>

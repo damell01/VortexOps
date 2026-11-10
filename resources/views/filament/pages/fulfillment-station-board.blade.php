@@ -30,78 +30,96 @@
 @if (! $run)
     {{-- Choose a station or a show --}}
     <div class="vxf-head">
-        <div><h1>Station Board</h1><p>Choose your station, then open the show you are packing.</p></div>
+        <div><h1>Station Board</h1><p>Pick your station, then open the show you're packing.</p></div>
         <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}"><x-heroicon-o-arrow-left /> Fulfillment Home</a>
     </div>
-    <section class="vxf-card" aria-labelledby="vxf-pick-station">
-        <div class="vxf-card__head"><h2 id="vxf-pick-station">Stations</h2></div>
-        <div class="vxf-card__body vxf-stations">
+    <section aria-labelledby="vxf-pick-station">
+        <h2 id="vxf-pick-station" class="vxf-step"><b>1</b> Your station</h2>
+        <div class="vxf-tiles">
             @foreach ($this->stations as $station)
-                <button type="button" wire:click="chooseStation({{ $station->id }})" class="vxf-card vxf-station" style="text-align:left;cursor:pointer;{{ $stationId === $station->id ? 'border-color:#7c3aed;box-shadow:0 0 0 2px #7c3aed inset' : '' }}" aria-pressed="{{ $stationId === $station->id ? 'true' : 'false' }}">
-                    <span class="vxf-station__top"><span class="vxf-station__name">{{ $station->name }}</span>
-                        <span class="vxf-pill vxf-pill--{{ $station->activeRun ? 'packing' : '' }}">{{ $station->activeRun ? 'Packing' : 'Free' }}</span></span>
-                    <span class="vxf-station__meta">{{ $station->activeRun?->show?->title ?? 'No show running' }}</span>
+                @php $active = $station->activeRun; @endphp
+                <button type="button" wire:click="chooseStation({{ $station->id }})" @class(['vxf-tile', 'vxf-tile--busy' => $active, 'is-selected' => $stationId === $station->id]) aria-pressed="{{ $stationId === $station->id ? 'true' : 'false' }}">
+                    <span class="vxf-tile__top"><strong>{{ $station->name }}</strong>
+                        <span class="vxf-pill vxf-pill--{{ $active ? 'packing' : 'ready' }}">{{ $active ? 'Packing' : 'Free' }}</span></span>
+                    <span class="vxf-tile__sub">{{ $active?->show?->title ?? ($station->camera_label ? $station->camera_label . ' · ready for a show' : 'Ready for a show') }}</span>
+                    @if ($stationId === $station->id)<span class="vxf-tile__check" aria-hidden="true"><x-heroicon-s-check-circle /></span>@endif
                 </button>
             @endforeach
         </div>
     </section>
-    <section class="vxf-card" aria-labelledby="vxf-pick-show">
-        <div class="vxf-card__head"><h2 id="vxf-pick-show">Shows ready to start</h2></div>
+    <section aria-labelledby="vxf-pick-show">
+        <h2 id="vxf-pick-show" class="vxf-step"><b>2</b> Open a show</h2>
         @forelse ($this->startable as $ready)
-            @if ($loop->first)<ul class="vxf-list">@endif
-            <li>
-                <span class="vxf-dot" aria-hidden="true"><x-heroicon-o-inbox-stack /></span>
-                <div style="flex:1;min-width:0"><strong>{{ $ready->show->title }}</strong>
-                    <span class="vxf-sub">{{ $ready->show->channel?->name }} · {{ $ready->show->show_date?->format('M j') }} · {{ $ready->expected_packages !== null ? $ready->expected_packages . ' packages' : 'package count pending' }}</span></div>
-                <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openRun({{ $ready->id }})">Open</button>
-            </li>
-            @if ($loop->last)</ul>@endif
+            @if ($loop->first)<div class="vxf-showcards">@endif
+            <article class="vxf-showcard">
+                <span class="vxf-showcard__icon" aria-hidden="true"><x-heroicon-o-inbox-stack /></span>
+                <div style="flex:1;min-width:0">
+                    <strong>{{ $ready->show->title }}</strong>
+                    <span class="vxf-sub">{{ $ready->show->channel?->name ?? 'No channel' }} · {{ $ready->show->show_date?->format('M j') }}</span>
+                    <span class="vxf-chips" style="margin-top:6px"><span class="vxf-chip">{{ $ready->expected_packages !== null ? $ready->expected_packages . ' packages' : 'count pending' }}</span>@if ($ready->show->is_slow_pack)<span class="vxf-chip">Long job</span>@endif</span>
+                </div>
+                <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openRun({{ $ready->id }})">Open <x-heroicon-o-arrow-right /></button>
+            </article>
+            @if ($loop->last)</div>@endif
         @empty
-            <p class="vxf-empty">No shows are waiting for you. Assigned shows appear here when they are ready.</p>
+            <p class="vxf-empty vxf-card">No shows are waiting for you. Assigned shows appear here when they're ready.</p>
         @endforelse
     </section>
 
 @elseif ($run->status === 'ready')
     {{-- Before packing: confirm the station and start --}}
     @php $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
-    <div class="vxf-board" wire:key="board-ready-{{ $run->id }}">
-        <div class="vxf-sb__show">
-            <div>
-                <p class="vxf-eyebrow">Ready to pack</p>
-                <h1>{{ $show->title }}</h1>
-                <div class="vxf-sb__facts">
-                    <span>Stream: <strong>{{ $show->show_date?->format('M j, Y') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</strong></span>
-                    <span>Channel: <strong>{{ $show->channel?->name ?? '—' }}</strong></span>
-                    <span>Streamer: <strong>{{ $show->streamers->pluck('name')->join(', ') ?: '—' }}</strong></span>
-                    <span>Packers: <strong>{{ $show->fulfillmentUsers->pluck('name')->join(', ') ?: 'Not assigned' }}</strong></span>
-                </div>
+    <div class="vxf-board vxf-ready" wire:key="board-ready-{{ $run->id }}">
+        <section class="vxf-ready__show">
+            <a class="vxf-backlink" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}"><x-heroicon-o-arrow-left /> Fulfillment Home</a>
+            <p class="vxf-eyebrow">Ready to pack</p>
+            <h1>{{ $show->title }}</h1>
+            <div class="vxf-chips">
+                <span class="vxf-chip"><x-heroicon-o-video-camera /> {{ $show->show_date?->format('M j') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</span>
+                <span class="vxf-chip"><x-heroicon-o-signal /> {{ $show->channel?->name ?? 'No channel' }}</span>
+                <span class="vxf-chip"><x-heroicon-o-user /> {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span>
             </div>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}">Back</a>
-        </div>
-        <div class="vxf-card" style="margin-top:14px;padding:18px;display:grid;gap:14px;max-width:720px">
-            <div class="vxf-kv">
-                <div><dt>Buyers</dt><dd>{!! $run->buyer_count ?? '<span class="vxf-unknown">pending</span>' !!}</dd></div>
-                <div><dt>Orders</dt><dd>{!! $run->order_count ?? '<span class="vxf-unknown">pending</span>' !!}</dd></div>
-                <div><dt>Packages</dt><dd>{!! $run->expected_packages ?? '<span class="vxf-unknown">pending</span>' !!}</dd></div>
+            <div class="vxf-bignums">
+                <div><x-heroicon-o-users /><b>{!! $run->buyer_count ?? '<span class="vxf-unknown">—</span>' !!}</b><span>buyers</span></div>
+                <div><x-heroicon-o-receipt-percent /><b>{!! $run->order_count ?? '<span class="vxf-unknown">—</span>' !!}</b><span>orders</span></div>
+                <div><x-heroicon-o-cube /><b>{!! $run->expected_packages ?? '<span class="vxf-unknown">—</span>' !!}</b><span>packages</span></div>
             </div>
+            <div class="vxf-packers">
+                <span class="vxf-sub">Packing this show</span>
+                @forelse ($show->fulfillmentUsers as $u)
+                    <span class="vxf-person"><i>{{ mb_strtoupper(mb_substr($u->name, 0, 1)) }}</i>{{ $u->name }}</span>
+                @empty
+                    <span class="vxf-person vxf-person--none">Not assigned yet</span>
+                @endforelse
+            </div>
+            <ul class="vxf-whatnext">
+                <li><x-heroicon-o-clock /> The start time, station and packer are recorded for you.</li>
+                <li><x-heroicon-o-language /> Buyers load A–Z with their letters, matching the camera.</li>
+                <li><x-heroicon-o-tv /> The TV whiteboard shows your progress live.</li>
+            </ul>
+        </section>
+        <section class="vxf-ready__go">
             @if ($needsReport)
-                <p class="vxf-alert" role="alert">The streamer report for this show has to be approved before packing can start.</p>
+                <p class="vxf-alert" role="alert"><x-heroicon-o-lock-closed style="width:18px;height:18px;flex-shrink:0" /> The streamer report has to be approved before packing can start.</p>
             @endif
-            <label class="vxf-field">Your station
-                <select class="vxf-select" wire:model="stationId">
-                    <option value="">Choose a station…</option>
-                    @foreach ($this->stations as $station)
-                        <option value="{{ $station->id }}" @disabled($station->activeRun)>{{ $station->name }}{{ $station->activeRun ? ' (busy)' : '' }}</option>
-                    @endforeach
-                </select>
-            </label>
+            <h2 class="vxf-step"><b>1</b> Choose your station</h2>
+            <div class="vxf-tiles vxf-tiles--pick" role="radiogroup" aria-label="Station">
+                @foreach ($this->stations as $station)
+                    @php $busy = $station->activeRun; @endphp
+                    <button type="button" role="radio" aria-checked="{{ (int) $stationId === $station->id ? 'true' : 'false' }}" wire:click="$set('stationId', {{ $station->id }})" @disabled($busy)
+                        @class(['vxf-tile', 'vxf-tile--busy' => $busy, 'is-selected' => (int) $stationId === $station->id])>
+                        <span class="vxf-tile__top"><strong>{{ $station->name }}</strong>@if ((int) $stationId === $station->id)<span class="vxf-tile__check" aria-hidden="true"><x-heroicon-s-check-circle /></span>@endif</span>
+                        <span class="vxf-tile__sub">{{ $busy ? 'Busy · ' . $busy->show?->title : ($station->camera_label ?: 'Free') }}</span>
+                    </button>
+                @endforeach
+            </div>
             @error('stationId')<p class="vxf-flash vxf-flash--bad" role="alert">{{ $message }}</p>@enderror
-            <button type="button" class="vxf-big vxf-big--go" wire:click="startPacking" wire:loading.attr="disabled" @disabled($needsReport)>
+            <h2 class="vxf-step"><b>2</b> Start</h2>
+            <button type="button" class="vxf-big vxf-big--go vxf-big--hero" wire:click="startPacking" wire:loading.attr="disabled" @disabled($needsReport || ! $stationId)>
                 <x-heroicon-o-play /> Start Packing
             </button>
-            <p class="vxf-sub" style="margin:0">Starting records the station, packer and time, and loads the buyers A–Z with their letters.</p>
-        </div>
-        @if ($flash)<p class="vxf-flash vxf-flash--{{ $flash['ok'] ? 'ok' : 'bad' }}" role="status" style="margin-top:12px">{{ $flash['text'] }}</p>@endif
+            @if ($flash)<p class="vxf-flash vxf-flash--{{ $flash['ok'] ? 'ok' : 'bad' }}" role="status">{{ $flash['text'] }}</p>@endif
+        </section>
     </div>
 
 @elseif ($run->isOnStation())

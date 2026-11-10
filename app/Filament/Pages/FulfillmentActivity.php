@@ -386,6 +386,14 @@ class FulfillmentActivity extends Page
 
     // ── Productivity ───────────────────────────────────────────────────────
 
+    /** Last few packed buyers, offered as one-tap examples in the footage lookup. */
+    #[Computed]
+    public function recentBuyers(): \Illuminate\Support\Collection
+    {
+        return FulfillmentEvent::query()->where('type', 'buyer_packed')->whereNotNull('buyer_username')
+            ->latest('id')->limit(30)->get(['buyer_letter', 'buyer_username'])->unique('buyer_username')->take(6)->values();
+    }
+
     #[Computed]
     public function productivity(): \Illuminate\Support\Collection
     {

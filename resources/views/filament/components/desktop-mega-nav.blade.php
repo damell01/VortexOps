@@ -236,7 +236,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 <style>
 /* One desktop header layout: Filament topbar utilities above the shared primary navigation. */
 @media (min-width:1024px) {
-  .fi-topbar:has(.vx-desktop-mega-nav) {
+  .fi-topbar {
     position:relative!important;display:flex!important;align-items:flex-start!important;
     height:110px!important;min-height:110px!important;
     width:100%!important;max-width:100%!important;
@@ -244,31 +244,31 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     background:linear-gradient(105deg,#24133f,#301650 55%,#18122f)!important;
     color:#fff!important;border-bottom:1px solid rgba(255,255,255,.18)!important;
   }
-  .fi-topbar-ctn:has(.vx-desktop-mega-nav) {overflow:visible!important;z-index:50!important}
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-start {min-width:0!important;flex:1 1 auto!important}
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-end {
+  .fi-topbar-ctn {overflow:visible!important;z-index:50!important}
+  .fi-topbar .fi-topbar-start {min-width:0!important;flex:1 1 auto!important}
+  .fi-topbar .fi-topbar-end {
     position:absolute!important;top:7px!important;right:22px!important;
     height:51px!important;display:flex!important;align-items:center!important;
     margin:0!important;gap:10px!important;z-index:3!important;
     max-width:calc(100% - 260px)!important;
   }
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-end :is(button,a,svg) {color:#f7f3ff}
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search {
+  .fi-topbar .fi-topbar-end :is(button,a,svg) {color:#f7f3ff}
+  .fi-topbar .fi-global-search {
     display:block!important;visibility:visible!important;position:relative!important;
     flex:0 1 280px!important;width:clamp(190px,24vw,280px)!important;
     min-width:190px!important;max-width:280px!important;
   }
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search input {
+  .fi-topbar .fi-global-search input {
     background:rgba(255,255,255,.12)!important;color:#fff!important;
     -webkit-text-fill-color:#fff!important;caret-color:#fff!important;
     border:1px solid rgba(255,255,255,.24)!important;
     border-radius:999px!important;
   }
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search input::placeholder {color:#e3d9f5!important;opacity:1}
-  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search-results-ctn {
+  .fi-topbar .fi-global-search input::placeholder {color:#e3d9f5!important;opacity:1}
+  .fi-topbar .fi-global-search-results-ctn {
     z-index:110!important;color:#1d1732!important;
   }
-  .fi-topbar:has(.vx-desktop-mega-nav) nav.vx-desktop-mega-nav {
+  .fi-topbar nav.vx-desktop-mega-nav {
     position:absolute!important;left:22px!important;right:22px!important;
     bottom:0!important;top:auto!important;z-index:2!important;
     box-sizing:border-box!important;display:flex!important;align-items:center!important;

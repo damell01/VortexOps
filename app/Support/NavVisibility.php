@@ -194,6 +194,8 @@ class NavVisibility
             \App\Filament\Resources\ActivityLogResource::class,
             \App\Filament\Resources\InventoryMovementResource::class,
             \App\Filament\Resources\InventoryItemResource::class,
+            \App\Filament\Pages\Shows::class,
+            \App\Filament\Resources\ShowResource::class,
             \App\Filament\Resources\PalletResource::class,
             \App\Filament\Resources\VendorResource::class,
             \App\Filament\Pages\PalletReceivingHistory::class,

@@ -82,42 +82,45 @@
                             <span class="rounded-full bg-gray-100 px-3 py-1 font-semibold dark:bg-gray-800">{{ ucfirst($category) }} <span class="tabular-nums {{ $total < 0 ? 'vx-bad' : '' }}">${{ number_format($total, 2) }}</span></span>
                         @endforeach
                     </div>
-                    <div class="mt-4">
-                        <div class="text-sm font-semibold">After the show</div>
+                    <details class="mt-4 rounded-lg border border-[var(--vx-divider)] p-3" x-data="{ page: 1, size: 10 }">
+                        <summary class="cursor-pointer text-sm font-semibold">After the show · {{ $ledger['after_show']->count() }} entries <span class="text-xs font-normal text-[var(--vx-muted)]">(expand)</span></summary>
                         @if($ledger['after_show']->isEmpty())
-                            <p class="mt-1 text-xs text-[var(--vx-muted)]">Nothing has landed since the show ended.</p>
+                            <p class="mt-2 text-xs text-[var(--vx-muted)]">Nothing has landed since the show ended.</p>
                         @else
-                            <p class="mt-1 text-xs {{ $ledger['after_show_net'] < 0 ? 'vx-bad' : 'text-[var(--vx-muted)]' }}">{{ $ledger['after_show_net'] < 0 ? 'This show lost' : 'This show gained' }} ${{ number_format(abs($ledger['after_show_net']), 2) }} after it ended{{ $ledger['after_show_tips'] > 0 ? ', plus $'.number_format($ledger['after_show_tips'], 2).' in late tips' : '' }}.</p>
+                            <p class="mt-2 text-xs {{ $ledger['after_show_net'] < 0 ? 'vx-bad' : 'text-[var(--vx-muted)]' }}">{{ $ledger['after_show_net'] < 0 ? 'This show lost' : 'This show gained' }} ${{ number_format(abs($ledger['after_show_net']), 2) }} after it ended{{ $ledger['after_show_tips'] > 0 ? ', plus $'.number_format($ledger['after_show_tips'], 2).' in late tips' : '' }}.</p>
                             <div class="mt-2 divide-y divide-[var(--vx-divider)]">
                                 @foreach($ledger['after_show'] as $line)
-                                    <div class="flex items-center justify-between gap-3 py-2 text-xs">
+                                    <div x-show="Math.floor({{ $loop->index }} / size) + 1 === page" class="flex items-center justify-between gap-3 py-2 text-xs">
                                         <div class="min-w-0"><span class="font-semibold">{{ $line['at']?->format('M j') }}</span> · {{ ucfirst($line['category']) }}@if($line['order']) · order {{ $line['order'] }}@endif @if($line['status'] === 'waiting')<span class="text-amber-600">· not matched yet</span>@endif<div class="truncate text-[var(--vx-muted)]">{{ $line['message'] }}</div></div>
                                         <span class="shrink-0 font-semibold tabular-nums {{ $line['amount'] < 0 ? 'vx-bad' : 'vx-good' }}">{{ $line['amount'] < 0 ? '−' : '+' }}${{ number_format(abs($line['amount']), 2) }}</span>
                                     </div>
                                 @endforeach
                             </div>
-                        @endif
-                    </div>
-                    <div class="mt-4" x-data="{ ledgerCategory: 'all' }">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold">All {{ $ledger['lines']->count() }} ledger entries</h4>
-                            @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
-                                <a class="text-xs font-semibold text-violet-700 hover:underline dark:text-violet-300"
-                                   href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $show->id, 'period' => 'all']) }}">Open ledger ↗</a>
+                            @if($ledger['after_show']->count() > 10)
+                                <nav class="mt-3 flex items-center justify-between gap-3 text-xs" aria-label="After-show ledger pages">
+                                    <button type="button" class="rounded border border-[var(--vx-divider)] px-3 py-2" @click="page = Math.max(1, page - 1)" :disabled="page === 1">Previous</button>
+                                    <span x-text="'Page ' + page + ' of ' + Math.ceil({{ $ledger['after_show']->count() }} / size)"></span>
+                                    <button type="button" class="rounded border border-[var(--vx-divider)] px-3 py-2" @click="page = Math.min(Math.ceil({{ $ledger['after_show']->count() }} / size), page + 1)" :disabled="page >= Math.ceil({{ $ledger['after_show']->count() }} / size)">Next</button>
+                                </nav>
                             @endif
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Filter show ledger entries">
-                            @foreach(array_merge(['all'], $ledger['lines']->pluck('category')->filter()->unique()->sort()->values()->all()) as $ledgerCategory)
+                        @endif
+                    </details>
+                    <details class="mt-4 rounded-lg border border-[var(--vx-divider)] p-3" x-data="{ ledgerCategory: 'all', page: 1, size: 10, categories: @js($ledger['lines']->pluck('category')->values()->all()), filteredIndexes() { return this.categories.map((category, index) => category === this.ledgerCategory || this.ledgerCategory === 'all' ? index : -1).filter(index => index !== -1); }, visible(index) { const indexes = this.filteredIndexes(); const position = indexes.indexOf(index); return position >= 0 && Math.floor(position / this.size) + 1 === this.page; } }">
+                        <summary class="cursor-pointer text-sm font-semibold">All {{ $ledger['lines']->count() }} ledger entries <span class="text-xs font-normal text-[var(--vx-muted)]">(expand)</span></summary>
+                        @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())
+                            <a class="mt-2 inline-block text-xs font-semibold text-violet-700 hover:underline dark:text-violet-300" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $show->id, 'period' => 'all']) }}">Open full ledger</a>
+                        @endif
+                        <div class="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter show ledger entries">
+                            @foreach(array_merge(['all'], $ledger['lines']->pluck('category')->filter()->unique()->sort()->values()->all()) as $category)
                                 <button type="button" class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                                    :class="ledgerCategory === @js($ledgerCategory) ? 'border-violet-500 bg-violet-600 text-white' : 'border-[var(--vx-divider)] hover:border-violet-400'"
-                                    :aria-pressed="ledgerCategory === @js($ledgerCategory)"
-                                    @click="ledgerCategory = @js($ledgerCategory)">{{ $ledgerCategory === 'all' ? 'All entries' : ucfirst($ledgerCategory) }}</button>
+                                    :class="ledgerCategory === @js($category) ? 'border-violet-500 bg-violet-600 text-white' : 'border-[var(--vx-divider)] hover:border-violet-400'"
+                                    :aria-pressed="ledgerCategory === @js($category)"
+                                    @click="ledgerCategory = @js($category); page = 1">{{ $category === 'all' ? 'All entries' : ucfirst($category) }}</button>
                             @endforeach
                         </div>
-                        <div class="mt-2 max-h-80 overflow-y-auto divide-y divide-[var(--vx-divider)]">
+                        <div class="mt-2 divide-y divide-[var(--vx-divider)]">
                             @foreach($ledger['lines'] as $line)
-                                <div x-show="ledgerCategory === 'all' || ledgerCategory === @js($line['category'])"
-                                     class="flex items-start justify-between gap-3 py-2 text-xs">
+                                <div x-show="visible({{ $loop->index }})" class="flex items-start justify-between gap-3 py-2 text-xs">
                                     <div class="min-w-0">
                                         <div class="font-semibold">{{ $line['at']?->format('M j, g:ia') }} · {{ ucfirst($line['category']) }} · {{ $line['type'] }}</div>
                                         @if($line['order'])<div class="text-[var(--vx-muted)]">Order {{ $line['order'] }}</div>@endif
@@ -128,7 +131,12 @@
                                 </div>
                             @endforeach
                         </div>
-                    </div>
+                        <nav class="mt-3 flex items-center justify-between gap-3 text-xs" aria-label="Show ledger pages" x-show="filteredIndexes().length > size">
+                            <button type="button" class="rounded border border-[var(--vx-divider)] px-3 py-2" @click="page = Math.max(1, page - 1)" :disabled="page === 1">Previous</button>
+                            <span x-text="'Page ' + page + ' of ' + Math.max(1, Math.ceil(filteredIndexes().length / size))"></span>
+                            <button type="button" class="rounded border border-[var(--vx-divider)] px-3 py-2" @click="page = Math.min(Math.ceil(filteredIndexes().length / size), page + 1)" :disabled="page >= Math.ceil(filteredIndexes().length / size)">Next</button>
+                        </nav>
+                    </details>
                 @endif
             </section>
         </div>

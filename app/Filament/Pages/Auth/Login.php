@@ -30,6 +30,15 @@ class Login extends BaseLogin
 
         if ($user?->must_change_password) return route('account.password.edit');
 
+        // Go directly to the fulfillment landing page after authentication;
+        // avoid loading the general dashboard only to redirect again.
+        if ($user && ($user->isFulfillment() || $user->isFulfillmentAdmin())
+            && ! $user->hasAnyRole(['admin', 'super_admin'])
+            && ! $user->isOwner() && ! $user->isStreamer()
+            && \App\Filament\Pages\FulfillmentHome::canAccess()) {
+            return \App\Filament\Pages\FulfillmentHome::getUrl();
+        }
+
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return DashboardImproved::getUrl();
         }

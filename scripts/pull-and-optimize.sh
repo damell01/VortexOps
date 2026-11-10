@@ -16,7 +16,26 @@ echo ""
 # Git operations
 echo "📥 Pulling changes..."
 git fetch origin
-git pull origin "$BRANCH" --ff-only
+if ! git merge-base --is-ancestor HEAD "origin/$BRANCH"; then
+    # This checkout has commits GitHub's $BRANCH doesn't (made on the server,
+    # or left from an older history), so a fast-forward pull is impossible.
+    if [ "${RESET_TO_ORIGIN:-0}" = "1" ]; then
+        BACKUP="backup/server-$BRANCH-$(date +%Y%m%d-%H%M%S)"
+        git branch "$BACKUP" HEAD
+        git stash push -m "pull-and-optimize $BACKUP" >/dev/null 2>&1 || true
+        git reset --hard "origin/$BRANCH"
+        echo "↺ Reset to origin/$BRANCH. The server's old commits are kept on branch $BACKUP."
+    else
+        echo "✖ This checkout has diverged from origin/$BRANCH. Commits only on this server:"
+        git log --oneline "origin/$BRANCH..HEAD" | head -20
+        echo ""
+        echo "  To match GitHub (the commits above are kept on a backup branch):"
+        echo "    RESET_TO_ORIGIN=1 bash scripts/pull-and-optimize.sh $BRANCH"
+        exit 1
+    fi
+else
+    git pull origin "$BRANCH" --ff-only
+fi
 echo "✓ Changes pulled"
 echo ""
 

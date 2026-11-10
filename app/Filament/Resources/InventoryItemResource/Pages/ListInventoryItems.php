@@ -269,7 +269,7 @@ class ListInventoryItems extends ListRecords
         $this->catalogPage = 1;
         $this->clearSelection();
         $this->resetPage();
-        unset($this->catalogItems, $this->catalogTotal);
+        unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
         // Measure only the action itself here; the Livewire render and SQL
         // queries run afterward and are captured by request-level monitoring.
         if (config('app.debug')) {
@@ -289,20 +289,22 @@ class ListInventoryItems extends ListRecords
     {
         $this->clearSelection();
         $this->catalogPage = 1;
-        unset($this->catalogItems, $this->catalogTotal);
+        unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
     }
 
     public function updatedCatalogSort(): void
     {
         $this->catalogPage = 1;
-        unset($this->catalogItems, $this->catalogTotal);
+        unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
     }
 
     public function setCatalogPage(int $page): void
     {
-        $totalPages = max(1, (int) ceil($this->catalogTotal / $this->catalogVisible));
+        $fulfillmentOnly = auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin();
+        $total = $fulfillmentOnly ? $this->fulfillmentDirectoryTotal : $this->catalogTotal;
+        $totalPages = max(1, (int) ceil($total / $this->catalogVisible));
         $this->catalogPage = max(1, min($page, $totalPages));
-        unset($this->catalogItems);
+        unset($this->catalogItems, $this->fulfillmentDirectoryItems);
     }
 
     public function setCatalogPageSize(int $size): void
@@ -316,7 +318,7 @@ class ListInventoryItems extends ListRecords
     {
         $this->catalogSearch = '';
         $this->clearSelection();
-        unset($this->catalogItems, $this->catalogTotal);
+        unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
     }
 
     public function getStats(): array
@@ -531,7 +533,7 @@ class ListInventoryItems extends ListRecords
                 $this->selectedItems = [];
                 $this->selectAllMatching = false;
                 $this->statsMemo = null;
-                unset($this->catalogItems, $this->catalogTotal);
+                unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
 
                 Notification::make()
                     ->title($deleted . ' item(s) deleted')
@@ -649,7 +651,7 @@ class ListInventoryItems extends ListRecords
                 $this->quickStockScanTargetId = null;
                 $this->quickStockScanTargetName = null;
                 $this->statsMemo = null;
-                unset($this->catalogItems, $this->catalogTotal);
+                unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
 
                 Notification::make()
                     ->title('Stock added successfully')
@@ -692,7 +694,7 @@ class ListInventoryItems extends ListRecords
                 $result = app(\App\Services\InventoryCountReset::class)->reset(auth()->user(), $data['confirmation'], $data['reason'], $all ? null : $this->stockResetProductIds);
                 $this->statsMemo = null;
                 $this->clearSelection();
-                unset($this->catalogItems, $this->catalogTotal);
+                unset($this->catalogItems, $this->catalogTotal, $this->fulfillmentDirectoryItems, $this->fulfillmentDirectoryTotal);
                 $this->resetTable();
                 Notification::make()->title('Stock counts reset')->body($result['rows'].' stock rows across '.$result['locations'].' locations are now zero. Products and prices were kept.')->success()->send();
             });

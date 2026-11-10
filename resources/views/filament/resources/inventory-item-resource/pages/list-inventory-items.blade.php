@@ -182,20 +182,21 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
  </div>
  @endif</div>
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
-  <div class="vx-inv-toolbar">
-    <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
-   @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
-   <div class="vx-view-toggle" aria-label="Inventory view">
+  @php $fulfillmentCatalogOnly = (bool) (auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin()); @endphp
+<div class="vx-inv-toolbar">
+    <div class="vx-inv-search {{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
+   @if(! $fulfillmentCatalogOnly && $viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
+   @unless($fulfillmentCatalogOnly)<div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
     <button type="button" wire:click="setViewMode('table')" class="vx-view-btn {{ $viewMode === 'table' ? 'active' : '' }}"><x-heroicon-o-list-bullet class="h-4 w-4" /> Table</button>
    </div>
-    <select wire:model.live="catalogSort" class="{{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
-   @if(filled($catalogSearch))<button wire:click="clearCatalogSearch" class="{{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
+    <select wire:model.live="catalogSort" class="{{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
+   @if(filled($catalogSearch))<button wire:click="clearCatalogSearch" class="{{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
   </div>
   @if($stockHealth)<div class="mt-3 flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs dark:border-primary-900 dark:bg-primary-950/20"><span>Showing <strong>{{ match($stockHealth) { 'in' => 'In Stock', 'low' => 'Low Stock', 'out' => 'Out of Stock' } }}</strong></span><button wire:click="filterStock(null)" class="font-bold text-primary-600">Show all</button></div>@endif
  </section>
 
- <div class="vx-catalog-view {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
+ <div class="vx-catalog-view {{ ! $fulfillmentCatalogOnly && $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
   @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); $canResetStock = \App\Services\InventoryCountReset::canReset(auth()->user()); $canSelectStock = $canBulkDelete || $canResetStock; @endphp
   @if($this->catalogItems->isNotEmpty())
    @if($canSelectStock)
@@ -236,21 +237,25 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
-      <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
+      @unless($fulfillmentCatalogOnly)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">@endunless
        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->hasImage() ? $item->imageUrl() : $catalogPlaceholderImage }}" alt="{{ $item->name }}" /></div>
-      </a>
+      @unless($fulfillmentCatalogOnly)</a>@endunless
       <div class="vx-product-body">
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
+       @if($fulfillmentCatalogOnly)<div class="vx-product-title">{{ $item->name }}</div>@else<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>@endif
+       @if($fulfillmentCatalogOnly)
+        <div class="vx-product-meta">Item Cost: <strong>${{ number_format((float)$item->unit_cost, 2) }}</strong></div>
+       @else
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
        <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->created_at && $item->created_at->gte(now()->subDays(7)))<span class="vx-type" title="Added within the last seven days">New</span>@endif@if($onHand > 0 && $item->last_receipt_at && \Illuminate\Support\Carbon::parse($item->last_receipt_at)->gte(now()->subDays(7)))<span class="vx-type" title="Inventory received within the last seven days">Recently received</span>@endif@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
        <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
-       <div class="vx-card-figs">
+       @endif
+       @unless($fulfillmentCatalogOnly)<div class="vx-card-figs">
         <div class="vx-card-fig is-qty {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="vx-metric-value">{{ number_format($onHand) }}</div></div>
         <div class="vx-card-fig"><div class="vx-metric-label">Item Cost</div><div class="vx-metric-value" title="Item cost ${{ number_format((float)$item->unit_cost,2) }}">${{ number_format((float)$item->unit_cost,2) }}</div></div>
         <div class="vx-card-fig"><div class="vx-metric-label">Value</div><div class="vx-metric-value" title="Total value ${{ number_format($onHand*(float)$item->costBasis(),2) }}">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
-       </div>
+       </div>@endunless
       </div>
-      @unless(\App\Support\InventoryVisibility::isReadOnlyStreamer())
+      @unless($fulfillmentCatalogOnly || \App\Support\InventoryVisibility::isReadOnlyStreamer())
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
        @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" data-stock-product-id="{{ $item->getKey() }}" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif

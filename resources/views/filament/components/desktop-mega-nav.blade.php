@@ -201,8 +201,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     $groupHere = collect($links)->contains(fn ($l) => $l[1] !== '#' && $isCurrent($l[1]));
 @endphp
 <button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
-<div class="vx-mega-menu" x-cloak x-show="open" x-transition>
 @php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
+<div @class(['vx-mega-menu', 'vx-mega-menu--wide' => count($links) >= 8]) x-cloak x-show="open" x-transition>
 @unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
 @foreach($links as $link)
 @php [$text,$url] = $link; $section = $link[2] ?? null; $icon = \App\Support\NavIcons::for($link); @endphp

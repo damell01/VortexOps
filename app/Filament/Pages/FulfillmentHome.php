@@ -115,13 +115,18 @@ class FulfillmentHome extends Page
             ->get();
 
         $runs->load('currentBuyer:id,letter,buyer_username');
-        $buyers = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
+        $buyers = $runs->isEmpty() ? collect() : DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
             ->orderBy('run_id')->orderByRaw('LENGTH(letter)')->orderBy('letter')
             ->get(['id', 'run_id', 'letter', 'buyer_username', 'status'])->groupBy('run_id');
 
-        return $stations->map(function (FulfillmentStation $station) use ($runs, $buyers) {
-            $run = $runs->first(fn ($r) => (int) $r->station_occupied_id === $station->id)
-                ?? $runs->first(fn ($r) => $r->status === FulfillmentRun::READY && (int) $r->station_id === $station->id);
+        // Index runs once instead of scanning every run for every station.
+        // Preserve the existing preference for occupied stations over ready runs.
+        $occupied = $runs->filter(fn ($r) => $r->station_occupied_id !== null)->groupBy('station_occupied_id');
+        $ready = $runs->filter(fn ($r) => $r->status === FulfillmentRun::READY)->groupBy('station_id');
+
+        return $stations->map(function (FulfillmentStation $station) use ($occupied, $ready, $buyers) {
+            $run = $occupied->get($station->id)?->first()
+                ?? $ready->get($station->id)?->first();
             // The next buyer still waiting after the current one: what the packer picks up next.
             $next = null;
             if ($run && $run->isOnStation()) {

@@ -145,6 +145,26 @@ class FulfillmentActivity extends Page
         Notification::make()->title('Employee assigned to shift')->success()->send();
     }
 
+    public function removeBlockAssignment(int $blockId, int $userId): void
+    {
+        abort_unless($this->isManager(), 403);
+        app(\App\Services\FulfillmentShiftBlockService::class)->unassign(auth()->user(), $blockId, $userId);
+        Notification::make()->title('Employee removed; shift remains open')->success()->send();
+    }
+
+    public function blockAssignments(): \Illuminate\Support\Collection
+    {
+        if (! $this->isManager()) return collect();
+        $ids = $this->blockRows()->pluck('id');
+        if ($ids->isEmpty()) return collect();
+        return DB::table('fulfillment_shift_assignments as a')
+            ->join('users as u', 'u.id', '=', 'a.user_id')
+            ->leftJoin('fulfillment_stations as st', 'st.id', '=', 'a.station_id')
+            ->whereIn('a.shift_block_id', $ids)
+            ->select('a.shift_block_id', 'a.user_id', 'u.name', 'st.name as station_name')
+            ->orderBy('u.name')->get()->groupBy('shift_block_id');
+    }
+
     public function blockRows(): \Illuminate\Support\Collection
     {
         return app(\App\Services\FulfillmentShiftBlockService::class)->week(auth()->user(), $this->weekStart()->utc());

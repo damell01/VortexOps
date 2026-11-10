@@ -56,7 +56,7 @@ class FulfillmentWhiteboardController extends Controller
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
             ->get();
         $buyerRows = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
-            ->orderBy('run_id')->orderByRaw('LENGTH(letter)')->orderBy('letter')
+            ->orderBy('run_id')->orderByRaw('LOWER(buyer_username)')->orderBy('id')
             ->get(['id', 'run_id', 'letter', 'buyer_username', 'status'])->groupBy('run_id');
         $todayStart = BusinessTime::local()->startOfDay()->utc();
 

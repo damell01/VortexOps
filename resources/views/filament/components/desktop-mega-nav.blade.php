@@ -183,7 +183,12 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @php $builtInLogo = $navLogo === asset('images/vb-logo-sidebar.svg') && file_exists(public_path('images/vx-nav-logo-light.svg')); @endphp
-@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate.hover aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
+<a class="vx-mega-brand" href="{{ $homeUrl }}" wire:navigate.hover aria-label="VortexOps dashboard">
+    @if ($navLogo)
+        <img src="{{ $builtInLogo ? asset('images/vx-nav-logo-dark.svg') : $navLogo }}" alt="" aria-hidden="true" onerror="this.style.display='none'">
+    @endif
+    <span class="vx-mega-wordmark">VortexOps</span>
+</a>
 @php $onHome = '/'.trim(request()->path(), '/') === '/'.trim((string) parse_url((string) $homeUrl, PHP_URL_PATH), '/'); @endphp
 <a @class(['vx-mega-home', 'is-here' => $onHome]) href="{{ $homeUrl }}" wire:navigate.hover @if($onHome) aria-current="page" @endif><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
@@ -284,7 +289,9 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     width:auto!important;max-width:225px!important;height:48px!important;
     display:flex!important;align-items:center!important;flex:none!important;
   }
-  .fi-topbar .vx-mega-brand img {width:auto!important;max-width:215px!important;max-height:42px!important;object-fit:contain}
+  .fi-topbar .vx-mega-brand img {width:auto!important;max-width:45px!important;max-height:42px!important;object-fit:contain}
+  .fi-topbar .vx-mega-wordmark {display:inline-block!important;color:#fff!important;font-size:21px!important;font-weight:800!important;letter-spacing:-.04em!important;white-space:nowrap!important}
+  .fi-topbar .vx-mega-brand {gap:9px!important;max-width:240px!important}
   .fi-topbar .vx-mega-brand .vx-logo-on-light {display:none!important}
   .fi-topbar .vx-mega-brand .vx-logo-on-dark {display:block!important}
   .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {

@@ -257,7 +257,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     margin:0!important;gap:10px!important;z-index:3!important;
     max-width:calc(100% - 260px)!important;
   }
-  .fi-topbar .fi-topbar-end :is(button,a,svg) {color:#f7f3ff}
+  /* Do not tint descendant dropdown items: only the top-level utility controls are light. */
+  .fi-topbar .fi-topbar-end > :is(button,a) {color:#f7f3ff}
   .fi-topbar .fi-global-search {
     display:block!important;visibility:visible!important;position:relative!important;
     flex:0 1 280px!important;width:clamp(190px,24vw,280px)!important;
@@ -361,7 +362,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .fi-topbar-end .fi-icon-btn {color:#f7f3ff!important}
   .fi-topbar .fi-topbar-end .fi-icon-btn:hover {background:rgba(255,255,255,.12)!important;color:#fff!important}
   .fi-topbar .vx-mega-channel {align-self:center!important}
-  .fi-topbar .vx-mega-channel :is(button,select,.vx-channel-switcher-select) {color:#fff!important}
+  .fi-topbar .vx-mega-channel :is(.vx-picker-btn,.vx-channel-switcher-select) {color:#fff!important}
   .fi-topbar .vx-mega-channel :is(.vx-channel-switcher-select-wrp,.vx-picker-trigger) {background:rgba(126,74,199,.35)!important;border-color:rgba(255,255,255,.24)!important}
 
   .fi-topbar .vx-mega-channel {flex:0 0 170px!important;min-width:170px!important;max-width:170px!important}

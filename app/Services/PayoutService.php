@@ -351,6 +351,10 @@ class PayoutService
             case 'hourly':
                 $calculatedPayout = round((float) $streamer->hourly_rate * $hours, 2);
                 $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$hours}hrs worked" . $hoursMissingNote;
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
 
             case 'flat_rate':
@@ -359,6 +363,10 @@ class PayoutService
                 }
                 $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Flat rate \${$calculatedPayout}";
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
 
             case 'pwe_labels':
@@ -442,6 +450,13 @@ class PayoutService
                     ]), 2)
                     : 0;
                 $calculationNotes = "Custom formula: {$formula}";
+                // If the formula explicitly references tips or tip_share, it owns that
+                // component; never add it a second time. Otherwise the standard
+                // include_tips setting adds the attributed show tip share.
+                if ($streamer->include_tips && ! preg_match('/\\b(?:tips|tip_share)\\b/i', $formula)) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
         }
 

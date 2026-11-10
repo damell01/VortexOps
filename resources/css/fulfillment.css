@@ -850,3 +850,29 @@ html.dark .vxf-full{background:#0b1020}
 @media(max-width:1199px){.vxf:has(.vxf-home-tabs) .vxf-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.vxf:has(.vxf-home-tabs) .vxf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vxf:has(.vxf-home-tabs) .vxf-head{align-items:flex-start}.vxf:has(.vxf-home-tabs) .vxf-head-actions{margin-left:auto}.vxf:has(.vxf-home-tabs) .vxf-head-actions>.vxf-btn{font-size:12px;padding:8px}.vxf:has(.vxf-home-tabs) .vxf-stations--track{scroll-snap-type:x mandatory}.vxf:has(.vxf-home-tabs) .vxf-station{scroll-snap-align:start}}
 @media(prefers-reduced-motion:reduce){.vxf:has(.vxf-home-tabs) *{scroll-behavior:auto!important}}
+
+
+/* Operations layout: three real columns, no duplicate vertically stacked feed. */
+@media(min-width:1250px){
+.vxf:has(.vxf-home-tabs) .vxf-cols{grid-template-columns:minmax(0,48fr) minmax(0,25fr) minmax(0,27fr);align-items:start;gap:10px}
+.vxf:has(.vxf-home-tabs) .vxf-shows-col,.vxf:has(.vxf-home-tabs) .vxf-activity-col,.vxf:has(.vxf-home-tabs) .vxf-summary-col{min-width:0}
+.vxf:has(.vxf-home-tabs) .vxf-activity-col .vxf-card{min-height:320px}
+}
+@media(min-width:760px) and (max-width:1249px){.vxf:has(.vxf-home-tabs) .vxf-cols{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}.vxf:has(.vxf-home-tabs) .vxf-summary-col{grid-column:1/-1;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}}
+@media(max-width:759px){.vxf:has(.vxf-home-tabs) .vxf-cols{grid-template-columns:minmax(0,1fr)}}
+.vxf:has(.vxf-home-tabs) .vxf-floor .vxf-card__head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.vxf-status-filters{display:flex;align-items:center;gap:5px;overflow-x:auto;max-width:100%;scrollbar-width:thin}
+.vxf-status-filters .vxf-tab{white-space:nowrap;min-height:30px;padding:4px 9px;border:1px solid var(--vxf-line);border-radius:9px;background:var(--vxf-card);color:var(--vxf-ink);font-size:11px}
+.vxf-status-filters .vxf-tab.is-active,.vxf-status-filters .vxf-tab[aria-pressed=true]{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.vxf-filter-count{opacity:.8;margin-left:3px}
+.vxf:has(.vxf-home-tabs) .vxf-stations--track{display:flex;gap:9px;overflow-x:auto;scrollbar-width:thin;scroll-snap-type:x proximity;padding:2px}
+.vxf:has(.vxf-home-tabs) .vxf-stations--track>.vxf-station{flex:0 0 clamp(220px,19.4%,280px);scroll-snap-align:start}
+@media(min-width:1500px){.vxf:has(.vxf-home-tabs) .vxf-stations--track{display:flex;overflow-x:auto}.vxf:has(.vxf-home-tabs) .vxf-stations--track>.vxf-station{flex:0 0 calc((100% - 36px)/5);min-width:0}}
+.vxf:has(.vxf-home-tabs) .vxf-feed{max-height:345px;overflow-y:auto}
+.vxf:has(.vxf-home-tabs) .vxf-signq .vxf-list{max-height:115px;overflow-y:auto}
+.vxf:has(.vxf-home-tabs) .vxf-summary-col .vxf-list li{padding:7px 10px;font-size:12px}
+.vxf:has(.vxf-home-tabs) .vxf-summary-col .vxf-card__body{padding:10px 12px}
+.vxf:has(.vxf-home-tabs) .vxf-signbar{gap:8px}
+.vxf:has(.vxf-home-tabs) .vxf-signbar .vxf-sub{display:none}
+.vxf:has(.vxf-home-tabs) .vxf-signbar .vxf-btn{min-height:32px}
+@media(max-width:640px){.vxf:has(.vxf-home-tabs) .vxf-stations--track>.vxf-station{flex:0 0 min(84vw,290px)}.vxf:has(.vxf-home-tabs) .vxf-summary-col{display:flex!important}.vxf:has(.vxf-home-tabs) .vxf-home-tabs a{padding:8px 10px}}

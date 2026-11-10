@@ -131,6 +131,31 @@ final class FulfillmentShiftBlockService
         ]);
     }
 
+    /**
+     * Copy a selected week's shift patterns to the next week, without staff
+     * assignments or historical show links. Entire batch is transactional.
+     */
+    public function copyWeek(User $actor, CarbonImmutable $weekStart): int
+    {
+        $this->manager($actor);
+        $weekEnd = $weekStart->addWeek();
+        return DB::transaction(function () use ($actor, $weekStart, $weekEnd) {
+            $blocks = DB::table('fulfillment_shift_blocks')
+                ->where('starts_at', '>=', $weekStart->toDateTimeString())
+                ->where('starts_at', '<', $weekEnd->toDateTimeString())
+                ->where('status', '!=', 'cancelled')->orderBy('id')->get();
+            if ($blocks->count() > 100) {
+                throw ValidationException::withMessages(['week' => 'Too many shifts to copy in one batch.']);
+            }
+            $count = 0;
+            foreach ($blocks as $block) {
+                $this->duplicate($actor, (int) $block->id);
+                $count++;
+            }
+            return $count;
+        });
+    }
+
     public function cancel(User $actor, int $blockId): void
     {
         $this->manager($actor);

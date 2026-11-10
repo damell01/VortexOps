@@ -4,22 +4,36 @@
 @endphp
 @include('fulfillment.dev-banner')
 @include('fulfillment.motion')
-<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') !== 'hidden' } catch (e) { return true } })(),
+<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
-            <h1>Fulfillment Home</h1>
+            <h1>Fulfillment Dashboard</h1>
             <p><span class="vxf-live"><i aria-hidden="true"></i> Live</span> {{ $manager ? 'Fulfillment Operations · stations, shows ready to pack and today\'s activity' : 'Your shows, your station and your shift' }} · {{ \App\Support\BusinessTime::local()->format('D, M j · g:i A') }}</p>
         </div>
-        <div class="vxf-actions">
-            <button type="button" class="vxf-btn" @click="toggleGuide()" :aria-pressed="guide"><x-heroicon-o-light-bulb /> How it works</button>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}"><x-heroicon-o-qr-code /> Station Board</a>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl() }}"><x-heroicon-o-calendar-days /> Schedule &amp; Activity</a>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentReports::getUrl() }}"><x-heroicon-o-chart-bar /> Reports</a>
-            <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
+        <div class="vxf-actions vxf-head-actions">
+            @if ($manager)
+                <button type="button" class="vxf-btn vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {})"><x-heroicon-o-plus /> Assign Show</button>
+            @endif
+            <div class="vxf-more" x-data="{ open: false }" x-on:keydown.escape.window="open = false" x-on:click.outside="open = false">
+                <button type="button" class="vxf-btn vxf-btn--icon" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-controls="vxf-more-menu" aria-label="More fulfillment actions" title="More actions"><x-heroicon-o-ellipsis-horizontal /></button>
+                <div id="vxf-more-menu" class="vxf-more__menu" x-show="open" x-cloak>
+                    <button type="button" class="vxf-btn" @click="toggleGuide(); open = false"><x-heroicon-o-light-bulb /> How it works</button>
+                    <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
+                </div>
+            </div>
         </div>
     </div>
 
+    <nav class="vxf-home-tabs" aria-label="Fulfillment sections">
+        <a href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}" aria-current="page" class="is-active">Overview</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}">Station Board</a>
+        <a href="#vxf-queue">Shows</a>
+        @if (\App\Filament\Pages\ShipmentOverview::canAccess())<a href="{{ \App\Filament\Pages\ShipmentOverview::getUrl() }}">Orders</a>@endif
+        <a href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues']) }}">Issues</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentReports::getUrl() }}">Reports</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'schedule']) }}">Schedule</a>
+    </nav>
     <section class="vxf-guide" x-show="guide" x-cloak x-transition aria-label="How the Fulfillment Center works">
         <ol>
             <li><b>1</b><div><strong>Shows arrive</strong><span>When a stream ends and its report is approved, the show appears in Ready to pack.</span></div></li>
@@ -42,11 +56,11 @@
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
             ['Ready to pack', $stats['ready'], \Illuminate\Support\Str::plural('show', $stats['ready']), 'heroicon-o-inbox-stack', null],
-            ['Packages', $stats['expected'], $stats['completed_today'] . ' packed today · ' . $stats['remaining'] . ' left' . ($stats['expected_unknown'] ? ' · +' . $stats['expected_unknown'] . ' ' . \Illuminate\Support\Str::plural('show', $stats['expected_unknown']) . ' not counted yet' : ''), 'heroicon-o-cube', null],
+            ['Packed today', $stats['completed_today'], null, 'heroicon-o-cube', null],
             $shipments ? ['In transit', $stats['in_transit'], 'last 30 days', 'heroicon-o-truck', $shipments] : null,
             $shipments ? ['Delivered', $stats['delivered'], 'last 30 days', 'heroicon-o-check-badge', $shipments] : null,
             ['Open issues', $stats['issues'], null, 'heroicon-o-exclamation-triangle', \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues'])],
-            $manager ? ['Working now', $stats['working'], 'clocked in', 'heroicon-o-user-group', null] : null,
+
         ]) as [$label, $value, $sub, $icon, $href])
             @if ($href)<a class="vxf-card vxf-stat vxf-stat--link" href="{{ $href }}">@else<div class="vxf-card vxf-stat">@endif
                 <span class="vxf-stat__icon" aria-hidden="true"><x-dynamic-component :component="$icon" /></span>
@@ -155,7 +169,7 @@
         <div class="vxf-island" wire:poll.60s>
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
-                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
+                <h2 id="vxf-queue">{{ $manager ? "Today's Shows / Ready to Pack" : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
                 <div class="vxf-tabs" role="group" aria-label="Job length" x-data="{ tab: @js($jobs) }">
                     @foreach (['all' => 'All', 'slow' => 'Long jobs', 'quick' => 'Quick'] as $key => $label)
                         <button type="button" class="vxf-tab" x-on:click="tab = '{{ $key }}'" wire:click="$set('jobs', '{{ $key }}')" x-bind:aria-pressed="tab === '{{ $key }}' ? 'true' : 'false'" aria-pressed="{{ $jobs === $key ? 'true' : 'false' }}">{{ $label }}</button>
@@ -217,7 +231,7 @@
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
         <div class="vxf-island" wire:poll.30s>
         <section class="vxf-card" aria-labelledby="vxf-activity">
-            <div class="vxf-card__head"><h2 id="vxf-activity">Today's activity</h2>
+            <div class="vxf-card__head"><h2 id="vxf-activity">Live Activity</h2>
                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
             @if ($this->activity->isEmpty())
                 <p class="vxf-empty">Nothing packed yet today.</p>

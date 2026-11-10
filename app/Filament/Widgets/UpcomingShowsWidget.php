@@ -15,7 +15,8 @@ class UpcomingShowsWidget extends Widget
         'default' => 'full',
         'lg' => 1,
     ];
-    protected static bool $isLazy = false;
+    // Keep the initial dashboard response independent of the shows query.
+    protected static bool $isLazy = true;
     protected string $view = 'filament.widgets.upcoming-shows';
 
     public static function canView(): bool

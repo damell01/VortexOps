@@ -154,7 +154,7 @@
                                         @if ($needsReport)<span class="vxf-sub">Waiting on report approval</span>@endif
                                     </td>
                                     <td style="text-align:right;white-space:nowrap">
-                                        @if (\App\Filament\Resources\FulfillmentResource::canAccess())<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $show->id]) }}" title="Shipping labels from Whatnot" aria-label="Shipping labels for {{ $show->title }}"><x-heroicon-o-printer /></a><a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
+                                        @if (\App\Filament\Resources\FulfillmentResource::canAccess())<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
                                         @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
                                         @if ($needsReport)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" title="Packing starts once the streamer report is approved" style="opacity:.55;cursor:not-allowed">Start</span>

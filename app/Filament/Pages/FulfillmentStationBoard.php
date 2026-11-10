@@ -135,7 +135,7 @@ class FulfillmentStationBoard extends Page
     #[Computed]
     public function currentPackages(): \Illuminate\Support\Collection
     {
-        return $this->current ? $this->current->packages()->with('shipment:id,whatnot_order_id,tracking_number,carrier,item_count,raw_payload')->get() : collect();
+        return $this->current ? $this->current->packages()->with('shipment:id,whatnot_order_id,tracking_number,carrier,item_count')->get() : collect();
     }
 
     #[Computed]

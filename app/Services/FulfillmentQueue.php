@@ -103,11 +103,12 @@ final class FulfillmentQueue
                 ->whereNotIn('status', [FulfillmentRun::CANCELLED])->latest('id')->first();
             if ($existing) return $existing;
 
+            $counts = $this->counts($show);
             $run = FulfillmentRun::query()->create([
                 'show_id' => $show->id, 'status' => FulfillmentRun::READY, 'created_by' => $actorId,
                 'ready_at' => now(),
-            ] + $this->counts($show));
-            FulfillmentLog::record('ready', $run->id, $actorId, $this->counts($show));
+            ] + $counts);
+            FulfillmentLog::record('ready', $run->id, $actorId, $counts);
 
             return $run;
         });

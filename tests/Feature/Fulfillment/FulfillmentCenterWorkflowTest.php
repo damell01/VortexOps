@@ -430,6 +430,46 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame($home->instance()->queuePageCount(), $home->get('queuePage'));
     }
 
+    public function test_reports_count_packing_per_packer_and_export_the_digital_pay_sheet(): void
+    {
+        $run = $this->started($this->show(['ann' => 1, 'bob' => 2, 'cid' => 1]), $this->manager);
+        DB::table('fulfillment_run_packers')->insertOrIgnore(['run_id' => $run->id, 'user_id' => $this->helper->id]);
+        $buyers = $run->buyers()->orderBy('letter')->get();
+        $svc = app(FulfillmentRunService::class);
+        $svc->markPacked($run->id, $buyers[0]->id, $this->packer);
+        $svc->markPacked($run->id, $buyers[1]->id, $this->packer);
+        $svc->markPacked($run->id, $buyers[2]->id, $this->helper);
+        $svc->finish($run->id, $this->packer);
+
+        $page = Livewire::actingAs($this->manager)->test(\App\Filament\Pages\FulfillmentReports::class)->assertOk()
+            ->assertSee('Packer summary')->assertSee('Show completion records')->assertSee('Packages packed per day');
+        $k = $page->instance()->kpis;
+        $this->assertSame([4, 3, 1], [$k['packages'], $k['buyers'], $k['shows']]);
+        $rows = $page->instance()->packers->keyBy(fn ($r) => $r['user']->id);
+        $this->assertSame(3, $rows[$this->packer->id]['packages']);
+        $this->assertSame(1, $rows[$this->helper->id]['packages']);
+        $this->assertSame(1, $rows[$this->packer->id]['shows']);
+        $this->assertSame(4, collect($page->instance()->daily)->sum('count'));
+
+        $page->call('exportPackers')->assertFileDownloaded();
+        $page->call('exportShows')->assertFileDownloaded();
+
+        // A packer sees only their own numbers.
+        $mine = Livewire::actingAs($this->helper)->test(\App\Filament\Pages\FulfillmentReports::class)->assertOk()->assertSee('My summary');
+        $this->assertSame(1, $mine->instance()->kpis['packages']);
+        $this->assertSame([$this->helper->id], $mine->instance()->packers->map(fn ($r) => $r['user']->id)->all());
+
+        // Periods and custom ranges.
+        $page->set('period', 'custom')->set('from', now()->subDays(40)->toDateString())->set('until', now()->subDays(30)->toDateString());
+        $this->assertSame(0, $page->instance()->kpis['packages']);
+        $this->assertCount(11, $page->instance()->daily);
+        $page->set('period', 'nonsense');
+        $this->assertSame('7', $page->get('period'));
+
+        $outsider = User::factory()->create();
+        $this->actingAs($outsider)->get(\App\Filament\Pages\FulfillmentReports::getUrl())->assertForbidden();
+    }
+
     public function test_pages_render_for_a_manager_and_a_member(): void
     {
         $run = $this->started();

@@ -36,6 +36,7 @@ class NavVisibility
         // role list from before they existed does not lock the team out.
         \App\Filament\Pages\FulfillmentHome::class => [\App\Filament\Resources\FulfillmentResource::class, \App\Filament\Pages\FulfillmentOperations::class],
         \App\Filament\Pages\FulfillmentStationBoard::class => [\App\Filament\Resources\FulfillmentResource::class],
+        \App\Filament\Pages\FulfillmentReports::class => [\App\Filament\Resources\FulfillmentResource::class, \App\Filament\Pages\FulfillmentActivity::class, \App\Filament\Pages\FulfillmentHome::class],
         \App\Filament\Pages\FulfillmentActivity::class => [\App\Filament\Resources\FulfillmentResource::class, \App\Filament\Pages\FulfillmentSchedule::class, \App\Filament\Pages\FulfillmentReports::class],
     ];
 

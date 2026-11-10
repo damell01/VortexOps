@@ -89,6 +89,14 @@ class ListWhatnotLedgerEntries extends Page
     #[Url]
     public string $dir = 'desc';
 
+    /** Keep expensive attribution reports off the initial ledger request. */
+    public bool $loadReports = false;
+
+    public function loadReports(): void
+    {
+        $this->loadReports = true;
+    }
+
     public int $pageNo = 1;
 
     public int $perPage = 25;

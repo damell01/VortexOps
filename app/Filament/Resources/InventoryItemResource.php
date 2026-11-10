@@ -335,7 +335,7 @@ class InventoryItemResource extends Resource
     {
         // Lowercase keys are slots in the global-search override, not labels:
         // subtitle / status / tone / figure. See that view for the contract.
-        $onHand = (int) ($record->stock_sum_quantity ?? $record->stock()->sum('quantity'));
+        $onHand = (int) ($record->stock_sum_quantity ?? 0);
         $state  = static::stockStatus($record);
 
         return array_filter([

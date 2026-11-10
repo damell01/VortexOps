@@ -106,16 +106,9 @@ function installBanner(message, actions) {
 }
 
 function offerInstall() {
-    if (/^\/admin\/fulfillment(?:\/|$)/.test(location.pathname)) {
-        document.getElementById('vx-install-banner')?.remove();
-        return;
-    }
-    if (isStandalone() || dismissed() || !location.pathname.startsWith('/admin') || location.pathname.startsWith('/admin/login')) return;
-    // Every device gets the same banner and one button: the browser's own
-    // install prompt where there is one, this device's steps where there isn't.
-    installBanner('<strong>Install VortexOps as an app</strong> — full screen from your home screen or taskbar.', [
-        { label: 'Install', onClick: (el) => window.vxInstallApp().then((ok) => ok && el.remove()) },
-    ]);
+    // Keep PWA installation available through the top-bar Install app button,
+    // but never inject a large promotional banner into any admin page.
+    document.getElementById('vx-install-banner')?.remove();
 }
 
 // Where the browser has no install prompt to open (iPhone and iPad, Safari on

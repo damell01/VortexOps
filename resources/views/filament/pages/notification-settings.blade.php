@@ -79,6 +79,8 @@
 </div>
 
 {{-- ── Configure panel ─────────────────────────────────────────────── --}}
+@teleport('body')
+<div class="vx-notification-modal-portal" wire:key="notification-portal-configure">
 @if ($configure && isset($catalog[$configure]))
     @php
         $key = $configure; $event = $catalog[$key]; $rule = $rules[$key];
@@ -196,8 +198,12 @@
         </div>
     </aside>
 @endif
+</div>
+@endteleport
 
 {{-- ── Email settings / test panel ─────────────────────────────────── --}}
+@teleport('body')
+<div class="vx-notification-modal-portal" wire:key="notification-portal-email">
 @if ($emailPanel)
     <div class="vxr-drawer-backdrop" wire:click="$set('emailPanel', false)"></div>
     <aside class="vxr-drawer" style="--vxr-modal-w:760px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.set('emailPanel', false)">
@@ -231,8 +237,12 @@
         </div>
     </aside>
 @endif
+</div>
+@endteleport
 
 {{-- ── Email preview ───────────────────────────────────────────────── --}}
+@teleport('body')
+<div class="vx-notification-modal-portal" wire:key="notification-portal-preview">
 @if ($previewEvent)
     <div x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" class="vxr-drawer-backdrop" style="z-index:1005" x-on:click="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()"></div>
     <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data="{ visible: true }" x-show="visible" x-on:vx-close-preview.window="visible = false" x-on:keydown.escape.window="window.dispatchEvent(new Event('vx-close-preview')); $wire.closePreview()">
@@ -243,4 +253,6 @@
         <iframe title="Email preview" sandbox srcdoc="{{ $previewHtml }}" style="flex:1;width:100%;border:0;background:#f4f2fb"></iframe>
     </aside>
 @endif
+</div>
+@endteleport
 </x-filament-panels::page>

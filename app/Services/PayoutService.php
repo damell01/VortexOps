@@ -450,6 +450,13 @@ class PayoutService
                     ]), 2)
                     : 0;
                 $calculationNotes = "Custom formula: {$formula}";
+                // If the formula explicitly references tips or tip_share, it owns that
+                // component; never add it a second time. Otherwise the standard
+                // include_tips setting adds the attributed show tip share.
+                if ($streamer->include_tips && ! preg_match('/\\b(?:tips|tip_share)\\b/i', $formula)) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + tips ($" . number_format($tipShare, 2) . ")";
+                }
                 break;
         }
 

@@ -192,7 +192,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function isAdmin(): bool
     {
-        return $this->isOwner() || (! $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && $this->hasAnyRole(['admin', 'super_admin', 'fulfillment_admin']));
+        return $this->isOwner() || (! $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && $this->hasAnyRole(['admin', 'super_admin']));
     }
 
     public function isStreamer(): bool
@@ -219,7 +219,7 @@ class User extends Authenticatable implements FilamentUser
     /** Roles allowed to pick a specific channel (or "All Channels") via the topbar switcher. */
     public function canSwitchChannels(): bool
     {
-        return ! $this->isStreamerAssistant() && ($this->isAdmin() || $this->isFulfillmentAdmin());
+        return ! $this->isStreamerAssistant() && $this->isAdmin();
     }
 
     /**

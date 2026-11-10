@@ -83,13 +83,17 @@ final class FulfillmentScheduleService
         $rows = DB::table('fulfillment_shifts')
             ->where('starts_at', '>=', $source->toDateTimeString())
             ->where('starts_at', '<', $source->addWeek()->toDateTimeString())->get();
+        $showsByShift = $rows->isEmpty() ? collect() : DB::table('fulfillment_shift_shows')
+            ->whereIn('shift_id', $rows->pluck('id')->all())
+            ->get(['shift_id', 'show_id'])->groupBy('shift_id');
         $count = 0;
         foreach ($rows as $shift) {
+            $showIds = ($showsByShift->get($shift->id) ?? collect())->pluck('show_id')->all();
             try {
                 $this->create($actor, (int) $shift->user_id,
                     CarbonImmutable::parse($shift->starts_at)->addWeeks($weeks)->toDateTimeString(),
                     CarbonImmutable::parse($shift->ends_at)->addWeeks($weeks)->toDateTimeString(),
-                    $shift->station_id, $shift->notes, [], $shift->kind ?? null);
+                    $shift->station_id, $shift->notes, $showIds, $shift->kind ?? null);
                 $count++;
             } catch (ValidationException $e) {
                 // Copying twice must not duplicate a shift that already exists.

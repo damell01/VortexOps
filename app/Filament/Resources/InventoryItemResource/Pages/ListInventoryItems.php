@@ -49,7 +49,7 @@ class ListInventoryItems extends ListRecords
     private function resolveInventoryPageLocationId(): ?int
     {
         $options = $this->inventoryLocationOptions();
-        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) return null;
+        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) return null;
         if ($this->inventoryLocation !== '' && ctype_digit($this->inventoryLocation)
             && array_key_exists((int) $this->inventoryLocation, $options)) {
             return (int) $this->inventoryLocation;
@@ -148,7 +148,7 @@ class ListInventoryItems extends ListRecords
         // The location filter already configures stock eager loading. Replace
         // it with one explicit relation load for cards; avoid redundant nested
         // eager-load definitions and fetching stock from other warehouses.
-        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
+        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
             $allowed = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
             $query->with(['stock' => fn ($q) => $q->when($allowed !== null, fn ($q) => $q->whereIn('inventory_location_id', $allowed))->with('location')]);
         } else {

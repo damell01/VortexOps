@@ -106,6 +106,10 @@ function installBanner(message, actions) {
 }
 
 function offerInstall() {
+    if (/^\/admin\/fulfillment(?:\/|$)/.test(location.pathname)) {
+        document.getElementById('vx-install-banner')?.remove();
+        return;
+    }
     if (isStandalone() || dismissed() || !location.pathname.startsWith('/admin') || location.pathname.startsWith('/admin/login')) return;
     // Every device gets the same banner and one button: the browser's own
     // install prompt where there is one, this device's steps where there isn't.

@@ -2,24 +2,41 @@
 @php
     $manager = $this->isManager();
 @endphp
-@include('fulfillment.dev-banner')
 @include('fulfillment.motion')
-<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') !== 'hidden' } catch (e) { return true } })(),
+<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
-            <h1>Fulfillment Home</h1>
+            <h1>Fulfillment Dashboard</h1>
             <p><span class="vxf-live"><i aria-hidden="true"></i> Live</span> {{ $manager ? 'Fulfillment Operations · stations, shows ready to pack and today\'s activity' : 'Your shows, your station and your shift' }} · {{ \App\Support\BusinessTime::local()->format('D, M j · g:i A') }}</p>
         </div>
-        <div class="vxf-actions">
-            <button type="button" class="vxf-btn" @click="toggleGuide()" :aria-pressed="guide"><x-heroicon-o-light-bulb /> How it works</button>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}"><x-heroicon-o-qr-code /> Station Board</a>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl() }}"><x-heroicon-o-calendar-days /> Schedule &amp; Activity</a>
-            <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentReports::getUrl() }}"><x-heroicon-o-chart-bar /> Reports</a>
-            <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
+        <div class="vxf-actions vxf-head-actions">
+            @if ($manager && $this->signoffQueue->isNotEmpty())
+                @php $nextSign = $this->signoffQueue->first(); @endphp
+                <button type="button" class="vxf-btn vxf-btn--sm" wire:click="openSignoff({{ $nextSign->id }})" title="Review pending completed shows"><x-heroicon-o-check-badge /> Sign-offs <span class="vxf-signq__count">{{ $this->signoffQueue->count() }}</span></button>
+            @endif
+            @if ($manager)
+                <button type="button" class="vxf-btn vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {})"><x-heroicon-o-plus /> Assign Show</button>
+            @endif
+            <div class="vxf-more" x-data="{ open: false }" x-on:keydown.escape.window="open = false" x-on:click.outside="open = false">
+                <button type="button" class="vxf-btn vxf-btn--icon" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-controls="vxf-more-menu" aria-label="More fulfillment actions" title="More actions"><x-heroicon-o-ellipsis-horizontal /></button>
+                <div id="vxf-more-menu" class="vxf-more__menu" x-show="open" x-cloak>
+                    <button type="button" class="vxf-btn" @click="toggleGuide(); open = false"><x-heroicon-o-light-bulb /> How it works</button>
+                    <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
+                </div>
+            </div>
         </div>
     </div>
 
+    <nav class="vxf-home-tabs" aria-label="Fulfillment sections">
+        <a href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}" aria-current="page" class="is-active">Overview</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}">Station Board</a>
+        <a href="#vxf-queue">Shows</a>
+        @if (\App\Filament\Pages\ShipmentOverview::canAccess())<a href="{{ \App\Filament\Pages\ShipmentOverview::getUrl() }}">Orders</a>@endif
+        <a href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues']) }}">Issues</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentReports::getUrl() }}">Reports</a>
+        <a href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'schedule']) }}">Schedule</a>
+    </nav>
     <section class="vxf-guide" x-show="guide" x-cloak x-transition aria-label="How the Fulfillment Center works">
         <ol>
             <li><b>1</b><div><strong>Shows arrive</strong><span>When a stream ends and its report is approved, the show appears in Ready to pack.</span></div></li>
@@ -42,11 +59,11 @@
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
             ['Ready to pack', $stats['ready'], \Illuminate\Support\Str::plural('show', $stats['ready']), 'heroicon-o-inbox-stack', null],
-            ['Packages', $stats['expected'], $stats['completed_today'] . ' packed today · ' . $stats['remaining'] . ' left' . ($stats['expected_unknown'] ? ' · +' . $stats['expected_unknown'] . ' ' . \Illuminate\Support\Str::plural('show', $stats['expected_unknown']) . ' not counted yet' : ''), 'heroicon-o-cube', null],
+            ['Packed today', $stats['completed_today'], null, 'heroicon-o-cube', null],
             $shipments ? ['In transit', $stats['in_transit'], 'last 30 days', 'heroicon-o-truck', $shipments] : null,
             $shipments ? ['Delivered', $stats['delivered'], 'last 30 days', 'heroicon-o-check-badge', $shipments] : null,
             ['Open issues', $stats['issues'], null, 'heroicon-o-exclamation-triangle', \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues'])],
-            $manager ? ['Working now', $stats['working'], 'clocked in', 'heroicon-o-user-group', null] : null,
+
         ]) as [$label, $value, $sub, $icon, $href])
             @if ($href)<a class="vxf-card vxf-stat vxf-stat--link" href="{{ $href }}">@else<div class="vxf-card vxf-stat">@endif
                 <span class="vxf-stat__icon" aria-hidden="true"><x-dynamic-component :component="$icon" /></span>
@@ -59,21 +76,14 @@
         @endforeach
     </section>
 
-    @if ($this->signoffQueue->isNotEmpty())
-        @php $nextSign = $this->signoffQueue->first(); $signCount = $this->signoffQueue->count(); @endphp
-        <div class="vxf-signbar" role="status">
-            <span class="vxf-signbar__icon" aria-hidden="true"><x-heroicon-o-check-badge /></span>
-            <div style="min-width:0;flex:1">
-                <strong>{{ $signCount }} {{ \Illuminate\Support\Str::plural('show', $signCount) }} ready for your sign-off</strong>
-                <span class="vxf-sub">Next: {{ $nextSign->show?->title }} · {{ $nextSign->completed_packages }} packages</span>
-            </div>
-            <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openSignoff({{ $nextSign->id }})">Review &amp; sign off</button>
-        </div>
-    @endif
-
-    <section class="vxf-card" aria-labelledby="vxf-stations">
+    <section class="vxf-card vxf-floor" aria-labelledby="vxf-stations" x-data="{ status: 'all' }">
         <div class="vxf-card__head">
-            <h2 id="vxf-stations">Packing stations <span class="vxf-pill vxf-pill--packing" style="margin-left:6px">Live</span></h2>
+            <h2 id="vxf-stations">Packing Stations <span class="vxf-pill vxf-pill--packing">Live</span></h2>
+            <div class="vxf-status-filters" role="group" aria-label="Filter stations by status">
+                @foreach (['all' => 'All', 'packing' => 'Packing', 'hold' => 'On Hold', 'ready' => 'Ready', 'paused' => 'Paused', 'idle' => 'Idle'] as $key => $label)
+                    <button type="button" class="vxf-tab" x-on:click="status = @js($key)" x-bind:aria-pressed="status === @js($key) ? 'true' : 'false'" x-bind:class="{ 'is-active': status === @js($key) }">{{ $label }} <span class="vxf-filter-count">{{ $key === 'all' ? $this->stations->count() : $this->stations->filter(fn ($item) => ($item['state'] === $key))->count() }}</span></button>
+                @endforeach
+            </div>
         </div>
         <div class="vxf-card__body">
             <div class="vxf-carousel" x-data="{ more: false, check() { const t = $refs.track; if (t) this.more = t.scrollWidth > t.clientWidth + 4 }, go(d) { const t = $refs.track; t?.scrollBy({ left: d * t.clientWidth * .9, behavior: 'smooth' }) } }" x-init="$nextTick(() => { check(); if ($refs.track) new ResizeObserver(() => check()).observe($refs.track) })">
@@ -84,7 +94,7 @@
                         $done = (int) ($run->completed_packages ?? 0); $total = $run?->expected_packages;
                         $pct = $total ? min(100, round($done / max(1, $total) * 100)) : 0; @endphp
                     @php $tone = ['packing' => 'packing', 'hold' => 'hold', 'paused' => 'paused', 'ready' => 'ready'][$state] ?? 'idle'; @endphp
-                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}">
+                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}" x-show="status === 'all' || status === @js($state)" x-cloak>
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
                             <span style="display:inline-flex;gap:6px;align-items:center">
@@ -139,8 +149,8 @@
     </div>
     @endisland
 
-    <div class="vxf-cols">
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+    <div class="vxf-cols vxf-cols--full-queue">
+        <div class="vxf-shows-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
         @island(name: 'queue')
         @php
             $manager = $this->isManager();
@@ -155,7 +165,7 @@
         <div class="vxf-island" wire:poll.60s>
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
-                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
+                <h2 id="vxf-queue">{{ $manager ? "Today's Shows / Ready to Pack" : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
                 <div class="vxf-tabs" role="group" aria-label="Job length" x-data="{ tab: @js($jobs) }">
                     @foreach (['all' => 'All', 'slow' => 'Long jobs', 'quick' => 'Quick'] as $key => $label)
                         <button type="button" class="vxf-tab" x-on:click="tab = '{{ $key }}'" wire:click="$set('jobs', '{{ $key }}')" x-bind:aria-pressed="tab === '{{ $key }}' ? 'true' : 'false'" aria-pressed="{{ $jobs === $key ? 'true' : 'false' }}">{{ $label }}</button>
@@ -213,21 +223,24 @@
         </div>
         @endisland
 
+        </div>
+        <div class="vxf-operations-heading"><h2>Operations at a Glance</h2><span class="vxf-sub"><span class="vxf-live"><i aria-hidden="true"></i> Live</span></span></div>
+        <div class="vxf-activity-col">
         @island(name: 'feed')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
         <div class="vxf-island" wire:poll.30s>
         <section class="vxf-card" aria-labelledby="vxf-activity">
-            <div class="vxf-card__head"><h2 id="vxf-activity">Today's activity</h2>
+            <div class="vxf-card__head"><h2 id="vxf-activity">Live Activity</h2>
                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
             @if ($this->activity->isEmpty())
                 <p class="vxf-empty">Nothing packed yet today.</p>
             @else
                 <ul class="vxf-feed">
-                    @foreach ($this->activity as $e)
+                    @foreach ($this->activity->take(5) as $e)
                         @php $kind = ['buyer_packed' => 'ok', 'item_verified' => 'ok', 'approved' => 'ok', 'finished' => 'brand', 'started' => 'brand', 'issue_flagged' => 'bad', 'issue_resolved' => 'ok', 'paused' => 'warn'][$e->type] ?? 'brand'; @endphp
                         <li class="vxf-feed__item vxf-feed__item--{{ $kind }}">
                             <span class="vxf-feed__icon" aria-hidden="true">@if ($e->buyer_letter)<b>{{ $e->buyer_letter }}</b>@elseif ($kind === 'bad')<x-heroicon-o-exclamation-triangle />@elseif ($kind === 'warn')<x-heroicon-o-pause />@else<x-heroicon-o-check />@endif</span>
-                            <span class="vxf-feed__text"><strong>{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'signed off', 'acknowledged' => 'confirmed done'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
+                            <span class="vxf-feed__text"><strong title="{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}">{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'signed off', 'acknowledged' => 'confirmed done'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
                                 <span class="vxf-sub">{{ $e->station?->name }}{{ $e->user ? ' · ' . explode(' ', $e->user->name)[0] : '' }}</span></span>
                             <time class="vxf-sub vxf-num">{{ $e->created_at?->timezone($tz)->format('g:i A') }}</time>
                         </li>
@@ -239,7 +252,7 @@
         @endisland
         </div>
 
-        <aside style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <aside class="vxf-summary-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
             @island(name: 'side')
             @php
                 $manager = $this->isManager();
@@ -250,17 +263,17 @@
             <div class="vxf-island" wire:poll.30s>
             @if ($this->signoffQueue->isNotEmpty())
                 @php $queue = $this->signoffQueue; @endphp
-                <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff" x-data="{ all: false }">
+                <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff">
                     <div class="vxf-card__head">
                         <h2 id="vxf-signoff">Ready for sign-off</h2>
                         <span class="vxf-signq__count">{{ $queue->count() }}</span>
                     </div>
                     <ul class="vxf-list">
-                        @foreach ($queue as $done)
-                            <li @if ($loop->index >= 4) x-show="all" x-cloak @endif>
+                        @foreach ($queue->take(2) as $done)
+                            <li>
                                 <span class="vxf-dot vxf-dot--ok" aria-hidden="true"><x-heroicon-o-check-badge /></span>
                                 <div style="min-width:0;flex:1">
-                                    <strong>{{ $done->show?->title }}</strong>
+                                    <strong title="{{ $done->show?->title }}">{{ $done->show?->title }}</strong>
                                     <span class="vxf-sub">{{ $done->completed_packages }} packages · {{ $done->acknowledged_at ? 'confirmed by ' . $done->acknowledger?->name : 'packed by ' . ($done->packers->pluck('name')->join(', ') ?: '—') }} · {{ $done->finished_at?->diffForHumans(short: true) }}@if ($done->open_flags_count) · <b style="color:#c2410c">{{ $done->open_flags_count }} open {{ \Illuminate\Support\Str::plural('issue', $done->open_flags_count) }}</b>@endif</span>
                                 </div>
                                 <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openSignoff({{ $done->id }})">Review</button>
@@ -292,13 +305,13 @@
                     <p class="vxf-empty">No open issues.</p>
                 @else
                     <ul class="vxf-list">
-                        @foreach ($this->openIssues as $flag)
+                        @foreach ($this->openIssues->take(3) as $flag)
                             <li>
                                 <span class="vxf-dot vxf-dot--warn" aria-hidden="true"><x-heroicon-o-exclamation-triangle /></span>
                                 <div style="min-width:0;flex:1">
-                                    <strong>{{ \App\Services\FulfillmentFlagService::label($flag->type) }}</strong>
+                                    <strong title="{{ \App\Services\FulfillmentFlagService::label($flag->type) }}">{{ \App\Services\FulfillmentFlagService::label($flag->type) }}</strong>
                                     @if ($flag->order_number) · Order {{ $flag->order_number }}@endif
-                                    <span class="vxf-sub">{{ $flag->show?->title }}@if ($flag->buyer) · {{ $flag->buyer->letter }} · {{ $flag->buyer->buyer_username }}@endif</span>
+                                    <span class="vxf-sub" title="{{ $flag->show?->title }}">{{ $flag->show?->title }}@if ($flag->buyer) · {{ $flag->buyer->letter }} · {{ $flag->buyer->buyer_username }}@endif</span>
                                 </div>
                                 <span class="vxf-sub" style="white-space:nowrap">{{ $flag->created_at?->diffForHumans(short: true) }}</span>
                             </li>
@@ -307,9 +320,9 @@
                 @endif
             </section>
 
-            <section class="vxf-card" aria-labelledby="vxf-today">
+            <section class="vxf-card" aria-labelledby="vxf-schedule">
                 <div class="vxf-card__head">
-                    <h2 id="vxf-today">{{ $manager ? "Today's schedule" : 'My shift' }}</h2>
+                    <h2 id="vxf-schedule">{{ $manager ? "Today's schedule" : 'My shift' }}</h2>
                     <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'schedule']) }}">Schedule</a>
                 </div>
                 @if (! $manager && $this->nextShift)
@@ -322,11 +335,11 @@
                     @if ($manager || ! $this->nextShift)<p class="vxf-empty">No shifts today.</p>@endif
                 @else
                     <ul class="vxf-list">
-                        @foreach ($this->todayShifts as $shift)
+                        @foreach ($this->todayShifts->take(3) as $shift)
                             <li>
                                 <span class="vxf-avatar" aria-hidden="true">{{ $initials($shift->user?->name) }}</span>
-                                <div style="min-width:0;flex:1"><strong>{{ $shift->user?->name }}</strong>
-                                    <span class="vxf-sub">{{ $shift->station?->name ?? 'No station' }}@if ($shift->shows->isNotEmpty()) · {{ $shift->shows->pluck('title')->join(', ') }}@endif</span></div>
+                                <div style="min-width:0;flex:1"><strong title="{{ $shift->user?->name }}">{{ $shift->user?->name }}</strong>
+                                    <span class="vxf-sub" title="{{ ($shift->station?->name ?? 'No station') . ($shift->shows->isNotEmpty() ? ' · ' . $shift->shows->pluck('title')->join(', ') : '') }}">{{ $shift->station?->name ?? 'No station' }}@if ($shift->shows->isNotEmpty()) · {{ $shift->shows->pluck('title')->join(', ') }}@endif</span></div>
                                 <span class="vxf-sub vxf-num" style="white-space:nowrap">{{ $shift->starts_at->timezone($tz)->format('g:i A') }}–{{ $shift->ends_at->timezone($tz)->format('g:i A') }}</span>
                             </li>
                         @endforeach

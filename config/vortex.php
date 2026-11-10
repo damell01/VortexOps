@@ -61,4 +61,9 @@ return [
         'headless' => filter_var(env('WHATNOT_HEADLESS', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
+    // Dev/staging Fulfillment demo: the password for the two demo sign-ins
+    // (fulfillment-admin@ / fulfillment-worker@vortexops.test). Unset = a
+    // random one, generated once and shown by `php artisan fulfillment:demo --logins`.
+    'fulfillment_demo_password' => env('FULFILLMENT_DEMO_PASSWORD'),
+
 ];

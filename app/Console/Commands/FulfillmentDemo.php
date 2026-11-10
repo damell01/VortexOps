@@ -19,7 +19,9 @@ use App\Services\FulfillmentQueue;
 use App\Services\FulfillmentRunService;
 use App\Support\AdminModules;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -38,11 +40,23 @@ class FulfillmentDemo extends Command
 {
     protected $signature = 'fulfillment:demo
         {--refresh : Rebuild only when the demo is missing or older than 3 days (used by the Dev deploy)}
-        {--remove : Delete the demo data and stop}';
+        {--remove : Delete the demo data and stop}
+        {--logins : Only print the demo sign-ins}
+        {--reset-password : Give the demo sign-ins a new password}
+        {--hide-password : Leave the password out of the output (deploy logs)}';
 
     protected $description = 'Create (or refresh) Fulfillment Center demo data on a non-production site';
 
     private const SETTING = 'fulfillment_demo';
+
+    private const LOGINS = 'fulfillment_demo_logins';
+
+    public const ADMIN_EMAIL = 'fulfillment-admin@vortexops.test';
+
+    public const WORKER_EMAIL = 'fulfillment-worker@vortexops.test';
+
+    /** @var array{0: User, 1: User}|array{} */
+    private array $accounts = [];
 
     public function handle(FulfillmentRunService $runs, FulfillmentFlagService $flags): int
     {
@@ -51,7 +65,12 @@ class FulfillmentDemo extends Command
             return self::FAILURE;
         }
 
+        $this->accounts = [];
         $state = json_decode((string) Setting::get(self::SETTING, '{}'), true) ?: [];
+        if ($this->option('logins')) {
+            $this->logins();
+            return self::SUCCESS;
+        }
         if ($this->option('remove')) {
             $this->remove($state);
             $this->info('Fulfillment demo removed.');
@@ -61,6 +80,7 @@ class FulfillmentDemo extends Command
             && Show::query()->whereIn('id', $state['shows'] ?? [])->count() === count($state['shows'] ?? [1]);
         if ($this->option('refresh') && $fresh) {
             $this->info('Fulfillment demo is up to date.');
+            $this->logins();
             return self::SUCCESS;
         }
 
@@ -73,6 +93,7 @@ class FulfillmentDemo extends Command
         }
         Setting::set(self::SETTING, json_encode($state));
         $this->info('Fulfillment demo ready: ' . count($state['shows']) . ' shows, ' . count($state['users']) . ' team members.');
+        $this->logins();
 
         return self::SUCCESS;
     }
@@ -99,9 +120,11 @@ class FulfillmentDemo extends Command
         $dennis = $person('Dennis Packer', 'fulfillment');
         $monica = $person('Monica Helper', 'fulfillment');
         $gabe = $person('Gabe Shipper', 'fulfillment');
+        // The two accounts you actually sign in with to walk the flow.
+        [$admin, $worker] = $this->loginAccounts();
 
         $stations = FulfillmentStation::query()->where('active', true)->orderBy('sort')->orderBy('id')->get();
-        for ($i = $stations->count() + 1; $i <= 4; $i++) {
+        for ($i = $stations->count() + 1; $i <= 5; $i++) {
             $stations->push(FulfillmentStation::query()->create(['name' => 'Station ' . $i, 'active' => true, 'sort' => $i]));
         }
         $stations->each(fn ($s, $i) => $s->camera_label ? null : $s->update(['camera_label' => 'Cam ' . ($i + 1)]));
@@ -143,7 +166,7 @@ class FulfillmentDemo extends Command
         $bigGiveys = $show('Big Giveys Top Hit Tuesday', 1, 18, [$dennis]);
         $hurricane = $show('Hurricane Clearout', 1, 12, [$monica]);
         $midnight = $show('Midnight Mystery Pulls', 2, 9, [$gabe]);
-        $warehouse = $show('Massive Warehouse', 2, 10, [$gabe]);
+        $warehouse = $show('Massive Warehouse', 2, 10, [$worker]);
         $fullSend = $show('Saturday Full Send', 3, 22, [], true);
         $restock = $show('$100,000 Restock', 4, 8, [$dennis, $monica]);
         $boxGiveys = $show('Box Giveys All Stream', 6, 7, [$monica]);
@@ -178,7 +201,7 @@ class FulfillmentDemo extends Command
         $ago($r4, 38);
 
         // Ready: one placed on Station 3, one long job still unassigned.
-        $runs->assign($warehouse, [$gabe->id], $crystal, $s3->id);
+        $runs->assign($warehouse, [$worker->id], $admin, $s3->id);
 
         // Finished and acknowledged, waiting for the manager's approval.
         $r5 = $runs->start($restock, $s3->id, $crystal, [$dennis->id, $monica->id]);
@@ -207,15 +230,82 @@ class FulfillmentDemo extends Command
                 $shifts[] = $shift->id;
             }
         }
+        // The demo worker is on shift now at Station 3, with the show waiting for them.
+        $local = now(\App\Support\BusinessTime::zone());
+        $workerShift = FulfillmentShift::query()->create(['user_id' => $worker->id, 'station_id' => $s3->id, 'kind' => 'day',
+            'starts_at' => $local->copy()->subHour()->startOfHour()->utc(), 'ends_at' => $local->copy()->addHours(6)->startOfHour()->utc(), 'created_by' => $admin->id]);
+        $shifts[] = $workerShift->id;
+        if (Schema::hasTable('fulfillment_shift_shows')) $workerShift->shows()->syncWithoutDetaching([$warehouse->id]);
         $todayDennis = FulfillmentShift::query()->where('user_id', $dennis->id)->whereDate('starts_at', now()->toDateString())->first();
         if ($todayDennis && Schema::hasTable('fulfillment_shift_shows')) $todayDennis->shows()->syncWithoutDetaching([$bigGiveys->id]);
 
         return [
             'created_at' => now()->toIso8601String(),
             'shows' => $made,
-            'users' => [$crystal->id, $dennis->id, $monica->id, $gabe->id],
+            'users' => [$crystal->id, $dennis->id, $monica->id, $gabe->id, $admin->id, $worker->id],
             'shifts' => $shifts,
         ];
+    }
+
+    /**
+     * The demo admin and worker sign-ins. They keep their password between
+     * refreshes (stored encrypted), so a rebuild never locks anyone out.
+     *
+     * @return array{0: User, 1: User}
+     */
+    private function loginAccounts(): array
+    {
+        if ($this->accounts) return $this->accounts;
+        $stored = json_decode((string) Setting::get(self::LOGINS, '{}'), true) ?: [];
+        $password = config('vortex.fulfillment_demo_password') ?: null;
+        if (! $password && ! $this->option('reset-password') && isset($stored['password'])) {
+            try {
+                $password = Crypt::decryptString($stored['password']);
+            } catch (\Throwable) {
+                $password = null;
+            }
+        }
+        $password = $password ?: Str::password(14, symbols: false);
+
+        $accounts = [];
+        foreach ([[self::ADMIN_EMAIL, 'Morgan Manager (demo)', 'fulfillment_admin'], [self::WORKER_EMAIL, 'Parker Packer (demo)', 'fulfillment']] as [$email, $name, $role]) {
+            Role::findOrCreate($role, 'web');
+            $user = User::query()->firstOrNew(['email' => $email]);
+            $user->name = $name;
+            if (! $user->exists || ! Hash::check($password, (string) $user->password)) $user->password = Hash::make($password);
+            $user->save();
+            $user->syncRoles([$role]);
+            $accounts[] = $user;
+        }
+        Setting::set(self::LOGINS, json_encode(['password' => Crypt::encryptString($password)]));
+
+        return $this->accounts = $accounts;
+    }
+
+    /** Prints the two sign-ins and the walkthrough. */
+    private function logins(): void
+    {
+        [$admin, $worker] = $this->loginAccounts();
+        $password = $this->option('hide-password') ? '(hidden — run: php artisan fulfillment:demo --logins)'
+            : Crypt::decryptString(json_decode((string) Setting::get(self::LOGINS), true)['password']);
+        $url = rtrim((string) config('app.url'), '/');
+
+        $this->newLine();
+        $this->line('  <options=bold>Fulfillment demo sign-ins</>  (' . $url . '/admin/login)');
+        $this->line('    Manager:  ' . $admin->email . '   password: ' . $password);
+        $this->line('    Packer:   ' . $worker->email . '   password: ' . $password);
+        $this->newLine();
+        $this->line('  <options=bold>Try the flow</>');
+        $this->line('    1. Manager: Fulfillment Home shows Station 1 packing, Station 2 on hold with a damaged-item issue,');
+        $this->line('       Station 4 paused, Station 3 ready for the packer and Station 5 free.');
+        $this->line('    2. Manager: Assign show on Station 5 -> "Saturday Full Send" (queue page 2) with a packer.');
+        $this->line('       Schedule & Activity -> Show logs -> "Review & approve" on "$100,000 Restock".');
+        $this->line('    3. Packer (another browser or phone): Home -> Start on "Massive Warehouse", Pack buyers in order,');
+        $this->line('       Flag an issue, Pause and resume, then Finish and confirm the record.');
+        $this->line('    4. Manager: watch it on the TV Whiteboard, resolve the issue (Open issues), approve the show,');
+        $this->line('       then check Reports for the packer numbers.');
+        $this->line('    Start over any time: php artisan fulfillment:demo');
+        $this->newLine();
     }
 
     /** Removes exactly what the last demo made: its shows (and everything hanging off them) and its shifts. */

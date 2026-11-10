@@ -163,7 +163,7 @@ fi
 # when missing or a few days old, never touches real shows, and the command
 # itself refuses to run in production. A failure here never fails a deploy.
 if [ "$ENVIRONMENT" = "development" ] && [ -f app/Console/Commands/FulfillmentDemo.php ]; then
-  php artisan fulfillment:demo --refresh || echo "Fulfillment demo skipped (see above)"
+  php artisan fulfillment:demo --refresh --hide-password || echo "Fulfillment demo skipped (see above)"
 fi
 
 # Idempotent: keep the same encrypted Web Push keys across deployments.

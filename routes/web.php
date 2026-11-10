@@ -202,5 +202,4 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/fulfillment/whiteboard', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'show'])->name('fulfillment.whiteboard');
     Route::get('/fulfillment/whiteboard/feed', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'feed'])->middleware('throttle:120,1')->name('fulfillment.whiteboard.feed');
     Route::get('/fulfillment/runs/{run}/print', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'print'])->name('fulfillment.run.print');
-    Route::get('/fulfillment/packages/{package}/label', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'label'])->middleware('throttle:120,1')->name('fulfillment.package.label');
 });

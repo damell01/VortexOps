@@ -76,7 +76,9 @@ echo ""
 # issue, a paused station, schedule, whiteboard activity). Rebuilt only when it
 # is missing or a few days old, so your own clicking around is kept. The
 # command refuses to run on a production site; FULFILLMENT_DEMO=0 skips it,
-# FULFILLMENT_DEMO=fresh rebuilds it from scratch.
+# FULFILLMENT_DEMO=fresh rebuilds it from scratch. It prints the demo manager
+# and packer sign-ins (fulfillment-admin@ / fulfillment-worker@vortexops.test)
+# and the walkthrough; `php artisan fulfillment:demo --logins` shows them again.
 if [ "$BRANCH" != "Production" ] && [ "${FULFILLMENT_DEMO:-1}" != "0" ] && php artisan list --raw 2>/dev/null | grep -q '^fulfillment:demo'; then
     echo "🎬 Fulfillment demo..."
     if [ "${FULFILLMENT_DEMO:-1}" = "fresh" ]; then

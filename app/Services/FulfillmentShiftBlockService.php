@@ -94,6 +94,43 @@ final class FulfillmentShiftBlockService
         });
     }
 
+    /** Duplicate a block without copying staffing or affecting historical shifts. */
+    public function duplicate(User $actor, int $blockId, int $days = 7): int
+    {
+        $this->manager($actor);
+        if ($days < 1 || $days > 365) {
+            throw ValidationException::withMessages(['date' => 'Choose a date within the next year.']);
+        }
+        $source = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->first();
+        abort_unless($source, 404);
+        if ($source->status === 'cancelled') {
+            throw ValidationException::withMessages(['shift' => 'Cannot duplicate a cancelled shift.']);
+        }
+        $start = CarbonImmutable::parse($source->starts_at)->addDays($days);
+        $end = CarbonImmutable::parse($source->ends_at)->addDays($days);
+        $duplicate = DB::table('fulfillment_shift_blocks')
+            ->where('starts_at', $start->toDateTimeString())
+            ->where('ends_at', $end->toDateTimeString())
+            ->where('kind', $source->kind)
+            ->where('label', $source->label)
+            ->where('status', '!=', 'cancelled')
+            ->exists();
+        if ($duplicate) {
+            throw ValidationException::withMessages(['shift' => 'A matching shift already exists on that date.']);
+        }
+        return $this->create($actor, [
+            'template_id' => $source->template_id,
+            'starts_at' => $start->toDateTimeString(),
+            'ends_at' => $end->toDateTimeString(),
+            'label' => $source->label,
+            'kind' => $source->kind,
+            'required_staff' => $source->required_staff,
+            'station_id' => $source->station_id,
+            'show_id' => null, // Never silently carry an old show to a new week.
+            'notes' => $source->notes,
+        ]);
+    }
+
     public function unassign(User $actor, int $blockId, int $userId): void
     {
         $this->manager($actor);

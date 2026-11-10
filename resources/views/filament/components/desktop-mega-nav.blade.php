@@ -150,13 +150,13 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @php $builtInLogo = $navLogo === asset('images/vb-logo-sidebar.svg') && file_exists(public_path('images/vx-nav-logo-light.svg')); @endphp
-@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
+@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate.hover aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
 @php $onHome = '/'.trim(request()->path(), '/') === '/'.trim((string) parse_url((string) $homeUrl, PHP_URL_PATH), '/'); @endphp
-<a @class(['vx-mega-home', 'is-here' => $onHome]) href="{{ $homeUrl }}" wire:navigate @if($onHome) aria-current="page" @endif><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
+<a @class(['vx-mega-home', 'is-here' => $onHome]) href="{{ $homeUrl }}" wire:navigate.hover @if($onHome) aria-current="page" @endif><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 @if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
 @php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp
-<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" wire:navigate @if($here) aria-current="page" @endif><span>{{ $label }}</span></a>
+<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" wire:navigate.hover @if($here) aria-current="page" @endif><span>{{ $label }}</span></a>
 @continue
 @endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
@@ -174,10 +174,10 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @foreach($links as $link)
 @php [$text,$url] = $link; $section = $link[2] ?? null; $icon = \App\Support\NavIcons::for($link); @endphp
 @if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
-<a href="{{ $url }}" wire:navigate @click="open=false" @class(['has-icon' => $icon, 'is-current' => $url !== '#' && $isCurrent($url)]) @if($url !== '#' && $isCurrent($url)) aria-current="page" @endif>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
+<a href="{{ $url }}" wire:navigate.hover @click="open=false" @class(['has-icon' => $icon, 'is-current' => $url !== '#' && $isCurrent($url)]) @if($url !== '#' && $isCurrent($url)) aria-current="page" @endif>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
 @endforeach
 @if($label==='Admin' && $ownerLinks)
-<details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" wire:navigate @click="open=false" class="has-icon">@if($ownerIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$ownerIcon" class="vx-mega-link-icon"/>@endif<span>{{ $link[0] }}</span></a>@endforeach</div></details>
+<details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" wire:navigate.hover @click="open=false" class="has-icon">@if($ownerIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$ownerIcon" class="vx-mega-link-icon"/>@endif<span>{{ $link[0] }}</span></a>@endforeach</div></details>
 @endif
 </div></div>
 @endforeach

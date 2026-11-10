@@ -57,7 +57,7 @@ class WhatnotLedgerPageTest extends TestCase
             ->assertSee('All Channels')
             ->assertSee('Vortex Breaks')
             ->assertSee('Unassigned')
-            ->assertSee('Search order or details')
+            ->assertSee('Order number or details')
             ->assertSee('Credits')->assertSee('$70.50')
             ->assertSee('Debits')->assertSee('$6.09')
             ->assertSee('Net Activity')->assertSee('$64.41')

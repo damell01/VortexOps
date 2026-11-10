@@ -124,6 +124,15 @@
     @media(min-width:1280px){.vxled-coverage{grid-template-columns:repeat(6,minmax(0,1fr))}}
     @media(max-width:640px){.vxled-coverage > div{padding:9px}.vxled .vxr-table th,.vxled .vxr-table td{padding:9px 10px}}
     .vxled .vxled-workspace{gap:8px;margin-bottom:8px}
+    .vxled-quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 10px}
+    .vxled-quick__chip{border:1px solid var(--vxw-border);background:var(--vxw-surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+    .vxled-quick__chip[aria-pressed="true"]{background:#7c3aed;border-color:#7c3aed;color:#fff;box-shadow:0 3px 9px rgba(109,40,217,.25)}
+    .vxled-quick__clear{border:0;background:none;color:#6d28d9;font-weight:700;font-size:13px;cursor:pointer;padding:6px 4px}
+    .vxled-show{border:1px solid color-mix(in srgb,#7c3aed 30%,var(--vxw-border));border-radius:16px;background:var(--vxw-surface);padding:14px 16px;margin-bottom:12px;display:grid;gap:10px}
+    .vxled-show__head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+    .vxled-show__nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    .vxled-show__nums div{border:1px solid var(--vxw-border);border-radius:12px;padding:8px 10px}
+    .vxled-show__nums b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
     .vxled .vxled-visuals{margin:8px 0}
     .vxled .vxr-table-wrap{overflow-x:auto}
     .vxled .vxled-table thead th{position:sticky;top:0;z-index:1}
@@ -210,8 +219,10 @@
         </div>
     </div>
 
-    @php $allocation = $loadReports ? $this->attributionSummary : []; @endphp
-    @if (! $loadReports)
+    @php $reportsOn = $loadReports && $reportsReady; $allocation = $reportsOn ? $this->attributionSummary : []; @endphp
+    @if ($loadReports && ! $reportsReady)
+        <div class="mb-3 text-sm" style="color:var(--vxw-muted)" wire:init="readyReports" role="status"><span class="animate-pulse">Updating reconciliation totals…</span></div>
+    @elseif (! $loadReports)
         <div class="mb-3 text-sm" style="color:var(--vxw-muted)">Reconciliation totals and analytics are paused to keep the ledger responsive. <button type="button" class="vxr-btn vxr-btn--outline" wire:click="loadReports">Load reconciliation reports</button></div>
     @else
     <div class="vxled-coverage mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
@@ -309,16 +320,12 @@
         @endif
         <label class="vxr-control vxr-search">
             <x-filament::icon icon="heroicon-o-magnifying-glass" />
-            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Search order or details…" aria-label="Search order or details">
+            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Order number or details…" aria-label="Search order number or details">
         </label>
-    </div>
-    <details class="vxled-more-filters mb-3 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
-        <summary class="cursor-pointer text-sm font-semibold">More filters — show, streamer, destination, transaction type and status</summary>
-        <div class="vxr-toolbar vxled-toolbar mt-3">
         <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-video-camera" />
             <select wire:model.live="showFilter" aria-label="Filter ledger by show">
-                <option value="">All shows (approved attribution)</option>
+                <option value="">All shows</option>
                 @foreach ($this->showFilterOptions as $id => $name)
                     <option value="{{ $id }}">{{ $name }}</option>
                 @endforeach
@@ -327,8 +334,17 @@
         <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-user" />
             <select wire:model.live="streamerFilter" aria-label="Filter ledger by streamer">
-                <option value="">All streamers (approved attribution)</option>
+                <option value="">All streamers</option>
                 @foreach ($this->streamerFilterOptions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <x-filament::icon icon="heroicon-o-building-office" />
+            <select wire:model.live="businessFilter" aria-label="Filter ledger by business">
+                <option value="">All businesses</option>
+                @foreach ($this->businessFilterOptions as $id => $name)
                     <option value="{{ $id }}">{{ $name }}</option>
                 @endforeach
             </select>
@@ -336,11 +352,49 @@
         <label class="vxr-control">
             <select wire:model.live="categoryFilter" aria-label="Ledger category">
                 <option value="">All categories</option>
+                <option value="chargebacks">Chargebacks &amp; corrections (shipping, refunds, adjustments)</option>
                 @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
                     <option value="{{ $category }}">{{ ucfirst($category) }}</option>
                 @endforeach
             </select>
         </label>
+    </div>
+    @php
+        $quick = ['' => 'Everything', 'chargebacks' => 'Chargebacks & corrections', 'refunds' => 'Refunds', 'shipping' => 'Shipping charges', 'correction' => 'Adjustments', 'tips' => 'Tips', 'sales' => 'Sales'];
+        $anyFilter = $showFilter !== '' || $streamerFilter !== '' || $businessFilter !== '' || $categoryFilter !== '' || trim($search) !== '' || $type !== '' || $status !== '' || $destinationFilter !== '';
+    @endphp
+    <div class="vxled-quick" role="group" aria-label="Show only">
+        @foreach ($quick as $key => $label)
+            <button type="button" class="vxled-quick__chip" aria-pressed="{{ $categoryFilter === $key ? 'true' : 'false' }}" wire:click="$set('categoryFilter', '{{ $key }}')">{{ $label }}</button>
+        @endforeach
+        @if ($anyFilter)
+            <button type="button" class="vxled-quick__clear" wire:click="clearFilters">Clear filters</button>
+        @endif
+    </div>
+
+    @if ($showLedger = $this->showLedger)
+        @php $sl = $showLedger; $slShow = $sl['show']; @endphp
+        <section class="vxled-show" aria-label="This show's ledger">
+            <div class="vxled-show__head">
+                <div><strong style="font-size:16px">{{ $slShow->title }}</strong>
+                    <span class="text-sm" style="color:var(--vxw-muted)"> · {{ $slShow->show_date?->format('M j, Y') }} · Whatnot net {{ $signed((float) $slShow->whatnot_net) }}</span></div>
+                <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $slShow->id]) }}">Open show</a>
+            </div>
+            <div class="vxled-show__nums">
+                <div><span class="text-xs" style="color:var(--vxw-muted)">Ledger money (no tips)</span><b>{{ $signed($sl['ledger_net']) }}</b></div>
+                <div><span class="text-xs" style="color:var(--vxw-muted)">Tips</span><b>{{ $signed($sl['tips']) }}</b></div>
+                <div><span class="text-xs" style="color:var(--vxw-muted)">After the show ended</span><b>{{ $signed($sl['after_show_net']) }}</b></div>
+                @foreach ($sl['by_category'] as $cat => $amount)
+                    <div><span class="text-xs" style="color:var(--vxw-muted)">{{ ucfirst((string) $cat) }}</span><b>{{ $signed($amount) }}</b></div>
+                @endforeach
+            </div>
+            @if ($sl['waiting'] > 0)<p class="text-sm" style="margin:0;color:#b45309">{{ $sl['waiting'] }} {{ \Illuminate\Support\Str::plural('entry', $sl['waiting']) }} carry this show's livestream ID but aren't matched yet; they're listed but not counted above.</p>@endif
+        </section>
+    @endif
+
+    <details class="vxled-more-filters mb-3 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+        <summary class="cursor-pointer text-sm font-semibold">More filters — destination, transaction type and status</summary>
+        <div class="vxr-toolbar vxled-toolbar mt-3">
         <label class="vxr-control">
             <select wire:model.live="destinationFilter" aria-label="Ledger allocation destination">
                 <option value="">All destinations</option>
@@ -444,7 +498,7 @@
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
-                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')
+                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $businessFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')
                                             Nothing matches these filters.
                                             <button type="button" class="vxr-link" wire:click="clearFilters">Clear filters</button>
                                         @else
@@ -664,7 +718,7 @@
         @endif
     </div>
     {{-- The inspector does not need report aggregates. Avoid expensive joins on each row click. --}}
-    @if ($selectedId === null && $loadReports)
+    @if ($selectedId === null && $loadReports && $reportsReady)
     @php $byStreamer = $this->streamerTotals; @endphp
     @if ($byStreamer)
         <details class="mb-4 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">

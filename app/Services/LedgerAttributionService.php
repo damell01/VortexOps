@@ -186,6 +186,8 @@ class LedgerAttributionService
             }
             $this->event($entry->id, $actorId, 'submitted', $before, $payload, $data['reason']);
         });
+        // Ledger page totals and reports show the change straight away.
+        \App\Filament\Resources\WhatnotLedgerResource\Pages\ListWhatnotLedgerEntries::forgetReports();
     }
 
     public function review(WhatnotLedgerEntry $entry, int $actorId, bool $approve): void
@@ -228,6 +230,8 @@ class LedgerAttributionService
             ]);
             $this->event($entry->id, $actorId, $status, $row, ['status' => $status], null);
         });
+        // Ledger page totals and reports show the change straight away.
+        \App\Filament\Resources\WhatnotLedgerResource\Pages\ListWhatnotLedgerEntries::forgetReports();
     }
 
     private function event(int $entryId, int $actorId, string $action, mixed $before, mixed $after, ?string $reason): void

@@ -70,7 +70,8 @@
             @php $ledger = app(\App\Services\ShowLedgerSummary::class)->for($show); @endphp
             <section class="vx-card p-5" aria-labelledby="show-ledger-h">
                 <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div><h3 id="show-ledger-h" class="text-base font-bold">Ledger</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Money Whatnot actually recorded for this show: sales, refunds, shipping and carrier adjustments, plus tips.</div></div>
+                    <div><h3 id="show-ledger-h" class="text-base font-bold">Ledger</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Money Whatnot actually recorded for this show: sales, refunds, shipping and carrier adjustments, plus tips.</div>
+                        @if(\App\Filament\Resources\WhatnotLedgerResource::canAccess())<a class="mt-2 inline-flex text-xs font-semibold text-violet-700 hover:underline dark:text-violet-300" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $show->id, 'period' => 'all']) }}">View every entry in the ledger ›</a>@endif</div>
                     <div class="text-right"><div class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Ledger net</div><div class="text-lg font-black tabular-nums {{ $ledger['ledger_net'] < 0 ? 'vx-bad' : '' }}">${{ number_format($ledger['ledger_net'], 2) }}</div><div class="text-xs text-[var(--vx-muted)]">Tips ${{ number_format($ledger['tips'], 2) }}</div></div>
                 </div>
                 @if($ledger['lines']->isEmpty())

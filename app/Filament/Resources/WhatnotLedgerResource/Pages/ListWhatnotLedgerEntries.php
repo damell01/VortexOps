@@ -77,6 +77,13 @@ class ListWhatnotLedgerEntries extends Page
     #[Url(as: 'streamer')]
     public string $streamerFilter = '';
 
+    /** A business: entries matched to it, or to one of its streamers. */
+    #[Url(as: 'business')]
+    public string $businessFilter = '';
+
+    /** Category filter value for every ledger charge: shipping, refunds and adjustments. */
+    public const CHARGES = 'chargebacks';
+
     #[Url(as: 'review')]
     public string $review = 'all';
 
@@ -95,6 +102,18 @@ class ListWhatnotLedgerEntries extends Page
     public function loadReports(): void
     {
         $this->loadReports = true;
+        $this->reportsReady = true;
+    }
+
+    /**
+     * After a filter changes, the list renders first and the reports follow
+     * in a second request (wire:init), so the table never waits on them.
+     */
+    public bool $reportsReady = true;
+
+    public function readyReports(): void
+    {
+        $this->reportsReady = true;
     }
 
     public int $pageNo = 1;
@@ -145,13 +164,14 @@ class ListWhatnotLedgerEntries extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'categoryFilter', 'destinationFilter', 'showFilter', 'streamerFilter', 'review', 'search', 'perPage'], true)) {
+        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'categoryFilter', 'destinationFilter', 'showFilter', 'streamerFilter', 'businessFilter', 'review', 'search', 'perPage'], true)) {
             if ($property === 'from' || $property === 'until') {
                 $this->preset = 'custom';
             }
             $this->pageNo = 1;
             $this->checked = [];
             $this->normalise();
+            if ($this->loadReports) $this->reportsReady = false;
         }
     }
 
@@ -170,9 +190,9 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->review, ['all', 'needs_attribution', 'unmatched_attribution', 'pending_approval', 'rejected_attribution', 'unverified_tips', 'tips_needs_business', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
         }
-        if ($this->categoryFilter !== '' && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
+        if ($this->categoryFilter !== '' && $this->categoryFilter !== self::CHARGES && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
         if ($this->destinationFilter !== '' && ! in_array($this->destinationFilter, ['show', 'streamer', 'house', 'unassigned'], true)) $this->destinationFilter = '';
-        foreach (['showFilter', 'streamerFilter'] as $field) {
+        foreach (['showFilter', 'streamerFilter', 'businessFilter'] as $field) {
             if ($this->{$field} !== '' && (! ctype_digit($this->{$field}) || (int) $this->{$field} < 1)) $this->{$field} = '';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
@@ -332,9 +352,9 @@ class ListWhatnotLedgerEntries extends Page
 
     public function clearFilters(): void
     {
-        $this->preset = 'all';
+        $this->preset = '30';
         $this->from = $this->until = null;
-        $this->type = $this->status = $this->search = $this->showFilter = $this->streamerFilter = $this->categoryFilter = $this->destinationFilter = '';
+        $this->type = $this->status = $this->search = $this->showFilter = $this->streamerFilter = $this->businessFilter = $this->categoryFilter = $this->destinationFilter = '';
         $this->review = 'all';
         $this->pageNo = 1;
     }
@@ -455,8 +475,18 @@ class ListWhatnotLedgerEntries extends Page
             ->when($this->categoryFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
                 $sub->selectRaw('1')->from('ledger_attributions as la')
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
-                    ->where('la.status', 'approved')->where('la.category', $this->categoryFilter);
+                    ->where('la.status', 'approved')
+                    ->whereIn('la.category', $this->categoryFilter === self::CHARGES ? \App\Services\LedgerChargeReport::CATEGORIES : [$this->categoryFilter]);
             }))
+            ->when($this->businessFilter !== '', function (Builder $q) {
+                $business = (int) $this->businessFilter;
+                // The business's streamers, looked up once rather than joined per row.
+                $streamers = Streamer::query()->where('business_id', $business)->pluck('id')->all();
+                $q->whereExists(fn ($sub) => $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')
+                    ->where(fn ($w) => $w->where('la.business_id', $business)->when($streamers, fn ($or) => $or->orWhereIn('la.streamer_id', $streamers))));
+            })
             ->when($this->destinationFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
                 $sub->selectRaw('1')->from('ledger_attributions as la')
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
@@ -475,8 +505,17 @@ class ListWhatnotLedgerEntries extends Page
             ->when($this->type !== '', fn (Builder $q) => $q->where('transaction_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
             ->when(trim($this->search) !== '', function (Builder $q) {
-                $term = '%'.trim($this->search).'%';
-                $q->where(fn (Builder $w) => $w->where('whatnot_order_id', 'like', $term)->orWhere('message', 'like', $term));
+                $search = trim($this->search);
+                // An order number uses the order index (exact, or the start of
+                // one); words search the details. A wildcard on both sides
+                // read every row of the ledger.
+                if (preg_match('/^#?\d{3,}$/', $search)) {
+                    $number = ltrim($search, '#');
+                    $q->where(fn (Builder $w) => $w->where('whatnot_order_id', $number)->orWhere('whatnot_order_id', 'like', $number.'%'));
+                } else {
+                    $term = '%'.addcslashes($search, '%_\\').'%';
+                    $q->where(fn (Builder $w) => $w->where('message', 'like', $term)->orWhere('transaction_type', 'like', $term)->orWhere('whatnot_order_id', 'like', $term));
+                }
             });
     }
 
@@ -498,7 +537,7 @@ class ListWhatnotLedgerEntries extends Page
 
     public function totalRows(): int
     {
-        return $this->filteredQuery()->count();
+        return (int) $this->cachedReport('rows', fn () => $this->filteredQuery()->count());
     }
 
     public function lastPage(): int
@@ -506,8 +545,35 @@ class ListWhatnotLedgerEntries extends Page
         return max(1, (int) ceil($this->totalRows() / max(1, $this->perPage)));
     }
 
+    /**
+     * Ledger totals and reports for the current filters, cached for a minute
+     * per filter combination. Saving an allocation on this page bumps the
+     * version so its effect shows at once; imports and the hourly matcher
+     * show within the minute.
+     */
+    private function cachedReport(string $name, \Closure $compute): mixed
+    {
+        $key = 'ledger-report:'.$name.':'.md5(json_encode([
+            $this->channel, $this->preset, $this->from, $this->until, $this->type, $this->status, $this->categoryFilter,
+            $this->destinationFilter, $this->showFilter, $this->streamerFilter, $this->businessFilter, $this->review, trim($this->search),
+            ChannelContext::currentId(), \Illuminate\Support\Facades\Cache::get('ledger-report:version', 0), today()->toDateString(),
+        ]));
+
+        return \Illuminate\Support\Facades\Cache::remember($key, 60, $compute);
+    }
+
+    public static function forgetReports(): void
+    {
+        \Illuminate\Support\Facades\Cache::forever('ledger-report:version', ((int) \Illuminate\Support\Facades\Cache::get('ledger-report:version', 0)) + 1);
+    }
+
     /** @return array{credits: float, debits: float, net: float, processing: int, count: int} */
     public function getStatsProperty(): array
+    {
+        return $this->cachedReport('stats', fn () => $this->computeStats());
+    }
+
+    private function computeStats(): array
     {
         $row = $this->filteredQuery()->toBase()
             ->reorder()
@@ -535,6 +601,11 @@ class ListWhatnotLedgerEntries extends Page
      */
     public function getLedgerTrendProperty(): array
     {
+        return $this->cachedReport('trend', fn () => $this->computeLedgerTrend());
+    }
+
+    private function computeLedgerTrend(): array
+    {
         $rows = $this->filteredQuery()->toBase()->reorder()
             ->selectRaw(\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite'
                 ? "strftime('%Y-%m', whatnot_ledger_entries.created_date) as bucket"
@@ -555,6 +626,11 @@ class ListWhatnotLedgerEntries extends Page
     /** Attribution status for the currently filtered ledger rows, without bypassing channel scope. */
     public function getAttributionSummaryProperty(): array
     {
+        return $this->cachedReport('allocation', fn () => $this->computeAttributionSummary());
+    }
+
+    private function computeAttributionSummary(): array
+    {
         $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
         $row = DB::table('whatnot_ledger_entries as le')
             ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
@@ -574,6 +650,11 @@ class ListWhatnotLedgerEntries extends Page
     /** Signed value awaiting attribution, using the same ledger filters as the table. */
     public function getUnallocatedAmountsProperty(): array
     {
+        return $this->cachedReport('unallocated', fn () => $this->computeUnallocatedAmounts());
+    }
+
+    private function computeUnallocatedAmounts(): array
+    {
         $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
         $row = DB::table('whatnot_ledger_entries as le')
             ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
@@ -590,6 +671,11 @@ class ListWhatnotLedgerEntries extends Page
 
     /** Approved financial allocations grouped by category and destination, in the current filter scope. */
     public function getCategoryBreakdownProperty(): array
+    {
+        return $this->cachedReport('categories', fn () => $this->computeCategoryBreakdown());
+    }
+
+    private function computeCategoryBreakdown(): array
     {
         $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
         return DB::table('whatnot_ledger_entries as le')
@@ -612,6 +698,11 @@ class ListWhatnotLedgerEntries extends Page
      * @return list<array{streamer:string, tips:float, sales:float, refunds:float, shipping:float, correction:float, bonus:float, other:float, net:float, entries:int}>
      */
     public function getStreamerTotalsProperty(): array
+    {
+        return $this->cachedReport('streamers', fn () => $this->computeStreamerTotals());
+    }
+
+    private function computeStreamerTotals(): array
     {
         $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
         $rows = DB::table('whatnot_ledger_entries as le')
@@ -691,7 +782,26 @@ class ListWhatnotLedgerEntries extends Page
             ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
             ->when(ctype_digit($this->channel), fn ($q) => $q->where('whatnot_channel_id', (int) $this->channel))
             ->orderByDesc('show_date')->limit(300)->get(['id', 'title', 'show_date'])
+            // A show opened from its own page may be older than the newest 300.
+            ->when($this->showFilter !== '', fn ($shows) => $shows->push(...Show::query()->whereKey((int) $this->showFilter)->get(['id', 'title', 'show_date'])))
+            ->unique('id')
             ->mapWithKeys(fn ($show) => [$show->id => $show->title.' · '.$show->show_date?->format('M j, Y')])->all();
+    }
+
+    /** @return array<int, string> */
+    public function getBusinessFilterOptionsProperty(): array
+    {
+        return \App\Models\Business::ordered()->mapWithKeys(fn ($b) => [$b->id => $b->name])->all();
+    }
+
+    /** The selected show's ledger money: what it made, and what came off it later. */
+    public function getShowLedgerProperty(): ?array
+    {
+        if ($this->showFilter === '') return null;
+        $show = Show::query()->find((int) $this->showFilter);
+        if (! $show) return null;
+
+        return ['show' => $show] + app(\App\Services\ShowLedgerSummary::class)->for($show);
     }
 
     public function getStreamerFilterOptionsProperty(): array
@@ -711,7 +821,13 @@ class ListWhatnotLedgerEntries extends Page
         return $this->distinct('status');
     }
 
+    /** Dropdown values; they change only when new kinds of entries arrive. */
     private function distinct(string $column): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember('ledger-options:'.$column, 600, fn () => $this->distinctValues($column));
+    }
+
+    private function distinctValues(string $column): array
     {
         return WhatnotLedgerEntry::query()
             ->whereNotNull($column)

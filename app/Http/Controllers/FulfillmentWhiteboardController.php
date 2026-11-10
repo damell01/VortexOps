@@ -138,6 +138,25 @@ class FulfillmentWhiteboardController extends Controller
             ])->all();
     }
 
+    /**
+     * Open a package's Whatnot shipping label. Goes through here (not straight to
+     * Whatnot) so the show log records who printed which label and when.
+     */
+    public function label(Request $request, \App\Models\FulfillmentRunPackage $package)
+    {
+        $user = $request->user();
+        abort_unless(FulfillmentAccess::isManager($user) || FulfillmentAccess::canWorkRun($user, $package->run_id), 403);
+        $package->loadMissing('shipment:id,raw_payload,tracking_number');
+        $url = $package->labelUrl();
+        if (! $url) {
+            return response('No Whatnot label has synced for this package yet. Buy the label on Whatnot, then wait for the next shipment sync.', 404)
+                ->header('Content-Type', 'text/plain');
+        }
+        \App\Services\FulfillmentLog::record('label_opened', $package->run_id, $user->id, ['tracking' => $package->shipment?->tracking_number], $package->buyer_id, $package->id);
+
+        return redirect()->away($url);
+    }
+
     /** A printable copy of a show's tracking record. Never required, always available. */
     public function print(Request $request, FulfillmentRun $run)
     {

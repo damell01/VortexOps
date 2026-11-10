@@ -92,6 +92,18 @@
                     <span class="vxf-person vxf-person--none">Not assigned yet</span>
                 @endforelse
             </div>
+            @php
+                $labelShips = \App\Models\Shipment::query()->where('show_id', $show->id)->get(['id', 'raw_payload']);
+                $labelsReady = $labelShips->filter(fn ($sh) => \App\Models\FulfillmentRunPackage::documentUrl($sh->raw_payload, 'label_url'))->count();
+            @endphp
+            <div class="vxf-labels {{ $labelShips->isNotEmpty() && $labelsReady === $labelShips->count() ? 'is-ready' : '' }}">
+                <span class="vxf-labels__icon" aria-hidden="true"><x-heroicon-o-printer /></span>
+                <div><strong>Shipping labels: {{ $labelsReady }} of {{ $labelShips->count() }} ready</strong>
+                    <span class="vxf-sub">{{ $labelShips->isEmpty() ? 'No shipments have synced from Whatnot yet.' : ($labelsReady < $labelShips->count() ? 'The rest appear after they are bought on Whatnot and the next shipment sync runs.' : 'Synced from Whatnot. Print them all now, or one by one while packing.') }}</span></div>
+                @if ($labelsReady && \App\Filament\Resources\FulfillmentResource::canAccess())
+                    <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $show]) }}" target="_blank" rel="noopener">Open label sheet</a>
+                @endif
+            </div>
             <ul class="vxf-whatnext">
                 <li><x-heroicon-o-clock /> The start time, station and packer are recorded for you.</li>
                 <li><x-heroicon-o-language /> Buyers load A–Z with their letters, matching the camera.</li>
@@ -244,6 +256,12 @@
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
                                             <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
+                                        @php $labelUrl = $package->labelUrl(); @endphp
+                                        @if ($labelUrl)
+                                            <a class="vxf-btn vxf-btn--sm vxf-label-btn" href="{{ route('fulfillment.package.label', $package) }}" target="_blank" rel="noopener" title="Print the Whatnot shipping label{{ $package->shipment?->tracking_number ? ' · ' . $package->shipment->tracking_number : '' }}"><x-heroicon-o-printer /> Label</a>
+                                        @else
+                                            <span class="vxf-sub vxf-nolabel" title="Buy the label on Whatnot; it appears here after the next shipment sync">No label yet</span>
+                                        @endif
                                         @if ($package->status !== 'packed' && $canWork && ! $paused)
                                             <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})" aria-label="Mark package {{ $loop->iteration }} packed"><x-heroicon-o-check /> Pack</button>
                                         @elseif ($package->status === 'packed')

@@ -181,7 +181,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endif
 </div></div>
 @endforeach
-@if($user?->canSwitchChannels())
+@if($user?->canSwitchChannels() && ! ($user?->isFulfillment() || $user?->isFulfillmentAdmin()) )
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif

@@ -151,6 +151,13 @@ else
   echo "Frontend unchanged: keeping existing public/build assets"
 fi
 
+# The file diff can miss migrations (an overlapping or failed earlier deploy
+# already moved the checkout), so also ask the database what is pending.
+if [ "$MIGRATIONS_CHANGED" -eq 0 ] && php artisan migrate:status --pending 2>/dev/null | grep -q 'Pending'; then
+  echo "Pending migrations found: running them"
+  MIGRATIONS_CHANGED=1
+fi
+
 if [ "$MIGRATIONS_CHANGED" -eq 1 ]; then
   echo "Migrations changed: running database migrations"
   php artisan migrate --force

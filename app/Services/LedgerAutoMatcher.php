@@ -12,6 +12,21 @@ class LedgerAutoMatcher
 
     public function match(WhatnotLedgerEntry $entry): string
     {
+        $result = $this->matchEntry($entry);
+        // An automatically approved tip lands on its show and its draft pay, as a reviewed one does.
+        if ($result === 'matched' && in_array(strtolower(trim((string) $entry->transaction_type)), ['tip', 'tips'], true)) {
+            try {
+                app(LedgerAttributionService::class)->syncShowTips($entry);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $result;
+    }
+
+    private function matchEntry(WhatnotLedgerEntry $entry): string
+    {
         return DB::transaction(function () use ($entry) {
             $existing = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
             // Never overwrite a human decision, even a pending or rejected one.

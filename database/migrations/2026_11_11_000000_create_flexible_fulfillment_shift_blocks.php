@@ -41,6 +41,12 @@ return new class extends Migration {
             $table->unique(['shift_block_id', 'user_id'], 'fulfillment_block_employee_unique');
             $table->index(['user_id', 'shift_block_id'], 'fulfillment_assignment_employee_idx');
         });
+        // Template changes affect future shifts only: blocks store their own
+        // immutable start/end snapshots, not a live computed template time.
+        \Illuminate\Support\Facades\DB::table('fulfillment_shift_templates')->insert([
+            ['name' => 'Day Team', 'kind' => 'day', 'starts_at' => '06:00:00', 'ends_at' => '18:00:00', 'active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Night Team', 'kind' => 'night', 'starts_at' => '18:00:00', 'ends_at' => '06:00:00', 'active' => true, 'created_at' => now(), 'updated_at' => now()],
+        ]);
     }
 
     public function down(): void

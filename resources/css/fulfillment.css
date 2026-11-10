@@ -1016,3 +1016,35 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-shift-weekdays label{display:flex;align-items:center;gap:4px}
 .vxf-shift-notes{border:1px solid var(--vxw-border,#ddd);border-radius:10px;padding:12px}.vxf-shift-notes summary{cursor:pointer;font-weight:700}.vxf-shift-notes textarea{width:100%;margin-top:10px}
 @media(max-width:700px){.vxf-shift-modal{inset:0;transform:none;width:100vw;max-height:100dvh;height:100dvh;border-radius:0}.vxf-shift-modal__header,.vxf-shift-modal__footer{padding:14px 16px}.vxf-shift-modal__body{padding:16px}.vxf-shift-types{gap:6px}.vxf-shift-type{padding:9px}.vxf-shift-type strong{font-size:12px}.vxf-shift-type span{font-size:11px}.vxf-shift-time-row{grid-template-columns:1fr}.vxf-shift-modal__body>.vxf-grid2{grid-template-columns:1fr}}
+
+
+/* Schedule shift dialogs render through Livewire's body teleport, not inside the
+   calendar grid. The portal is a stable root; only its children overlay the app. */
+.vxf-shift-portal {position:static;isolation:auto}
+.vxf-shift-portal .vxf-shift-modal-backdrop {
+  position:fixed;inset:0;z-index:9998;
+  background:rgba(15,18,44,.62);
+  backdrop-filter:blur(3px);
+}
+.vxf-shift-portal .vxf-shift-modal {
+  position:fixed;inset:auto;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  z-index:9999;width:min(860px,calc(100vw - 32px));
+  max-height:min(840px,calc(100dvh - 32px));
+  background:#fff;color:#17152b;border:1px solid #e6e0f1;
+  box-shadow:0 32px 100px rgba(13,8,38,.35);
+}
+.vxf-shift-portal .vxf-shift-modal__header,
+.vxf-shift-portal .vxf-shift-modal__footer {background:#fff}
+.vxf-shift-portal .vxf-shift-modal__body {overscroll-behavior:contain;min-height:0}
+.dark .vxf-shift-portal .vxf-shift-modal {
+  background:#211b31;color:#f7f2ff;border-color:#504366;
+}
+.dark .vxf-shift-portal .vxf-shift-modal__header,
+.dark .vxf-shift-portal .vxf-shift-modal__footer {background:#211b31}
+@media (max-width:640px) {
+  .vxf-shift-portal .vxf-shift-modal {width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:16px}
+  .vxf-shift-portal .vxf-shift-modal__header,
+  .vxf-shift-portal .vxf-shift-modal__footer {padding:12px 16px}
+  .vxf-shift-portal .vxf-shift-modal__body {padding:14px 16px}
+}

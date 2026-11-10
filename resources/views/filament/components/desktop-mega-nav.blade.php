@@ -107,9 +107,32 @@ $fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner()
     && ($user?->isFulfillment() || $user?->isFulfillmentAdmin()));
 if ($fulfillmentOnly) {
     $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';
-    $groups = isset($groups['Inventory']) ? ['Inventory' => $groups['Inventory']] : [];
+    // Fulfillment admins only need the All Inventory list, not the inventory tools menu.
+    // Regular fulfillment members keep their existing scoped navigation.
+    if ($user?->isFulfillmentAdmin()) {
+        $groups = [];
+        if (\App\Support\AdminModules::isEnabled('inventory')
+            && \App\Filament\Resources\InventoryItemResource::canAccess()) {
+            $groups['Inventory'] = [[
+                'All Inventory',
+                \App\Filament\Resources\InventoryItemResource::getUrl('index'),
+                'Inventory',
+            ]];
+        }
+    } else {
+        $groups = isset($groups['Inventory']) ? ['Inventory' => $groups['Inventory']] : [];
+    }
     if (\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) {
         $groups['Fulfillment'] = \App\Support\FulfillmentNav::links();
+        // Make the full Fulfillment Center queue directly accessible to managers.
+        if ($user?->isFulfillmentAdmin() && \App\Filament\Resources\FulfillmentResource::canAccess()) {
+            array_unshift($groups['Fulfillment'], [
+                'Fulfillment Center',
+                \App\Filament\Resources\FulfillmentResource::getUrl('index'),
+                'Fulfillment',
+                'heroicon-o-truck',
+            ]);
+        }
     }
     if (\App\Filament\Pages\Timekeeping::canAccess()) {
         $groups['Timekeeping'] = [['My Timekeeping', \App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];

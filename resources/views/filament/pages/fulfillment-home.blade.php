@@ -12,8 +12,9 @@
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
-            <h1>{{ $manager ? 'Fulfillment Operations' : 'My Fulfillment' }}</h1>
-            <p>{{ $manager ? 'Live stations, shows ready to pack, and packing activity.' : 'Your shows, your station and your shift.' }}</p>
+            @php $hour = (int) \App\Support\BusinessTime::local()->format('G'); $first = explode(' ', trim(auth()->user()->name))[0]; @endphp
+            <h1>{{ $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening') }}, {{ $first }} <span aria-hidden="true">👋</span></h1>
+            <p><span class="vxf-live"><i aria-hidden="true"></i> Live</span> {{ $manager ? 'Fulfillment Operations · stations, shows ready to pack and today\'s activity' : 'Your shows, your station and your shift' }} · {{ \App\Support\BusinessTime::local()->format('D, M j · g:i A') }}</p>
         </div>
         <div class="vxf-actions">
             <button type="button" class="vxf-btn" @click="toggleGuide()" :aria-pressed="guide"><x-heroicon-o-light-bulb /> How it works</button>
@@ -66,36 +67,47 @@
                     @php $run = $row['run']; $state = $row['state']; $show = $run?->show;
                         $done = (int) ($run->completed_packages ?? 0); $total = $run?->expected_packages;
                         $pct = $total ? min(100, round($done / max(1, $total) * 100)) : 0; @endphp
-                    <article class="vxf-card vxf-station {{ $state === 'packing' ? 'vxf-station--packing' : '' }}" wire:key="station-{{ $row['station']->id }}">
+                    @php $tone = ['packing' => 'packing', 'hold' => 'hold', 'paused' => 'paused', 'ready' => 'ready'][$state] ?? 'idle'; @endphp
+                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}">
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
                             <span style="display:inline-flex;gap:6px;align-items:center">
-                                <a class="vxf-station__tv" href="{{ route('fulfillment.whiteboard', ['station' => $row['station']->id]) }}" target="_blank" rel="noopener" title="Open {{ $row['station']->name }} on the TV whiteboard" aria-label="Open {{ $row['station']->name }} on the TV whiteboard"><x-heroicon-o-tv /></a>
                                 <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}</span>
+                                <a class="vxf-station__tv" href="{{ route('fulfillment.whiteboard', ['station' => $row['station']->id]) }}" target="_blank" rel="noopener" title="Open {{ $row['station']->name }} on the TV whiteboard" aria-label="Open {{ $row['station']->name }} on the TV whiteboard"><x-heroicon-o-tv /></a>
                             </span>
                         </div>
                         @if ($run && $show)
                             <p class="vxf-station__show">{{ $show->title }}</p>
                             <p class="vxf-station__meta">
-                                {{ $show->channel?->name ?? 'No channel' }}
-                                · {{ ($run->packers->pluck('name')->join(', ')) ?: ($show->fulfillmentUsers->pluck('name')->join(', ') ?: 'No packer') }}
-                                @if ($run->started_at)<br>Started {{ $run->started_at->timezone($tz)->format('M j, g:i A') }}@endif
+                                <span><x-heroicon-o-calendar /> {{ $show->show_date?->format('M j') }}{{ $show->start_time ? ', ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</span>
+                                <span><x-heroicon-o-user /> {{ ($run->packers->pluck('name')->join(', ')) ?: ($show->fulfillmentUsers->pluck('name')->join(', ') ?: 'No packer') }}</span>
                             </p>
+                            <div class="vxf-station__mid">
+                                <span class="vxf-station__letter {{ $row['current'] ? '' : 'is-empty' }}" aria-label="{{ $row['current'] ? 'Current buyer ' . $row['current']->letter : 'No buyer selected' }}">{{ $row['current']?->letter ?? ($state === 'paused' ? '❚❚' : '–') }}</span>
+                                @include('fulfillment.ring', ['pct' => $pct, 'label' => $done . ' / ' . ($total ?? '?'), 'tone' => $tone, 'size' => 74])
+                            </div>
                             <div class="vxf-station__foot">
-                                <div class="vxf-station__count"><span><strong class="vxf-num">{{ $done }}</strong> / {!! $total !== null ? '<strong class="vxf-num">'.$total.'</strong>' : '<span class="vxf-unknown">pending</span>' !!} packages</span><span class="vxf-num">{{ $total ? $pct . '%' : '' }}</span></div>
-                                <div class="vxf-bar" role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Packing progress"><span style="width: {{ $pct }}%"></span></div>
-                                <div class="vxf-actions">
-                                    <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">View station</a>
+                                @if ($state === 'ready')
+                                    <span class="vxf-station__next"><x-heroicon-o-clock /> Waiting to start</span>
+                                @elseif ($state === 'paused')
+                                    <span class="vxf-station__next"><x-heroicon-o-pause /> Paused</span>
+                                @elseif ($row['next'])
+                                    <span class="vxf-station__next">Next: <strong>{{ $row['next']->buyer_username }}</strong></span>
+                                @else
+                                    <span class="vxf-station__next">Last buyer</span>
+                                @endif
+                                <span class="vxf-actions">
                                     @if ($manager && $state === 'ready')<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">Assign</button>@endif
-                                </div>
+                                    <a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}" aria-label="Open {{ $row['station']->name }}" title="Open station"><x-heroicon-o-chevron-right /></a>
+                                </span>
                             </div>
                         @else
-                            <p class="vxf-station__meta" style="margin:auto 0">No show assigned.</p>
+                            <div class="vxf-station__idle"><x-heroicon-o-inbox /><span>No show assigned</span></div>
                             <div class="vxf-station__foot vxf-actions">
                                 @if ($manager)
                                     <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openAssignToStation({{ $row['station']->id }})"><x-heroicon-o-plus /> Assign show</button>
                                 @endif
-                                <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['station' => $row['station']->id]) }}">Open station</a>
+                                <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['station' => $row['station']->id]) }}">Open</a>
                             </div>
                         @endif
                     </article>
@@ -167,6 +179,34 @@
         </section>
 
         <aside style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            @php $doneToday = $stats['completed_today']; $goal = $doneToday + $stats['remaining']; $todayPct = $goal ? min(100, round($doneToday / $goal * 100)) : 0; @endphp
+            <section class="vxf-card vxf-today" aria-labelledby="vxf-today">
+                <div class="vxf-card__head"><h2 id="vxf-today">Packing progress today</h2><span class="vxf-num vxf-today__pct">{{ $todayPct }}%</span></div>
+                <div class="vxf-card__body">
+                    <p class="vxf-today__count"><b class="vxf-num">{{ $doneToday }}</b> / {{ $goal }} packages</p>
+                    <div class="vxf-bar vxf-bar--thick" role="progressbar" aria-valuenow="{{ $todayPct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Packed today"><span style="width: {{ $todayPct }}%"></span></div>
+                    <p class="vxf-sub" style="margin:6px 0 0">{{ $stats['buyers_today'] }} buyers packed · {{ $stats['remaining'] }} packages left on open shows</p>
+                </div>
+            </section>
+            <section class="vxf-card" aria-labelledby="vxf-activity">
+                <div class="vxf-card__head"><h2 id="vxf-activity">Today's activity</h2>
+                    <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
+                @if ($this->activity->isEmpty())
+                    <p class="vxf-empty">Nothing packed yet today.</p>
+                @else
+                    <ul class="vxf-feed">
+                        @foreach ($this->activity as $e)
+                            @php $kind = ['buyer_packed' => 'ok', 'item_verified' => 'ok', 'approved' => 'ok', 'finished' => 'brand', 'started' => 'brand', 'issue_flagged' => 'bad', 'issue_resolved' => 'ok', 'paused' => 'warn'][$e->type] ?? 'brand'; @endphp
+                            <li class="vxf-feed__item vxf-feed__item--{{ $kind }}">
+                                <span class="vxf-feed__icon" aria-hidden="true">@if ($e->buyer_letter)<b>{{ $e->buyer_letter }}</b>@elseif ($kind === 'bad')<x-heroicon-o-exclamation-triangle />@elseif ($kind === 'warn')<x-heroicon-o-pause />@else<x-heroicon-o-check />@endif</span>
+                                <span class="vxf-feed__text"><strong>{{ $e->buyer_username ?? $e->station?->name ?? 'Fulfillment' }}</strong> {{ ['buyer_packed' => 'packed', 'item_verified' => 'verified', 'issue_flagged' => 'issue flagged', 'issue_resolved' => 'issue resolved', 'started' => 'started packing', 'finished' => 'finished the show', 'paused' => 'paused', 'approved' => 'approved'][$e->type] ?? \App\Models\FulfillmentEvent::label($e->type) }}
+                                    <span class="vxf-sub">{{ $e->station?->name }}{{ $e->user ? ' · ' . explode(' ', $e->user->name)[0] : '' }}</span></span>
+                                <time class="vxf-sub vxf-num">{{ $e->created_at?->timezone($tz)->format('g:i A') }}</time>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
             <section class="vxf-card" aria-labelledby="vxf-issues">
                 <div class="vxf-card__head">
                     <h2 id="vxf-issues">Open issues</h2>

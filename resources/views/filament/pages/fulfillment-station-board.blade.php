@@ -134,10 +134,9 @@
                     · {{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}
                     · <strong>{{ $run->packers->pluck('name')->join(', ') }}</strong> since {{ $run->started_at?->timezone($tz)->format('g:i A') }}</p>
             </div>
-            <div class="vxf-sbar__progress" role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Show progress">
-                <strong class="vxf-num">@if ($expected !== null){{ $done }}<span>/{{ $expected }}</span>@else{{ $packedBuyers }}<span>/{{ $buyers->count() }}</span>@endif</strong>
-                <small>{{ $expected !== null ? 'packages' : 'buyers' }} · {{ $pct }}%</small>
-                <div class="vxf-bar"><span style="width: {{ $pct }}%"></span></div>
+            <div class="vxf-sbar__progress">
+                @include('fulfillment.ring', ['pct' => $pct, 'label' => ($expected !== null ? $done . '/' . $expected : $packedBuyers . '/' . $buyers->count()), 'tone' => $paused ? 'paused' : 'packing', 'size' => 58])
+                <small>{{ $expected !== null ? 'packages' : 'buyers' }}<br>packed</small>
             </div>
             <div class="vxf-sbar__tools">
                 <button type="button" class="vxf-iconbtn" @click="help = true" aria-label="How to pack" title="How to pack"><x-heroicon-o-question-mark-circle /></button>
@@ -275,12 +274,14 @@
                             <button type="button" class="vxf-big" wire:click="step(1)" aria-label="Next buyer">Next <x-heroicon-o-arrow-right /></button>
                         </div>
                         <button type="button" class="vxf-big" x-on:click="focusScan()"><x-heroicon-o-qr-code /> Scan Item</button>
-                        <button type="button" class="vxf-big vxf-big--warn" wire:click="openFlag"><x-heroicon-o-flag /> Flag Issue</button>
-                        <button type="button" class="vxf-big" wire:click="pause"><x-heroicon-o-pause /> Pause Packing</button>
                     @endif
-                    <button type="button" class="vxf-big vxf-big--brand vxf-big--end" wire:click="finish" wire:confirm="Finish packing this show? Every buyer must be packed or flagged.">
-                        <x-heroicon-o-flag /> Finish Show
-                    </button>
+                    <div class="vxf-acttiles">
+                        @unless ($paused)
+                            <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="openFlag"><x-heroicon-o-flag /><span>Flag Issue</span></button>
+                            <button type="button" class="vxf-acttile vxf-acttile--warn" wire:click="pause"><x-heroicon-o-pause /><span>Pause</span></button>
+                        @endunless
+                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="finish" wire:confirm="Finish packing this show? Every buyer must be packed or flagged."><x-heroicon-o-check-badge /><span>Finish Show</span></button>
+                    </div>
                     @if ($this->isManager() && $current && $current->status === 'packed')
                         <button type="button" class="vxf-btn vxf-btn--sm" wire:click="reopenBuyer({{ $current->id }})" wire:confirm="Reopen {{ $current->letter }} so it can be packed again?">Reopen buyer</button>
                     @endif

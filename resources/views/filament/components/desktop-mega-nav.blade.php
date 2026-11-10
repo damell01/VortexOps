@@ -323,6 +323,15 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .vx-mega-menu--wide .vx-mega-menu-title,.fi-topbar .vx-mega-menu--wide .vx-owner-tools {grid-column:1/-1}
   .fi-topbar .vx-mega-menu a {color:#251d3d!important}
   .fi-topbar .vx-mega-menu a.is-current {background:#eee4ff!important;color:#5915b6!important}
+  .dark .fi-topbar .vx-mega-menu {background:#241c35!important;color:#f5f0ff!important;border-color:#55446d!important}
+  .dark .fi-topbar .vx-mega-menu a {color:#f5f0ff!important}
+  .dark .fi-topbar .vx-mega-menu a:hover,.dark .fi-topbar .vx-mega-menu a.is-current {background:#483066!important;color:#fff!important}
+  .fi-topbar .fi-topbar-end .fi-icon-btn {color:#f7f3ff!important}
+  .fi-topbar .fi-topbar-end .fi-icon-btn:hover {background:rgba(255,255,255,.12)!important;color:#fff!important}
+  .fi-topbar .vx-mega-channel {align-self:center!important}
+  .fi-topbar .vx-mega-channel :is(button,select,.vx-channel-switcher-select) {color:#fff!important}
+  .fi-topbar .vx-mega-channel :is(.vx-channel-switcher-select-wrp,.vx-picker-trigger) {background:rgba(126,74,199,.35)!important;border-color:rgba(255,255,255,.24)!important}
+
   .fi-topbar .vx-mega-channel {flex:0 1 155px!important;min-width:0!important;max-width:155px!important}
   .fi-topbar .vx-mega-channel--trailing {margin-left:auto!important}
   .fi-topbar .vx-mega-channel .vx-picker-value {overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}

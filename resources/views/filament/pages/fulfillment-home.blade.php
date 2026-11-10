@@ -2,7 +2,6 @@
 @php
     $manager = $this->isManager();
 @endphp
-@include('fulfillment.dev-banner')
 @include('fulfillment.motion')
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
@@ -12,6 +11,10 @@
             <p><span class="vxf-live"><i aria-hidden="true"></i> Live</span> {{ $manager ? 'Fulfillment Operations · stations, shows ready to pack and today\'s activity' : 'Your shows, your station and your shift' }} · {{ \App\Support\BusinessTime::local()->format('D, M j · g:i A') }}</p>
         </div>
         <div class="vxf-actions vxf-head-actions">
+            @if ($manager && $this->signoffQueue->isNotEmpty())
+                @php $nextSign = $this->signoffQueue->first(); @endphp
+                <button type="button" class="vxf-btn vxf-btn--sm" wire:click="openSignoff({{ $nextSign->id }})" title="Review pending completed shows"><x-heroicon-o-check-badge /> Sign-offs <span class="vxf-signq__count">{{ $this->signoffQueue->count() }}</span></button>
+            @endif
             @if ($manager)
                 <button type="button" class="vxf-btn vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {})"><x-heroicon-o-plus /> Assign Show</button>
             @endif
@@ -72,18 +75,6 @@
             @if ($href)</a>@else</div>@endif
         @endforeach
     </section>
-
-    @if ($this->signoffQueue->isNotEmpty())
-        @php $nextSign = $this->signoffQueue->first(); $signCount = $this->signoffQueue->count(); @endphp
-        <div class="vxf-signbar" role="status">
-            <span class="vxf-signbar__icon" aria-hidden="true"><x-heroicon-o-check-badge /></span>
-            <div style="min-width:0;flex:1">
-                <strong>{{ $signCount }} {{ \Illuminate\Support\Str::plural('show', $signCount) }} ready for your sign-off</strong>
-                <span class="vxf-sub">Next: {{ $nextSign->show?->title }} · {{ $nextSign->completed_packages }} packages</span>
-            </div>
-            <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openSignoff({{ $nextSign->id }})">Review &amp; sign off</button>
-        </div>
-    @endif
 
     <section class="vxf-card vxf-floor" aria-labelledby="vxf-stations" x-data="{ status: 'all' }">
         <div class="vxf-card__head">
@@ -158,7 +149,7 @@
     </div>
     @endisland
 
-    <div class="vxf-cols">
+    <div class="vxf-cols vxf-cols--full-queue">
         <div class="vxf-shows-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
         @island(name: 'queue')
         @php

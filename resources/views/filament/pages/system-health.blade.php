@@ -9,7 +9,7 @@
     $failed    = $this->failedJobs;
 @endphp
 
-<div class="space-y-6" wire:poll.60000ms>
+<div class="space-y-6" wire:poll.visible.60000ms>
 
     {{-- ── Whatnot sign-in ─────────────────────────────────────────────────── --}}
     @php

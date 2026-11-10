@@ -58,13 +58,13 @@ class NavVisibility
         $map = self::visibleByRole();
         // A role nobody has configured shows its defaults ticked on the Roles
         // screen, so saving it without changes keeps what the role already had.
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : (self::ROLE_DEFAULTS[$role] ?? []));
+        return $map[$role] ?? (self::ROLE_DEFAULTS[$role] ?? []);
     }
 
     public static function hasExplicitVisibility(string $role): bool
     {
         $map = self::visibleByRole();
-        return array_key_exists($role, $map) || ($role === 'fulfillment_admin' && array_key_exists('admin', $map));
+        return array_key_exists($role, $map);
     }
 
     /**
@@ -108,7 +108,7 @@ class NavVisibility
     public static function hiddenForRole(string $role): array
     {
         $map = self::hiddenByRole();
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
+        return $map[$role] ?? [];
     }
 
     public static function setHiddenForRole(string $role, array $classes): void

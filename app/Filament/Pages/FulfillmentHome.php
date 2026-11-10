@@ -40,7 +40,30 @@ class FulfillmentHome extends Page
     public function updatedLength(): void
     {
         if (! in_array($this->length, ['all', 'slow', 'quick'], true)) $this->length = 'all';
+        $this->queuePage = 1;
         unset($this->queue);
+    }
+
+    /** The ready queue shows a page at a time, never one long list. */
+    public const QUEUE_PER_PAGE = 5;
+
+    public int $queuePage = 1;
+
+    public function queuePageCount(): int
+    {
+        return max(1, (int) ceil($this->queue->count() / self::QUEUE_PER_PAGE));
+    }
+
+    public function queueSlice(): \Illuminate\Support\Collection
+    {
+        $this->queuePage = max(1, min($this->queuePage, $this->queuePageCount()));
+
+        return $this->queue->forPage($this->queuePage, self::QUEUE_PER_PAGE)->values();
+    }
+
+    public function setQueuePage(int $page): void
+    {
+        $this->queuePage = max(1, min($page, $this->queuePageCount()));
     }
 
     public ?int $assignRunId = null;
@@ -173,7 +196,7 @@ class FulfillmentHome extends Page
         return \App\Models\FulfillmentFlag::query()->with(['show:id,title', 'buyer:id,letter,buyer_username', 'reporter:id,name'])
             ->where('status', 'open')
             ->when(! $this->isManager(), fn ($q) => $q->where('reported_by', auth()->id()))
-            ->latest()->limit(8)->get();
+            ->latest()->limit(4)->get();
     }
 
     #[Computed]

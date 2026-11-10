@@ -7,6 +7,7 @@
     $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
 @endphp
 @include('fulfillment.dev-banner')
+@include('fulfillment.motion')
 <div class="vxf" wire:poll.20s>
     <div class="vxf-head">
         <div>
@@ -24,7 +25,7 @@
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
             ['Ready to pack', $stats['ready'], \Illuminate\Support\Str::plural('show', $stats['ready']), 'heroicon-o-inbox-stack', null],
-            ['Packages', $stats['expected'], $stats['completed_today'] . ' packed · ' . $stats['remaining'] . ' left' . ($stats['expected_unknown'] ? ' · ' . $stats['expected_unknown'] . ' pending count' : ''), 'heroicon-o-cube', null],
+            ['Packages', $stats['expected'], $stats['completed_today'] . ' packed today · ' . $stats['remaining'] . ' left' . ($stats['expected_unknown'] ? ' · +' . $stats['expected_unknown'] . ' ' . \Illuminate\Support\Str::plural('show', $stats['expected_unknown']) . ' not counted yet' : ''), 'heroicon-o-cube', null],
             $shipments ? ['In transit', $stats['in_transit'], 'last 30 days', 'heroicon-o-truck', $shipments] : null,
             $shipments ? ['Delivered', $stats['delivered'], 'last 30 days', 'heroicon-o-check-badge', $shipments] : null,
             ['Open issues', $stats['issues'], null, 'heroicon-o-exclamation-triangle', \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues'])],
@@ -34,7 +35,7 @@
                 <span class="vxf-stat__icon" aria-hidden="true"><x-dynamic-component :component="$icon" /></span>
                 <div>
                     <p class="vxf-stat__label">{{ $label }}</p>
-                    <p class="vxf-stat__value vxf-num">{{ $value }}</p>
+                    <p class="vxf-stat__value vxf-num" x-data x-init="window.vxfCountUp && vxfCountUp($el)">{{ $value }}</p>
                     @if ($sub)<span class="vxf-stat__sub">{{ $sub }}</span>@endif
                 </div>
             @if ($href)</a>@else</div>@endif
@@ -46,7 +47,9 @@
             <h2 id="vxf-stations">Packing stations <span class="vxf-pill vxf-pill--packing" style="margin-left:6px">Live</span></h2>
         </div>
         <div class="vxf-card__body">
-            <div class="vxf-stations">
+            <div class="vxf-carousel" x-data="{ more: false, check() { const t = $refs.track; if (t) this.more = t.scrollWidth > t.clientWidth + 4 }, go(d) { const t = $refs.track; t?.scrollBy({ left: d * t.clientWidth * .9, behavior: 'smooth' }) } }" x-init="$nextTick(() => { check(); if ($refs.track) new ResizeObserver(() => check()).observe($refs.track) })">
+            <button type="button" class="vxf-carousel__arrow vxf-carousel__arrow--prev" x-show="more" x-cloak @click="go(-1)" aria-label="Previous stations"><x-heroicon-o-chevron-left /></button>
+            <div class="vxf-stations vxf-stations--track" x-ref="track">
                 @forelse ($this->stations as $row)
                     @php $run = $row['run']; $state = $row['state']; $show = $run?->show;
                         $done = (int) ($run->completed_packages ?? 0); $total = $run?->expected_packages;
@@ -88,6 +91,8 @@
                     <p class="vxf-empty">No active stations. A fulfillment admin can add stations in Schedule &amp; Activity.</p>
                 @endforelse
             </div>
+            <button type="button" class="vxf-carousel__arrow vxf-carousel__arrow--next" x-show="more" x-cloak @click="go(1)" aria-label="More stations"><x-heroicon-o-chevron-right /></button>
+            </div>
         </div>
     </section>
 
@@ -106,17 +111,16 @@
             @else
                 <div class="vxf-table-wrap">
                     <table class="vxf-table">
-                        <thead><tr><th scope="col">Show</th><th scope="col">Streamed</th><th scope="col">Orders</th><th scope="col">Packages</th><th scope="col">Station · Packer</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                        <thead><tr><th scope="col">Show</th><th scope="col">Streamed</th><th scope="col">Orders · Pkgs</th><th scope="col">Station · Packer</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
                         <tbody>
-                            @foreach ($this->queue as $run)
+                            @foreach ($this->queueSlice() as $run)
                                 @php $show = $run->show; $people = $run->packers->isNotEmpty() ? $run->packers : $show->fulfillmentUsers;
                                     $state = ($run->isOnStation() && $run->open_flags_count) ? 'hold' : $run->status;
                                     $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && $run->status === 'ready' && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
                                 <tr wire:key="q-{{ $run->id }}">
                                     <td style="min-width:200px"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
-                                    <td class="vxf-num">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">pending</span>' !!}</td>
-                                    <td class="vxf-num">{!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown">pending</span>' !!}</td>
+                                    <td class="vxf-num" style="white-space:nowrap">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">—</span>' !!} · {!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown" title="Counted once packing starts">pending</span>' !!}</td>
                                     <td>{{ $run->station?->name ?? '—' }}<span class="vxf-sub">
                                         @if ($people->isEmpty())<span style="color:#c2410c;font-weight:700">Unassigned</span>@else{{ $people->pluck('name')->join(', ') }}@endif</span></td>
                                     <td>
@@ -126,13 +130,27 @@
                                     <td style="text-align:right;white-space:nowrap">
                                         @if (\App\Filament\Resources\FulfillmentResource::canAccess())<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
                                         @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
-                                        <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open' : 'Start' }}</a>
+                                        @if ($needsReport)
+                                            <span class="vxf-btn vxf-btn--sm" aria-disabled="true" title="Packing starts once the streamer report is approved" style="opacity:.55;cursor:not-allowed">Start</span>
+                                        @else
+                                            <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open' : 'Start' }}</a>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
+                @if ($this->queuePageCount() > 1)
+                    <nav class="vxf-pager" aria-label="Ready to pack pages">
+                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setQueuePage({{ $queuePage - 1 }})" @disabled($queuePage <= 1) aria-label="Previous page"><x-heroicon-o-chevron-left /></button>
+                        @for ($i = 1; $i <= $this->queuePageCount(); $i++)
+                            <button type="button" class="vxf-pager__dot {{ $i === $queuePage ? 'is-on' : '' }}" wire:click="setQueuePage({{ $i }})" aria-label="Page {{ $i }}" @if ($i === $queuePage) aria-current="page" @endif></button>
+                        @endfor
+                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setQueuePage({{ $queuePage + 1 }})" @disabled($queuePage >= $this->queuePageCount()) aria-label="Next page"><x-heroicon-o-chevron-right /></button>
+                        <span class="vxf-sub vxf-num">{{ ($queuePage - 1) * \App\Filament\Pages\FulfillmentHome::QUEUE_PER_PAGE + 1 }}–{{ min($queuePage * \App\Filament\Pages\FulfillmentHome::QUEUE_PER_PAGE, $this->queue->count()) }} of {{ $this->queue->count() }}</span>
+                    </nav>
+                @endif
             @endif
         </section>
 

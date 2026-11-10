@@ -55,18 +55,36 @@ class FulfillmentWhiteboardController extends Controller
             ->with(['show:id,title,show_date,start_time', 'packers:id,name', 'currentBuyer:id,letter,buyer_username', 'show.fulfillmentUsers:id,name'])
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
             ->get();
-        $packedBuyers = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))->where('status', 'packed')
-            ->select('run_id', DB::raw('COUNT(*) as n'))->groupBy('run_id')->pluck('n', 'run_id');
+        $buyerRows = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
+            ->orderBy('run_id')->orderByRaw('LENGTH(letter)')->orderBy('letter')
+            ->get(['id', 'run_id', 'letter', 'buyer_username', 'status'])->groupBy('run_id');
+        $todayStart = BusinessTime::local()->startOfDay()->utc();
 
         return [
             'now' => BusinessTime::local()->format('M j, Y · g:i A'),
-            'stations' => $stations->map(function (FulfillmentStation $station) use ($runs, $packedBuyers, $tz) {
+            'server_time' => now()->toIso8601String(),
+            'summary' => [
+                'packing' => $runs->filter(fn ($r) => $r->isOnStation())->count(),
+                'stations' => FulfillmentStation::query()->where('active', true)->count(),
+                'packed_today' => DB::table('fulfillment_run_packages')->where('status', 'packed')->where('packed_at', '>=', $todayStart)->count(),
+                'buyers_today' => DB::table('fulfillment_run_buyers')->where('status', 'packed')->where('packed_at', '>=', $todayStart)->count(),
+                'issues' => DB::table('fulfillment_flags')->where('status', 'open')->count(),
+            ],
+            'activity' => $this->activity($tz, $only),
+            'stations' => $stations->map(function (FulfillmentStation $station) use ($runs, $buyerRows, $tz) {
                 $run = $runs->first(fn ($r) => (int) $r->station_occupied_id === $station->id)
                     ?? $runs->first(fn ($r) => $r->status === FulfillmentRun::READY && (int) $r->station_id === $station->id);
                 if (! $run) return ['id' => $station->id, 'name' => $station->name, 'status' => 'idle'];
+                $buyers = $buyerRows->get($run->id, collect())->values();
                 $byPackages = $run->expected_packages !== null;
-                $done = $byPackages ? (int) $run->completed_packages : (int) ($packedBuyers[$run->id] ?? 0);
+                $done = $byPackages ? (int) $run->completed_packages : $buyers->where('status', 'packed')->count();
                 $total = $byPackages ? (int) $run->expected_packages : (int) $run->buyer_count;
+                $onStation = $run->isOnStation();
+                $currentIndex = $onStation && $run->current_buyer_id ? $buyers->search(fn ($b) => (int) $b->id === (int) $run->current_buyer_id) : false;
+                $next = $buyers->slice($currentIndex === false ? 0 : $currentIndex + 1)
+                    ->reject(fn ($b) => in_array($b->status, ['packed', 'held'], true))->take(3)
+                    ->map(fn ($b) => ['letter' => $b->letter, 'buyer' => $b->buyer_username])->values()->all();
+                $people = $run->packers->isNotEmpty() ? $run->packers : ($run->show?->fulfillmentUsers ?? collect());
 
                 return [
                     'id' => $station->id, 'name' => $station->name, 'status' => $run->status,
@@ -74,14 +92,50 @@ class FulfillmentWhiteboardController extends Controller
                     'show' => $run->show?->title,
                     'stream' => trim(($run->show?->show_date?->format('M j') ?? '') . ($run->show?->start_time ? ', ' . $run->show->start_time->timezone($tz)->format('g:i A') : '')),
                     'started' => $run->started_at?->timezone($tz)->format('M j, g:i A'),
-                    'packer' => ($run->packers->isNotEmpty() ? $run->packers : ($run->show?->fulfillmentUsers ?? collect()))->pluck('name')->map(fn ($n) => explode(' ', trim($n))[0])->join(', ') ?: null,
-                    'letter' => $run->isOnStation() ? $run->currentBuyer?->letter : null,
-                    'buyer' => $run->isOnStation() ? $run->currentBuyer?->buyer_username : null,
+                    // Active packing time so far (pauses excluded), for the live timer.
+                    'elapsed' => $onStation ? $run->activeSeconds() : null,
+                    'ticking' => $run->status === FulfillmentRun::PACKING,
+                    'packer' => $people->pluck('name')->map(fn ($n) => explode(' ', trim($n))[0])->join(', ') ?: null,
+                    'initials' => $people->take(3)->map(fn ($u) => mb_strtoupper(mb_substr(trim($u->name), 0, 1)))->values()->all(),
+                    'letter' => $onStation ? $run->currentBuyer?->letter : null,
+                    'buyer' => $onStation ? $run->currentBuyer?->buyer_username : null,
+                    'next' => $onStation ? $next : [],
+                    'buyers_done' => $buyers->where('status', 'packed')->count(),
+                    'buyers_total' => $buyers->count() ?: null,
                     'done' => $done, 'total' => $total ?: null, 'unit' => $byPackages ? 'packages' : 'buyers',
                     'pct' => $total ? min(100, (int) round($done / $total * 100)) : 0,
                 ];
             })->values()->all(),
         ];
+    }
+
+    /** Recent packing moments for the ticker: station, letter, username and what happened. */
+    private function activity(string $tz, ?int $only): array
+    {
+        return \App\Models\FulfillmentEvent::query()
+            ->whereIn('type', ['buyer_packed', 'started', 'finished', 'issue_flagged', 'issue_resolved', 'paused', 'resumed'])
+            ->where('created_at', '>=', now()->subHours(12))
+            ->when($only, fn ($q) => $q->where('station_id', $only))
+            ->with('station:id,name')
+            ->latest('id')->limit(12)->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'type' => $e->type,
+                'at' => $e->created_at?->timezone($tz)->format('g:i A'),
+                'station' => $e->station?->name,
+                'letter' => $e->buyer_letter,
+                'buyer' => $e->buyer_username,
+                'text' => match ($e->type) {
+                    'buyer_packed' => 'packed',
+                    'started' => 'started packing',
+                    'finished' => 'finished the show',
+                    'issue_flagged' => 'flagged an issue',
+                    'issue_resolved' => 'issue resolved',
+                    'paused' => 'paused',
+                    'resumed' => 'resumed',
+                    default => \App\Models\FulfillmentEvent::label($e->type),
+                },
+            ])->all();
     }
 
     /** A printable copy of a show's tracking record. Never required, always available. */

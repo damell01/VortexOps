@@ -265,7 +265,7 @@ class FulfillmentActivity extends Page
             ->when($this->showsFilter !== 'all', fn ($q) => $q->where('status', $this->showsFilter))
             ->when(! $this->isManager(), fn ($q) => $q->whereHas('packers', fn ($p) => $p->where('users.id', auth()->id())))
             ->orderByDesc(DB::raw('COALESCE(started_at, ready_at, created_at)'))
-            ->paginate(20, pageName: 'runsPage');
+            ->paginate(10, pageName: 'runsPage');
     }
 
     #[Computed]
@@ -368,7 +368,7 @@ class FulfillmentActivity extends Page
         return FulfillmentFlag::query()->with(['show:id,title', 'buyer:id,letter,buyer_username', 'reporter:id,name', 'resolver:id,name', 'station:id,name'])
             ->when($this->issueFilter !== 'all', fn ($q) => $q->where('status', $this->issueFilter))
             ->when(! $this->isManager(), fn ($q) => $q->where('reported_by', auth()->id()))
-            ->latest()->paginate(20, pageName: 'issuesPage');
+            ->latest()->paginate(10, pageName: 'issuesPage');
     }
 
     public function resolveIssue(int $flagId): void

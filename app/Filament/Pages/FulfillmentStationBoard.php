@@ -38,6 +38,17 @@ class FulfillmentStationBoard extends Page
     public ?int $stationId = null;
 
     public string $buyerSearch = '';
+
+    /** The buyer list shows a page at a time; null follows the current buyer. */
+    public const BUYERS_PER_PAGE = 8;
+
+    public ?int $buyerPage = null;
+
+    public function setBuyerPage(int $page): void
+    {
+        $pages = max(1, (int) ceil($this->buyers->count() / self::BUYERS_PER_PAGE));
+        $this->buyerPage = max(1, min($page, $pages));
+    }
     public string $scanCode = '';
     public ?array $flash = null;
 
@@ -330,6 +341,9 @@ class FulfillmentStationBoard extends Page
             $this->say(collect($e->errors())->flatten()->first() ?: 'That did not work.', false);
         }
         $this->clearComputed();
+        $this->buyerPage = null; // follow the current buyer again
+        // Keep the cursor in the scan box so a handheld scanner always types there.
+        $this->dispatch('vxf-scan-done');
     }
 
     private function say(string $message, bool $ok): void

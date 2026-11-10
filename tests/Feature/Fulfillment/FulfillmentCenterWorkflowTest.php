@@ -321,8 +321,15 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame('A', $card['letter']);
         $this->assertSame('Alpha_Rips', $card['buyer']);
         $this->assertSame([
-            'id', 'name', 'status', 'issue', 'show', 'stream', 'started', 'packer', 'letter', 'buyer', 'done', 'total', 'unit', 'pct',
+            'id', 'name', 'status', 'issue', 'show', 'stream', 'started', 'elapsed', 'ticking', 'packer', 'initials', 'letter', 'buyer', 'next',
+            'buyers_done', 'buyers_total', 'done', 'total', 'unit', 'pct',
         ], array_keys($card));
+        // Next in line skips the current buyer; the ticker and summary carry no pay, values or addresses.
+        $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz'], ['letter' => 'C', 'buyer' => 'zoe_cards']], $card['next']);
+        $this->assertSame(['packing' => 1, 'stations' => FulfillmentStation::query()->where('active', true)->count(), 'packed_today' => 0, 'buyers_today' => 0, 'issues' => 0], $json['summary']);
+        $this->assertSame('started', $json['activity'][0]['type']);
+        $this->assertSame(['id', 'type', 'at', 'station', 'letter', 'buyer', 'text'], array_keys($json['activity'][0]));
+        $this->assertStringNotContainsString('total_price', json_encode($json));
         $this->actingAs($this->packer)->post(route('fulfillment.whiteboard'))->assertStatus(405);
 
         $outsider = User::factory()->create();
@@ -398,6 +405,29 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->assertSee('Light')->assertSee('Dark')
             ->assertSee('Order ORD-' . $run->show_id . '-')
             ->assertDontSee('1 items');
+    }
+
+    public function test_long_lists_are_paged_and_the_buyer_page_follows_the_current_buyer(): void
+    {
+        $buyers = [];
+        foreach (range(1, 19) as $i) $buyers['buyer' . str_pad((string) $i, 2, '0', STR_PAD_LEFT)] = 1;
+        $run = $this->started($this->show($buyers));
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id]);
+        $board->assertSee('buyer01')->assertDontSee('buyer09')->assertSee('Page 1 of 3');
+        $tenth = $run->buyers()->where('buyer_username', 'buyer10')->firstOrFail();
+        $board->call('selectBuyer', $tenth->id)->assertSee('buyer10')->assertDontSee('buyer02')->assertSee('Page 2 of 3');
+        $board->call('setBuyerPage', 3)->assertSee('buyer19')->assertDontSee('buyer11');
+        $board->set('buyerSearch', 'buyer02')->assertSee('buyer02')->assertDontSee('Page 1 of');
+
+        foreach (range(1, 6) as $i) { $s = $this->show(['q' . $i => 1]); $s->update(['title' => 'Queue show ' . $i]); }
+        app(FulfillmentQueue::class)->sync();
+        $home = Livewire::actingAs($this->manager)->test(FulfillmentHome::class);
+        $this->assertSame(5, $home->instance()->queueSlice()->count());
+        $this->assertGreaterThan(1, $home->instance()->queuePageCount());
+        $home->call('setQueuePage', 2);
+        $this->assertSame(2, $home->get('queuePage'));
+        $home->call('setQueuePage', 99);
+        $this->assertSame($home->instance()->queuePageCount(), $home->get('queuePage'));
     }
 
     public function test_pages_render_for_a_manager_and_a_member(): void

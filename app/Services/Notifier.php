@@ -25,8 +25,13 @@ class Notifier
      * @param  iterable<User|null>  $involved
      * @return int how many people it went to
      */
+    /** Set while generating demo data so building it never emails or notifies anyone. */
+    public static bool $muted = false;
+
     public static function send(string $event, Notification $notification, iterable $involved = []): int
     {
+        if (self::$muted) return 0;
+
         $router = app(NotificationRouter::class);
         $sent = 0;
 

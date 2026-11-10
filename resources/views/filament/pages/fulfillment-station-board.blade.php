@@ -8,6 +8,12 @@
     $packedBuyers = $buyers->where('status', 'packed')->count();
     $search = mb_strtolower(trim($buyerSearch));
     $visibleBuyers = $search === '' ? $buyers : $buyers->filter(fn ($b) => str_contains(mb_strtolower($b->buyer_username), $search) || mb_strtolower($b->letter) === $search);
+    // A page of buyers at a time; by default the page holding the current buyer.
+    $perPage = \App\Filament\Pages\FulfillmentStationBoard::BUYERS_PER_PAGE;
+    $buyerPages = $search === '' ? max(1, (int) ceil($buyers->count() / $perPage)) : 1;
+    $currentIndex = $current ? $buyers->values()->search(fn ($b) => $b->id === $current->id) : false;
+    $page = $search !== '' ? 1 : max(1, min($buyerPages, $buyerPage ?? ($currentIndex === false ? 1 : intdiv($currentIndex, $perPage) + 1)));
+    $pageBuyers = $search === '' ? $buyers->values()->forPage($page, $perPage) : $visibleBuyers;
     $expected = $run?->expected_packages;
     $done = (int) ($run?->completed_packages ?? 0);
     $pct = $expected ? min(100, round($done / max(1, $expected) * 100)) : ($buyers->count() ? round($packedBuyers / $buyers->count() * 100) : 0);
@@ -64,7 +70,7 @@
 @elseif ($run->status === 'ready')
     {{-- Before packing: confirm the station and start --}}
     @php $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
-    <div class="vxf-board">
+    <div class="vxf-board" wire:key="board-ready-{{ $run->id }}">
         <div class="vxf-sb__show">
             <div>
                 <p class="vxf-eyebrow">Ready to pack</p>
@@ -107,7 +113,7 @@
 @elseif ($run->isOnStation())
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
-    <div class="vxf-board" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="focusScan()" @vxf-scan-done.window="$nextTick(() => focusScan())">
+    <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())">
         <div class="vxf-sb__show" style="margin-bottom:12px">
             <div style="min-width:0">
                 <p class="vxf-eyebrow">{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</p>
@@ -140,7 +146,7 @@
                 <div style="padding:8px 8px 0"><label class="sr-only" for="vxf-buyer-search">Search buyer</label>
                     <input id="vxf-buyer-search" class="vxf-input" type="search" placeholder="Search buyer or letter…" wire:model.live.debounce.250ms="buyerSearch"></div>
                 <div class="vxf-buyers" role="list">
-                    @forelse ($visibleBuyers as $b)
+                    @forelse ($pageBuyers as $b)
                         <div role="listitem">
                             <button type="button" wire:key="b-{{ $b->id }}" wire:click="selectBuyer({{ $b->id }})"
                                 class="vxf-buyer {{ $b->status === 'packed' ? 'vxf-buyer--packed' : '' }} {{ $b->status === 'held' ? 'vxf-buyer--held' : '' }}"
@@ -158,6 +164,15 @@
                         <p class="vxf-empty">No buyer matches.</p>
                     @endforelse
                 </div>
+                @if ($buyerPages > 1)
+                    @php $first = $buyers->values()->forPage($page, $perPage)->first(); $last = $buyers->values()->forPage($page, $perPage)->last(); @endphp
+                    <nav class="vxf-pager" aria-label="Buyer pages">
+                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setBuyerPage({{ $page - 1 }})" @disabled($page <= 1) aria-label="Previous buyers"><x-heroicon-o-chevron-left /></button>
+                        <span class="vxf-num" style="font-weight:700;font-size:13px">{{ $first?->letter }}–{{ $last?->letter }}</span>
+                        <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--icon" wire:click="setBuyerPage({{ $page + 1 }})" @disabled($page >= $buyerPages) aria-label="Next buyers"><x-heroicon-o-chevron-right /></button>
+                        <span class="vxf-sub vxf-num">Page {{ $page }} of {{ $buyerPages }}</span>
+                    </nav>
+                @endif
             </section>
 
             {{-- Current buyer --}}
@@ -214,9 +229,11 @@
                                     <li wire:key="p-{{ $package->id }}">
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
-                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}{{ $package->packed_at ? ' · packed ' . $package->packed_at->timezone($tz)->format('g:i A') : '' }}</span></span>
+                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
                                         @if ($package->status !== 'packed' && $canWork && ! $paused)
-                                            <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})">Packed</button>
+                                            <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})" aria-label="Mark package {{ $loop->iteration }} packed"><x-heroicon-o-check /> Pack</button>
+                                        @elseif ($package->status === 'packed')
+                                            <span class="vxf-pill vxf-pill--packing">Packed{{ $package->packed_at ? ' ' . $package->packed_at->timezone($tz)->format('g:i A') : '' }}</span>
                                         @endif
                                     </li>
                                 @endforeach
@@ -235,7 +252,8 @@
                         <button type="button" class="vxf-big vxf-big--go" wire:click="resume"><x-heroicon-o-play /> Resume Packing</button>
                     @else
                         <button type="button" class="vxf-big vxf-big--go" wire:click="packNext" wire:loading.attr="disabled" @disabled(! $current || $current->status === 'packed' || $current->status === 'held')>
-                            <x-heroicon-o-check-circle /> {{ $this->currentPackages->where('status', '!=', 'packed')->count() > 1 ? 'Mark Package Packed' : 'Mark Packed' }}
+                            @php $openPkgs = $this->currentPackages->where('status', '!=', 'packed')->count(); $allPkgs = $this->currentPackages->count(); @endphp
+                            <x-heroicon-o-check-circle /> <span>Mark Packed @if ($openPkgs > 1)<small style="display:block;font-size:12px;font-weight:600;opacity:.85">package {{ $allPkgs - $openPkgs + 1 }} of {{ $allPkgs }}</small>@endif</span>
                         </button>
                         <div class="vxf-pair">
                             <button type="button" class="vxf-big" wire:click="step(-1)" aria-label="Previous buyer"><x-heroicon-o-arrow-left /> Prev</button>

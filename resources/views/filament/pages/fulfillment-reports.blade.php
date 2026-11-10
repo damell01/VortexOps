@@ -34,6 +34,38 @@
         </div>
     </div>
 
+    @if ($manager)
+        @php $ops = $this->operations; @endphp
+        <section class="mb-4" aria-labelledby="vxfr-live-operations">
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="vxfr-live-operations" class="text-sm font-bold">Live packing operations</h2>
+                <span class="text-xs text-[var(--vx-muted)]">Current snapshot · independent of report date filter</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div class="rounded-xl border border-[var(--vx-divider)] p-3">
+                    <div class="text-xs text-[var(--vx-muted)]">Open shows</div>
+                    <div class="mt-1 text-xl font-bold tabular-nums">{{ number_format($ops['open_shows']) }}</div>
+                    <div class="text-xs text-[var(--vx-muted)]">{{ number_format($ops['packages_remaining']) }} packages remaining</div>
+                </div>
+                <div class="rounded-xl border border-[var(--vx-divider)] p-3">
+                    <div class="text-xs text-[var(--vx-muted)]">Ready over 24 hours</div>
+                    <div class="mt-1 text-xl font-bold tabular-nums">{{ number_format($ops['overdue_ready']) }}</div>
+                    <div class="text-xs text-[var(--vx-muted)]">Not yet started packing</div>
+                </div>
+                <div class="rounded-xl border border-[var(--vx-divider)] p-3">
+                    <div class="text-xs text-[var(--vx-muted)]">Stations occupied now</div>
+                    <div class="mt-1 text-xl font-bold tabular-nums">{{ $ops['occupied'] }} / {{ $ops['stations'] }}</div>
+                    <div class="text-xs text-[var(--vx-muted)]">Active stations only</div>
+                </div>
+                <div class="rounded-xl border border-[var(--vx-divider)] p-3">
+                    <div class="text-xs text-[var(--vx-muted)]">Station occupancy</div>
+                    <div class="mt-1 text-xl font-bold tabular-nums">{{ $ops['utilization'] === null ? '—' : $ops['utilization'] . '%' }}</div>
+                    <div class="text-xs text-[var(--vx-muted)]">Current occupancy, not historical utilization</div>
+                </div>
+            </div>
+        </section>
+    @endif
+
     {{-- Headline numbers --}}
     <section class="vxfr-kpis" aria-label="Totals for the period">
         @foreach ([

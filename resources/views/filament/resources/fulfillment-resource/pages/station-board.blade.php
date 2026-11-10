@@ -8,7 +8,7 @@
         $held = $buyers->where('status', 'held')->count();
         $remaining = max(0, $total - $packed);
     @endphp
-    <div class="rounded-[20px] bg-[#0b1020] p-4 text-white shadow-xl sm:p-6" wire:poll.15s>
+    <div class="rounded-[20px] bg-[#0b1020] p-4 text-white shadow-xl sm:p-6" wire:poll.visible.15s>
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#121833] p-4 sm:p-5">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[.16em] text-violet-300">Vortex Ops · Fulfillment Station</p>

@@ -98,6 +98,11 @@ class NotificationCatalog
             ],
 
             // ── Inventory ────────────────────────────────────────────────
+            'pay_changed_after_payout' => [
+                'group' => 'Payroll', 'label' => 'Earnings changed after payout', 'level' => 'action',
+                'description' => 'A show\'s Whatnot net, tips or report changed after its pay was finalized or paid, so the same calculation now gives a different amount.',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
             'ledger_unassigned' => [
                 'group' => 'Payroll', 'label' => 'Ledger entries not tied to a show', 'level' => 'action',
                 'description' => 'Daily: Whatnot ledger entries from the last 30 days that still have no approved show, streamer or house assignment.',

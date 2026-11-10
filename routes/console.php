@@ -176,6 +176,8 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
 // Reconcile imported ledger transactions against exact Whatnot orders and shows.
 Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));
 // Morning nudge when ledger money is still not tied to a show, streamer or house.
+// Shows whose earnings changed after their pay was locked (badge + admin alert).
+Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);
 Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('America/Chicago')->name('ledger-unassigned-alert')->withoutOverlapping(30);
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.

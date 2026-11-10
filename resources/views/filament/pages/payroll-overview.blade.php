@@ -7,6 +7,7 @@
     $workflow = $this->workflowBreakdown();
     $progress = $this->periodProgress();
     $tips = $this->periodTips();
+    $vcx = $this->vcxNet();
 
     $filteredShows = $this->currentWeekShows();
     $perPage = 12;
@@ -67,6 +68,31 @@
             <div class="vx-payroll-kpi"><span class="vx-payroll-icon"><x-filament::icon :icon="$icon" /></span><div><p>{{ $label }}</p><strong>{{ $value }}</strong><p>{{ $hint }}</p></div></div>
         @endforeach
     </div>
+    @php $changedCount = app(\App\Services\PayChangedAfterPayout::class)->count(); @endphp
+    @if($changedCount)
+        <a href="{{ \App\Filament\Pages\PayChangedSincePaid::getUrl() }}" class="vxw-alert vxw-alert--warn" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;text-decoration:none" data-vx-pay-changed>
+            <x-filament::icon icon="heroicon-o-exclamation-triangle" />
+            <div class="flex-1"><div class="font-semibold">{{ $changedCount }} paid {{ \Illuminate\Support\Str::plural('line', $changedCount) }} changed after payout</div>
+                <div class="vxw-meta">A show's earnings or report changed after its pay was locked. Review and settle the difference on the next run.</div></div>
+            <span aria-hidden="true">›</span>
+        </a>
+    @endif
+    @if($vcx['business'])
+        <section class="vxw-card vx-net-strip" style="margin-bottom:18px" data-vx-vcx-net>
+            <div class="vxw-card-body" style="display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center">
+                <div style="min-width:180px">
+                    <p class="vxw-meta" style="margin:0">{{ $vcx['business'] }} streamers · Whatnot net</p>
+                    <strong style="font-size:26px;font-variant-numeric:tabular-nums">{{ $money($vcx['total']) }}</strong>
+                    <p class="vxw-meta" style="margin:0">{{ $vcx['shows'] }} {{ \Illuminate\Support\Str::plural('show', $vcx['shows']) }} · {{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j') }}</p>
+                </div>
+                @forelse($vcx['channels'] as $c)
+                    <div style="min-width:140px"><p class="vxw-meta" style="margin:0">{{ $c['channel'] }}</p><strong style="font-size:18px;font-variant-numeric:tabular-nums">{{ $money($c['net']) }}</strong><p class="vxw-meta" style="margin:0">{{ $c['shows'] }} {{ \Illuminate\Support\Str::plural('show', $c['shows']) }}</p></div>
+                @empty
+                    <p class="vxw-meta" style="margin:0">No {{ $vcx['business'] }} shows in this period yet.</p>
+                @endforelse
+            </div>
+        </section>
+    @endif
     <div class="vx-payroll-insights">
         <section class="vxw-card"><div class="vxw-card-body"><div class="flex items-center justify-between gap-3"><h3 class="vxw-h2">Payout trend</h3><span class="vxw-meta">Last 8 weeks</span></div><p class="vxw-sub">Paid runs grouped by period start.</p><div class="vx-payroll-trend" role="img" aria-label="Paid pay run totals for the last eight weeks">@foreach($trend as $point)<div class="vx-payroll-trend-point" title="{{ $point['label'] }}: {{ $money($point['total']) }}"><div class="vx-payroll-bar" style="height:{{ $point['total'] ? round($point['total']/$trendMax*145) : 3 }}px"></div><span>{{ $point['label'] }}</span></div>@endforeach</div>@if(!array_sum(array_column($trend,'total')))<p class="vxw-meta mt-3">No paid runs in this range.</p>@endif</div></section>
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Pay period status</h3><p class="vxw-sub">{{ $processed }} of {{ $progress['total'] }} shows ready, in a run or paid</p><div class="vx-payroll-progress" role="progressbar" aria-valuenow="{{ $processedPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Payroll progress"><span style="width:{{ $processedPercent }}%"></span></div>@foreach([['paid','Completed & paid',$workflow['paid']],['ready','Ready for a run',$workflow['ready']],['in_run','In a pay run',$workflow['in_run']],['review','Pending approval',$progress['needs_review']],['blocked','Blocked',$workflow['blocked']]] as [$filter,$label,$count])<button type="button" class="vx-payroll-status-row" wire:click="setWorkflow('{{ $filter }}')" wire:loading.attr="disabled" wire:target="setWorkflow"><span>{{ $label }}</span><strong>{{ $count }} ›</strong></button>@endforeach</div></section>

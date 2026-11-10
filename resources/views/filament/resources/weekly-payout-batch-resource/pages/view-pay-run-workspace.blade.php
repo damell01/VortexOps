@@ -342,14 +342,34 @@
         <aside class="vxw-aside">
             @php
                 // Read-only approved tip attribution; never changes this pay run or distributes unmatched tips.
-                $streamerTips = app(\App\Services\LedgerTipReport::class)->byStreamer(
-                    $run->week_start->toDateString(),
-                    $run->week_end->toDateString()
-                );
+                // Only the people on this run: tips of streamers it doesn't pay stay off it.
+                $streamerTips = $this->runStreamerTips();
                 $streamerTips = collect($streamerTips)->sortByDesc('net')->values();
                 $approvedTipNet = $streamerTips->sum('net');
                 $importedTipNet = array_sum(array_column($tipChannels, 'net'));
             @endphp
+            @php $bizNet = $this->businessNet(); @endphp
+            @if($bizNet['business'])
+                <section class="vxw-card" data-vx-business-net>
+                    <div class="vxw-card-head">
+                        <h3 class="vxw-h2">{{ $bizNet['business'] }} streams · Whatnot net</h3>
+                        <span class="vxw-pill vxw-pill--accent">{{ $money($bizNet['total']) }}</span>
+                    </div>
+                    <div class="vxw-card-body">
+                        @if($bizNet['channels'])
+                            <dl class="vxw-dl">
+                                @foreach($bizNet['channels'] as $c)
+                                    <div><dt>{{ $c['channel'] }} <span class="vxw-meta">({{ $c['shows'] }} {{ \Illuminate\Support\Str::plural('show', $c['shows']) }})</span></dt><dd>{{ $money($c['net']) }}</dd></div>
+                                @endforeach
+                                <div><dt><strong>Total</strong></dt><dd><strong>{{ $money($bizNet['total']) }}</strong></dd></div>
+                            </dl>
+                        @else
+                            <p class="vxw-meta">No {{ $bizNet['business'] }} shows in this period.</p>
+                        @endif
+                        <p class="vxw-meta mt-2">Shows hosted by {{ $bizNet['business'] }} streamers, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}.</p>
+                    </div>
+                </section>
+            @endif
             <section class="vxw-card" data-vx-tip-streamers>
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Verified tips by streamer</h3>
@@ -368,11 +388,11 @@
                     @else
                         <p class="vxw-meta">No approved streamer tip assignments for this period yet.</p>
                     @endif
-                    <p class="vxw-meta mt-2">Approved streamer assignments only, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}. Read-only reference; these totals are not added to payouts.</p>
+                    <p class="vxw-meta mt-2">Approved tips for the people on this run, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}. Tips in a streamer's pay formula are on their show tips line.</p>
                     <details class="mt-3">
                         <summary class="vxw-meta cursor-pointer font-semibold">Imported tips by channel and reconciliation</summary>
                         <div class="mt-2">
-                            <p class="vxw-meta">All-channel imported total: {{ $money($importedTipNet / 100) }}. Verified streamer total: {{ $money($approvedTipNet / 100) }}. These are different attribution scopes; the difference is not necessarily an error.</p>
+                            <p class="vxw-meta">{{ $run->business_id ? $run->businessLabel() . ' imported' : 'All-channel imported' }} total: {{ $money($importedTipNet / 100) }}. Verified streamer total: {{ $money($approvedTipNet / 100) }}. These are different attribution scopes; the difference is not necessarily an error.</p>
                             @if($tipChannels)
                                 <dl class="vxw-dl mt-2">
                                     @foreach($tipChannels as $channel)

@@ -129,6 +129,27 @@ class NavVisibility
                 \App\Filament\Pages\TwoFactorVerify::class,
             ], true);
         }
+        // Fulfillment-only managers do not inherit the general admin sidebar,
+        // even when older saved role settings granted administrative pages.
+        if (method_exists($user, 'isFulfillmentAdmin') && $user->isFulfillmentAdmin()
+            && ! $user->isAdmin()) {
+            $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
+                ? $class::getResource() : $class;
+            return ! in_array($navigationClass, [
+                \App\Filament\Pages\FulfillmentHome::class,
+                \App\Filament\Pages\FulfillmentStationBoard::class,
+                \App\Filament\Pages\FulfillmentSchedule::class,
+                \App\Filament\Pages\FulfillmentActivity::class,
+                \App\Filament\Pages\FulfillmentReports::class,
+                \App\Filament\Pages\FulfillmentOperations::class,
+                \App\Filament\Resources\FulfillmentResource::class,
+                \App\Filament\Resources\InventoryItemResource::class,
+                \App\Filament\Pages\EditProfile::class,
+                \App\Filament\Pages\MyNotifications::class,
+                \App\Filament\Pages\TwoFactorAuth::class,
+                \App\Filament\Pages\TwoFactorVerify::class,
+            ], true);
+        }
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;

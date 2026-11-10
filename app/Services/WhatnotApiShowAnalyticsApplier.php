@@ -64,8 +64,15 @@ final class WhatnotApiShowAnalyticsApplier
             return ['outcome' => 'invalid', 'show_id' => null, 'changes' => []];
         }
 
+        // Most Whatnot IDs are stored in their canonical lowercase form. Use
+        // the indexed equality lookup first; preserve the legacy case-insensitive
+        // fallback for historical mixed-case IDs and ambiguity detection.
         $shows = Show::query()->where('whatnot_channel_id', $channelId)
-            ->whereRaw('LOWER(whatnot_show_id) = ?', [$whatnotShowId])->limit(2)->get();
+            ->where('whatnot_show_id', $whatnotShowId)->limit(2)->get();
+        if ($shows->isEmpty()) {
+            $shows = Show::query()->where('whatnot_channel_id', $channelId)
+                ->whereRaw('LOWER(whatnot_show_id) = ?', [$whatnotShowId])->limit(2)->get();
+        }
         if ($shows->count() !== 1) {
             return ['outcome' => $shows->isEmpty() ? 'show_not_found' : 'show_ambiguous', 'show_id' => null, 'changes' => []];
         }

@@ -131,4 +131,36 @@ class PayRunAutomationTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
         $this->assertStringContainsString('no team member assigned', implode(' ', $result['warnings']));
     }
+
+    private function approvedTip(Show $show, Streamer $streamer, float $amount, string $key): void
+    {
+        $id = \Illuminate\Support\Facades\DB::table('whatnot_ledger_entries')->insertGetId(['whatnot_channel_id' => $this->channel->id,
+            'created_date' => now(), 'amount' => $amount, 'transaction_type' => 'Tip', 'status' => 'Completed', 'dedup_key' => $key,
+            'created_at' => now(), 'updated_at' => now()]);
+        \Illuminate\Support\Facades\DB::table('ledger_attributions')->insert(['whatnot_ledger_entry_id' => $id, 'category' => 'tips', 'target' => 'show',
+            'show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'approved', 'reason' => 'Automatic verified source',
+            'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    public function test_recalculating_a_run_pays_the_tips_approved_in_the_ledger(): void
+    {
+        $streamer = Streamer::create(['name' => 'Tipped Splitter', 'member_type' => 'streamer', 'status' => 'active',
+            'payout_type' => 'sales_split', 'house_cut_percentage' => 3, 'sales_split_basis' => 'net', 'include_tips' => true]);
+        $show = $this->makeShow(now()->toDateString(), $streamer);
+
+        $before = $this->automation->syncWeek(now());
+        $this->assertEqualsWithDelta(873.0, (float) Payout::where('show_id', $show->id)->sum('calculated_payout'), 0.001);
+
+        // Two tips matched to the show (shows.tips is still $0).
+        $this->approvedTip($show, $streamer, 15, 'tip-a');
+        $this->approvedTip($show, $streamer, 10, 'tip-b');
+        $after = $this->automation->syncWeek(now());
+
+        $line = Payout::where('show_id', $show->id)->where('streamer_id', $streamer->id)->firstOrFail();
+        $this->assertEqualsWithDelta(898.0, (float) $line->calculated_payout, 0.001);
+        $this->assertEqualsWithDelta(25.0, (float) $line->tips_included, 0.001);
+        $this->assertStringContainsString('+ $25 tips', (string) $line->calculation_notes);
+        $this->assertEqualsWithDelta(898.0, (float) $after['batch']->fresh()->total_payout, 0.001);
+        $this->assertSame($before['batch']->id, $after['batch']->id);
+    }
 }

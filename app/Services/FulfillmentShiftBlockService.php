@@ -19,6 +19,18 @@ final class FulfillmentShiftBlockService
         abort_unless(FulfillmentAccess::isManager($actor), 403);
     }
 
+    private function record(User $actor, int $blockId, string $action, ?int $employeeId = null, array $details = []): void
+    {
+        DB::table('fulfillment_shift_block_events')->insert([
+            'shift_block_id' => $blockId,
+            'actor_id' => $actor->id,
+            'employee_id' => $employeeId,
+            'action' => $action,
+            'details' => json_encode($details),
+            'created_at' => now(),
+        ]);
+    }
+
     public function create(User $actor, array $data): int
     {
         $this->manager($actor);
@@ -30,7 +42,8 @@ final class FulfillmentShiftBlockService
         if ($end->diffInHours($start) > 24) {
             throw ValidationException::withMessages(['ends_at' => 'Shift duration cannot exceed 24 hours.']);
         }
-        return DB::table('fulfillment_shift_blocks')->insertGetId([
+        return DB::transaction(function () use ($actor, $data, $start, $end) {
+        $id = DB::table('fulfillment_shift_blocks')->insertGetId([
             'template_id' => $data['template_id'] ?? null,
             'starts_at' => $start->toDateTimeString(),
             'ends_at' => $end->toDateTimeString(),
@@ -45,12 +58,15 @@ final class FulfillmentShiftBlockService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->record($actor, $id, 'created');
+        return $id;
+        });
     }
 
     public function assign(User $actor, int $blockId, int $userId, ?int $stationId = null): void
     {
         $this->manager($actor);
-        DB::transaction(function () use ($blockId, $userId, $stationId) {
+        DB::transaction(function () use ($actor, $blockId, $userId, $stationId) {
             $block = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->lockForUpdate()->first();
             abort_unless($block, 404);
             if ($block->status === 'cancelled') {
@@ -87,9 +103,11 @@ final class FulfillmentShiftBlockService
                     'shift_block_id' => $blockId, 'user_id' => $userId, 'station_id' => $stationId,
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
+                $this->record($actor, $blockId, 'assigned', $userId, ['station_id' => $stationId]);
             } else {
                 DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)
                     ->where('user_id', $userId)->update(['station_id' => $stationId, 'updated_at' => now()]);
+                $this->record($actor, $blockId, 'station_changed', $userId, ['station_id' => $stationId]);
             }
         });
     }
@@ -159,12 +177,13 @@ final class FulfillmentShiftBlockService
     public function cancel(User $actor, int $blockId): void
     {
         $this->manager($actor);
-        DB::transaction(function () use ($blockId) {
+        DB::transaction(function () use ($actor, $blockId) {
             $block = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->lockForUpdate()->first();
             abort_unless($block, 404);
             DB::table('fulfillment_shift_blocks')->where('id', $blockId)->update([
                 'status' => 'cancelled', 'updated_at' => now(),
             ]);
+            $this->record($actor, $blockId, 'cancelled');
             // Preserve assignment history rather than deleting staffing rows.
         });
     }
@@ -177,7 +196,7 @@ final class FulfillmentShiftBlockService
         if ($end->lessThanOrEqualTo($start) || $start->diffInMinutes($end) > 1440) {
             throw ValidationException::withMessages(['ends_at' => 'Shift must last between 1 minute and 24 hours.']);
         }
-        DB::transaction(function () use ($blockId, $data, $start, $end) {
+        DB::transaction(function () use ($actor, $blockId, $data, $start, $end) {
             $block = DB::table('fulfillment_shift_blocks')->where('id', $blockId)->lockForUpdate()->first();
             abort_unless($block, 404);
             if ($block->status === 'cancelled') {
@@ -212,13 +231,17 @@ final class FulfillmentShiftBlockService
                 'notes' => $data['notes'] ?? null,
                 'updated_at' => now(),
             ]);
+            $this->record($actor, $blockId, 'updated', null, ['starts_at' => $start->toDateTimeString(), 'ends_at' => $end->toDateTimeString()]);
         });
     }
 
     public function unassign(User $actor, int $blockId, int $userId): void
     {
         $this->manager($actor);
-        DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)->where('user_id', $userId)->delete();
+        DB::transaction(function () use ($actor, $blockId, $userId) {
+            $deleted = DB::table('fulfillment_shift_assignments')->where('shift_block_id', $blockId)->where('user_id', $userId)->delete();
+            if ($deleted) $this->record($actor, $blockId, 'unassigned', $userId);
+        });
     }
 
     public function week(User $actor, CarbonImmutable $start)

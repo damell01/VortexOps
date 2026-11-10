@@ -229,203 +229,110 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 
 
 
-<style>
-@media (min-width: 1024px) {
-    .fi-topbar-ctn { min-width: 0 !important; max-width: 100% !important; }
-    .fi-topbar:has(.vx-desktop-mega-nav) {
-        box-sizing: border-box !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        height: 68px !important;
-        min-height: 68px !important;
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        gap: 12px !important;
-        padding: 0 20px !important;
-        overflow: visible !important;
-    }
-    .fi-topbar nav.vx-desktop-mega-nav {
-        box-sizing: border-box !important;
-        flex: 1 1 0% !important;
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        height: auto !important;
-        min-height: 44px !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        flex-wrap: nowrap !important;
-    }
-    .fi-topbar .fi-topbar-start { flex: 0 0 auto !important; margin: 0 !important; }
-    .fi-topbar .fi-topbar-end {
-        box-sizing: border-box !important;
-        flex: 0 1 auto !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        margin-inline-start: auto !important;
-        padding-inline-end: 4px !important;
-        gap: 12px !important;
-    }
-    .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
-    /* Keep Filament's own Livewire search mounted; only reposition its visible field. */
-    /* Keep Filament's Livewire search in its original DOM location.
-       Moving it to document.body breaks morphing and detaches live results. */
-    /* Restore the native Filament global search. No custom overlay or DOM portal. */
-    .fi-topbar .fi-global-search { display:block !important; flex:0 1 230px !important; width:clamp(145px,16vw,230px) !important; min-width:145px !important; max-width:230px !important; position:relative !important; }
-    .fi-topbar .fi-global-search input { color:#111827 !important; -webkit-text-fill-color:#111827 !important; opacity:1 !important; caret-color:#111827 !important; }
-    .fi-topbar .fi-global-search-results-ctn { z-index:100 !important; }
-    .vx-search-trigger { display:none !important; }
-    .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
-}
-@media (min-width: 1024px) and (max-width: 1399px) {
-    .fi-topbar nav.vx-desktop-mega-nav :is(.vx-mega-home, .vx-mega-trigger) {
-        padding-inline: 6px !important;
-        font-size: 12px !important;
-    }
-    .fi-topbar .vx-mega-channel { min-width: 115px !important; max-width: 140px !important; flex-basis: 130px !important; }
-}
-/* Keep Business and Channel selectors independent in the crowded desktop header.
-   The business picker must not inherit the channel's 130px width at laptop sizes. */
-@media (min-width: 1024px) {
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel {
-        box-sizing: border-box !important;
-        flex-shrink: 1 !important;
-        min-width: 0 !important;
-        margin-left: 0 !important;
-    }
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
-        margin-left: auto !important;
-    }
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business {
-        flex: 0 1 176px !important;
-        width: 176px !important;
-        max-width: 176px !important;
-        min-width: 0 !important;
-    }
-    /* Place the channel picker at the right edge of the primary nav,
-       immediately before the topbar notification controls. */
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
-        margin-left: auto !important;
-    }
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) {
-        flex: 0 1 158px !important;
-        width: 158px !important;
-        max-width: 158px !important;
-        min-width: 0 !important;
-    }
-    .fi-topbar .vx-mega-channel .vx-picker,
-    .fi-topbar .vx-mega-channel .vx-picker-btn,
-    .fi-topbar .vx-mega-channel .vx-picker-text { min-width: 0 !important; max-width: 100% !important; }
-    .fi-topbar .vx-mega-channel .vx-picker-value {
-        display: block !important;
-        overflow: hidden !important;
-        white-space: nowrap !important;
-        text-overflow: ellipsis !important;
-    }
-    .fi-topbar .vx-mega-channel .vx-picker-icon,
-    .fi-topbar .vx-mega-channel .vx-picker-chevron { flex: 0 0 auto !important; }
-    .fi-topbar .vx-mega-channel .vx-picker-menu { z-index: 100 !important; }
-}
-@media (min-width: 1024px) and (max-width: 1450px) {
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel.vx-mega-business { flex-basis: 148px !important; width: 148px !important; max-width: 148px !important; }
-    .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel:not(.vx-mega-business) { flex-basis: 136px !important; width: 136px !important; max-width: 136px !important; }
-    .fi-topbar .vx-mega-channel .vx-picker-btn { gap: 5px !important; padding-inline: 7px !important; }
-}
-@media(max-width:1023px){.vx-search-trigger{display:none!important}}
-</style>
-
-
 
 <style>
-/* Two-tier desktop header: brand and account tools above primary navigation. */
-@media (min-width: 1024px) {
+/* One desktop header layout: Filament topbar utilities above the shared primary navigation. */
+@media (min-width:1024px) {
   .fi-topbar:has(.vx-desktop-mega-nav) {
-    position:relative!important;
-    height:116px!important;
-    min-height:116px!important;
-    padding:0 24px!important;
-    align-items:flex-start!important;
-    background:linear-gradient(115deg,#24133e 0%,#32155b 60%,#191332 100%)!important;
+    position:relative!important;display:flex!important;align-items:flex-start!important;
+    height:110px!important;min-height:110px!important;
+    width:100%!important;max-width:100%!important;
+    padding:0 22px!important;overflow:visible!important;
+    background:linear-gradient(105deg,#24133f,#301650 55%,#18122f)!important;
+    color:#fff!important;border-bottom:1px solid rgba(255,255,255,.18)!important;
   }
-  .fi-topbar nav.vx-desktop-mega-nav {
-    position:absolute!important;
-    left:24px!important;
-    right:24px!important;
-    bottom:0!important;
-    width:calc(100% - 48px)!important;
-    max-width:none!important;
-    height:49px!important;
-    min-height:49px!important;
-    margin:0!important;
-    padding:0!important;
-    border-top:1px solid rgba(224,206,255,.17);
-    gap:5px!important;
-    justify-content:flex-start!important;
-  }
-  .fi-topbar .vx-mega-brand {
-    position:absolute!important;
-    top:-59px!important;
-    left:0!important;
-    height:48px!important;
-    max-width:210px!important;
-    display:flex!important;
-    align-items:center!important;
-  }
-  .fi-topbar .vx-mega-brand img {max-height:43px!important;max-width:205px!important;object-fit:contain}
-  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {
-    min-height:40px!important;
-    padding:0 12px!important;
-    font-size:13px!important;
-    border-radius:10px 10px 0 0!important;
-    gap:7px!important;
-  }
-  .fi-topbar .vx-mega-group-icon,.fi-topbar .vx-mega-home > svg {
-    width:19px!important;height:19px!important;flex-shrink:0!important;
-  }
-  .fi-topbar .vx-mega-chevron {width:13px!important;height:13px!important}
-  .fi-topbar .fi-topbar-end {
-    position:absolute!important;
-    top:9px!important;
-    right:24px!important;
-    height:48px!important;
+  .fi-topbar-ctn:has(.vx-desktop-mega-nav) {overflow:visible!important;z-index:50!important}
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-start {min-width:0!important;flex:1 1 auto!important}
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-end {
+    position:absolute!important;top:7px!important;right:22px!important;
+    height:51px!important;display:flex!important;align-items:center!important;
+    margin:0!important;gap:10px!important;z-index:3!important;
     max-width:calc(100% - 260px)!important;
-    align-items:center!important;
-    margin:0!important;
   }
-  .fi-topbar .fi-global-search {
-    flex:0 1 280px!important;
-    width:clamp(180px,22vw,280px)!important;
-    max-width:280px!important;
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-topbar-end :is(button,a,svg) {color:#f7f3ff}
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search {
+    display:block!important;visibility:visible!important;position:relative!important;
+    flex:0 1 280px!important;width:clamp(190px,24vw,280px)!important;
+    min-width:190px!important;max-width:280px!important;
   }
-  .fi-topbar .fi-global-search input {
-    background:rgba(255,255,255,.12)!important;
-    color:#fff!important;
-    -webkit-text-fill-color:#fff!important;
-    border:1px solid rgba(255,255,255,.2)!important;
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search input {
+    background:rgba(255,255,255,.12)!important;color:#fff!important;
+    -webkit-text-fill-color:#fff!important;caret-color:#fff!important;
+    border:1px solid rgba(255,255,255,.24)!important;
     border-radius:999px!important;
   }
-  .fi-topbar .fi-global-search input::placeholder {color:#e4d9f8!important}
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search input::placeholder {color:#e3d9f5!important;opacity:1}
+  .fi-topbar:has(.vx-desktop-mega-nav) .fi-global-search-results-ctn {
+    z-index:110!important;color:#1d1732!important;
+  }
+  .fi-topbar:has(.vx-desktop-mega-nav) nav.vx-desktop-mega-nav {
+    position:absolute!important;left:22px!important;right:22px!important;
+    bottom:0!important;top:auto!important;z-index:2!important;
+    box-sizing:border-box!important;display:flex!important;align-items:center!important;
+    justify-content:flex-start!important;flex-wrap:nowrap!important;
+    height:49px!important;min-height:49px!important;
+    width:calc(100% - 44px)!important;max-width:none!important;
+    padding:0!important;margin:0!important;gap:5px!important;
+    overflow:visible!important;border-top:1px solid rgba(255,255,255,.14)!important;
+    background:transparent!important;
+  }
+  .fi-topbar .vx-mega-brand {
+    position:absolute!important;top:-54px!important;left:0!important;
+    width:auto!important;max-width:225px!important;height:48px!important;
+    display:flex!important;align-items:center!important;flex:none!important;
+  }
+  .fi-topbar .vx-mega-brand img {width:auto!important;max-width:215px!important;max-height:42px!important;object-fit:contain}
+  .fi-topbar .vx-mega-brand .vx-logo-on-light {display:none!important}
+  .fi-topbar .vx-mega-brand .vx-logo-on-dark {display:block!important}
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    flex:0 0 auto!important;gap:7px!important;
+    min-height:39px!important;height:39px!important;
+    padding:0 12px!important;font-size:13px!important;font-weight:600!important;
+    color:#f8f5ff!important;background:transparent!important;
+    border:1px solid transparent!important;border-radius:10px!important;
+    text-decoration:none!important;white-space:nowrap!important;
+  }
+  .fi-topbar .vx-mega-home svg,.fi-topbar .vx-mega-trigger svg {width:18px!important;height:18px!important;flex-shrink:0!important;color:currentColor!important;display:block!important}
+  .fi-topbar .vx-mega-trigger .vx-mega-chevron {width:12px!important;height:12px!important}
+  .fi-topbar .vx-mega-home:is(:hover,:focus-visible),.fi-topbar .vx-mega-trigger:is(:hover,:focus-visible),
+  .fi-topbar .vx-mega-home.is-here,.fi-topbar .vx-mega-trigger.is-here {
+    background:rgba(168,118,247,.26)!important;color:#fff!important;
+    border-color:rgba(225,206,255,.15)!important;
+  }
+  .fi-topbar .vx-mega-group {position:relative!important;flex:0 0 auto!important;z-index:5!important}
   .fi-topbar .vx-mega-menu {
-    top:100%!important;
-    margin-top:0!important;
-    border-radius:0 0 17px 17px!important;
+    position:absolute!important;top:100%!important;left:0!important;z-index:100!important;
+    margin-top:0!important;padding:14px!important;
+    background:#fff!important;color:#19122e!important;
+    border:1px solid #e7dff5!important;border-radius:14px!important;
+    box-shadow:0 22px 55px rgba(20,10,50,.28)!important;
+    max-height:min(75vh,680px)!important;overflow-y:auto!important;
   }
-  .fi-topbar nav.vx-desktop-mega-nav > .vx-mega-channel--trailing {
-    margin-left:auto!important;
-    align-self:center!important;
-  }
-  .fi-topbar .vx-mega-menu--wide {
-    grid-template-columns:repeat(2,minmax(180px,1fr));
-  }
+  .fi-topbar .vx-mega-menu--wide {display:grid;grid-template-columns:repeat(2,minmax(185px,1fr));gap:4px 12px;width:min(535px,calc(100vw - 40px))}
+  .fi-topbar .vx-mega-menu--wide .vx-mega-menu-title,.fi-topbar .vx-mega-menu--wide .vx-owner-tools {grid-column:1/-1}
+  .fi-topbar .vx-mega-menu a {color:#251d3d!important}
+  .fi-topbar .vx-mega-menu a.is-current {background:#eee4ff!important;color:#5915b6!important}
+  .fi-topbar .vx-mega-channel {flex:0 1 155px!important;min-width:0!important;max-width:155px!important}
+  .fi-topbar .vx-mega-channel--trailing {margin-left:auto!important}
+  .fi-topbar .vx-mega-channel .vx-picker-value {overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  .fi-topbar .vx-search-trigger {display:none!important}
 }
-@media (min-width:1024px) and (max-width:1250px) {
-  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {padding-inline:7px!important;font-size:12px!important}
-  .fi-topbar nav.vx-desktop-mega-nav {gap:1px!important}
+@media (min-width:1024px) and (max-width:1350px) {
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {font-size:12px!important;padding-inline:7px!important;gap:4px!important}
+  .fi-topbar nav.vx-desktop-mega-nav {gap:2px!important}
+  .fi-topbar .vx-mega-channel {max-width:110px!important;flex-basis:110px!important}
 }
-@media (prefers-reduced-motion:reduce) {
-  .vx-mega-menu,.vx-mega-trigger {transition:none!important}
+@media (min-width:1024px) and (max-width:1150px) {
+  .fi-topbar .vx-mega-home,.fi-topbar .vx-mega-trigger {padding-inline:5px!important}
+  .fi-topbar .vx-mega-trigger .vx-mega-chevron {display:none!important}
+  .fi-topbar .vx-mega-channel {max-width:44px!important;flex-basis:44px!important}
 }
+@media (max-width:1023px) {
+  .vx-desktop-mega-nav {display:none!important}
+  .vx-search-trigger {display:none!important}
+}
+@media (prefers-reduced-motion:reduce) {.vx-mega-menu,.vx-mega-trigger {transition:none!important}}
 </style>
 
 

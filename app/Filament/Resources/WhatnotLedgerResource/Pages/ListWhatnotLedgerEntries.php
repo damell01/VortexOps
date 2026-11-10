@@ -51,7 +51,7 @@ class ListWhatnotLedgerEntries extends Page
     public string $channel = 'all';
 
     #[Url(as: 'period')]
-    public string $preset = 'all';
+    public string $preset = '30';
 
     #[Url]
     public ?string $from = null;
@@ -357,8 +357,8 @@ class ListWhatnotLedgerEntries extends Page
         return WhatnotLedgerResource::getEloquentQuery()
             ->when($this->channel === 'unassigned', fn (Builder $q) => $q->whereNull('whatnot_channel_id'))
             ->when(ctype_digit($this->channel), fn (Builder $q) => $q->where('whatnot_channel_id', (int) $this->channel))
-            ->when($from, fn (Builder $q) => $q->whereDate('created_date', '>=', $from->toDateString()))
-            ->when($until, fn (Builder $q) => $q->whereDate('created_date', '<=', $until->toDateString()))
+            ->when($from, fn (Builder $q) => $q->where('created_date', '>=', $from->toDateString()))
+            ->when($until, fn (Builder $q) => $q->where('created_date', '<', $until->copy()->addDay()->toDateString()))
             ->when($this->review === 'needs_attribution', fn (Builder $q) => $q->whereNotExists(function ($sub) {
                 $sub->selectRaw('1')->from('ledger_attributions as la')
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')

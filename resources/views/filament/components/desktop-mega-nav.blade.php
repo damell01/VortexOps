@@ -199,6 +199,9 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     $linkPath = fn ($url) => '/'.trim((string) parse_url((string) $url, PHP_URL_PATH), '/');
     $isCurrent = fn ($url) => ($p = $linkPath($url)) !== '/admin' && $p !== '/' && ($currentPath === $p || str_starts_with($currentPath, $p.'/'));
     $groupHere = collect($links)->contains(fn ($l) => $l[1] !== '#' && $isCurrent($l[1]));
+    // Ledger charge routes belong to Payroll even when accessed from a report.
+    $isLedgerRoute = str_starts_with($currentPath, '/admin/whatnot-ledgers');
+    if ($isLedgerRoute) $groupHere = $label === 'Payroll';
 @endphp
 @php $groupIcon = match($label) { 'Shows' => 'heroicon-o-video-camera', 'Fulfillment' => 'heroicon-o-cube', 'Inventory' => 'heroicon-o-archive-box', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-document-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', default => 'heroicon-o-squares-2x2' }; @endphp
 <button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><x-filament::icon :icon="$groupIcon" class="vx-mega-group-icon"/><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" class="vx-mega-chevron"/></button>

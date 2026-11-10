@@ -5,7 +5,6 @@
 
     $user = auth()->user();
     $tz = $user?->timezone ?: config('app.timezone');
-    $first = Str::of($user?->streamer?->name ?? $user?->name ?? 'there')->before(' ');
     $next = $this->nextShow();
     $nextStart = $next?->startsAt($tz);
     $n = $this->numbers();
@@ -29,7 +28,7 @@
         <span class="vsh-hero-ball" aria-hidden="true"></span>
         <div class="vsh-hero-copy">
             <p class="vsh-hero-date">{{ \App\Support\BusinessTime::local()->format('l, F j, Y') }}<x-vx-help topic="page.my-dashboard" :page="true" /></p>
-            <h1>Welcome back, <span class="whitespace-nowrap">{{ $first }}! <span class="vsh-wave" aria-hidden="true">👋</span></span></h1>
+            <h1>My Dashboard</h1>
             <p>Log your shows and keep your reports up to date.</p>
             <a href="{{ \App\Filament\Pages\MyPokedex::getUrl() }}" wire:navigate class="vsh-dex-link"><span class="vsh-dex-link-ball" aria-hidden="true"></span>My Pokédex</a>
         </div>
@@ -63,7 +62,7 @@
         </div>
         @if ($buddy = \App\Support\Buddy::visitor(auth()->user()))
             {{-- Its reactions live in resources/js/buddy.js; wire:ignore.self keeps where it is standing across updates. --}}
-            <button type="button" class="vsh-hero-mon" wire:ignore.self data-buddy data-name="{{ $first }}"
+            <button type="button" class="vsh-hero-mon" wire:ignore.self data-buddy
                     @if ($next && $nextStart) data-show-at="{{ $nextStart->getTimestampMs() }}" data-show-id="{{ $next->id }}" @endif
                     title="Say hi to {{ \App\Support\Buddy::name($buddy) }}"><span class="vsh-mon-body"><img src="/img/pokemon3d/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></span></button>
             <div class="vsh-bubble" wire:ignore.self role="status" aria-live="polite" hidden>

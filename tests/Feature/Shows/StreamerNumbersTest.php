@@ -116,7 +116,7 @@ class StreamerNumbersTest extends TestCase
 
         Livewire::test(StreamerHome::class)
             // Draft pay is not shown until a pay run is marked paid (#253).
-            ->assertSee('Welcome back')->assertDontSee('Awaiting payment')
+            ->assertSee('My Dashboard')->assertDontSee('Awaiting payment')
             ->assertDontSee('Profit')->assertDontSee('Loss')->assertDontSee('COGS');
     }
 }

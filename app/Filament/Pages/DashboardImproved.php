@@ -357,8 +357,6 @@ class DashboardImproved extends Dashboard
         }
         return $data + [
             'today'=>$today, 'months'=>$months,
-            'greeting'=>$local->hour < 12 ? 'Good morning' : ($local->hour < 18 ? 'Good afternoon' : 'Good evening'),
-            'name'=>explode(' ', trim(auth()->user()?->name ?: 'there'))[0],
             'date'=>$local->format('M j, Y'), 'period'=>$local->format('F Y').' so far',
         ];
     }

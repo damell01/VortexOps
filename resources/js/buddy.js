@@ -24,10 +24,8 @@ const SOON_MS = 15 * 60_000;
 
 let current = null;
 
-function greeting(name) {
-    const h = new Date().getHours();
-    const hi = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 21 ? 'Good evening' : 'Hey night owl';
-    const lines = [`${hi}, ${name}!`, `Hi ${name}! Ready for the next show?`, `${hi}! Keep up the good work.`, `Hey ${name}! 👋`];
+function greeting() {
+    const lines = ['Ready for the next show?', 'Keep up the good work!', 'Let\'s go! 👋', 'Nice to see you!'];
     return lines[Math.floor(Math.random() * lines.length)];
 }
 
@@ -43,7 +41,6 @@ function setup(mon) {
     const bubbleText = bubble?.querySelector('.vsh-bubble-text');
     if (!hero || !body) return null;
 
-    const name = mon.dataset.name || 'trainer';
     const timers = new Set();
     const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
     let busy = false, ducked = false, idle = false, away = false, idleTimer = 0, peekTimer = 0, bubbleTimer = 0;
@@ -134,7 +131,7 @@ function setup(mon) {
         e.preventDefault();
         wake();
         if (busy) return;
-        say(greeting(name), 2600);
+        say(greeting(), 2600);
         later(hop, 2900);
     };
 

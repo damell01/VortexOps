@@ -54,7 +54,7 @@ class StreamerHomeTest extends TestCase
         $filed = $this->show('Filed Show', now()->subDays(3)->toDateString(), 'streamer_reviewed', ['submitted_at' => now()]);
 
         $page = Livewire::test(StreamerHome::class)
-            ->assertSee('Welcome back,')->assertSee('Trey!')
+            ->assertSee('My Dashboard')->assertDontSee('Welcome back')
             ->assertSeeHtml($this->card($unlogged))->assertSee('Not started')->assertSee('Log sold items')
             ->assertDontSeeHtml($this->card($filed));
 

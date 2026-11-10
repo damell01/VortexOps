@@ -28,7 +28,7 @@
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
     <section class="vx-dashboard-hero relative flex min-h-[200px] items-center overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:px-7" style="background-image:linear-gradient(90deg,rgba(23,12,58,.94) 0%,rgba(46,16,101,.78) 45%,rgba(76,29,149,.25) 100%),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center right;">
         <div class="relative min-w-0 max-w-xl">
-            <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
+            <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">Operations overview</h1>
             <p class="mt-1 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)

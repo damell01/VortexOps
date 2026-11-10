@@ -12,8 +12,7 @@
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
-            @php $hour = (int) \App\Support\BusinessTime::local()->format('G'); $first = explode(' ', trim(auth()->user()->name))[0]; @endphp
-            <h1>{{ $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening') }}, {{ $first }} <span aria-hidden="true">👋</span></h1>
+            <h1>Fulfillment Home</h1>
             <p><span class="vxf-live"><i aria-hidden="true"></i> Live</span> {{ $manager ? 'Fulfillment Operations · stations, shows ready to pack and today\'s activity' : 'Your shows, your station and your shift' }} · {{ \App\Support\BusinessTime::local()->format('D, M j · g:i A') }}</p>
         </div>
         <div class="vxf-actions">

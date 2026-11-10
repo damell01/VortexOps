@@ -4,7 +4,7 @@
         <div class="bg-gradient-to-r from-violet-700 via-violet-600 to-purple-500 rounded-2xl p-4 md:p-5 text-white shadow-lg shadow-violet-500/20">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                    <h1 class="text-2xl md:text-2xl font-bold mb-1">Welcome back, {{ $this->getStreamer()->name }}! 👋</h1>
+                    <h1 class="text-2xl md:text-2xl font-bold mb-1">Streamer Hub</h1>
                     <p class="text-violet-100">Here's your streaming dashboard. Quick access to everything you need.</p>
                 </div>
                 <div class="flex gap-2 flex-wrap md:flex-nowrap">

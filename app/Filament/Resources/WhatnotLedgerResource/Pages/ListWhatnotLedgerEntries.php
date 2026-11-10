@@ -81,7 +81,7 @@ class ListWhatnotLedgerEntries extends Page
     #[Url(as: 'business')]
     public string $businessFilter = '';
 
-    /** Category filter value for every ledger charge: shipping, refunds and adjustments. */
+    /** Chargebacks/corrections filter: refunds and adjustments, excluding shipping. */
     public const CHARGES = 'chargebacks';
 
     #[Url(as: 'review')]
@@ -476,7 +476,7 @@ class ListWhatnotLedgerEntries extends Page
                 $sub->selectRaw('1')->from('ledger_attributions as la')
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
                     ->where('la.status', 'approved')
-                    ->whereIn('la.category', $this->categoryFilter === self::CHARGES ? \App\Services\LedgerChargeReport::CATEGORIES : [$this->categoryFilter]);
+                    ->whereIn('la.category', $this->categoryFilter === self::CHARGES ? ['refunds', 'correction'] : [$this->categoryFilter]);
             }))
             ->when($this->businessFilter !== '', function (Builder $q) {
                 $business = (int) $this->businessFilter;

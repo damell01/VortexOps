@@ -776,16 +776,51 @@ class ListWhatnotLedgerEntries extends Page
     }
 
     /** Show and streamer filters only use approved financial attributions. */
-    public function getShowFilterOptionsProperty(): array
+    /**
+     * Shows for the show picker: newest first, or matching what was typed
+     * (title words, channel, or a date like 11/8 or Nov 8).
+     *
+     * @return list<array{id:int,title:string,date:?string,channel:?string}>
+     */
+    #[\Livewire\Attributes\Renderless]
+    public function searchShows(string $term = ''): array
     {
-        return Show::query()
-            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
-            ->when(ctype_digit($this->channel), fn ($q) => $q->where('whatnot_channel_id', (int) $this->channel))
-            ->orderByDesc('show_date')->limit(300)->get(['id', 'title', 'show_date'])
-            // A show opened from its own page may be older than the newest 300.
-            ->when($this->showFilter !== '', fn ($shows) => $shows->push(...Show::query()->whereKey((int) $this->showFilter)->get(['id', 'title', 'show_date'])))
-            ->unique('id')
-            ->mapWithKeys(fn ($show) => [$show->id => $show->title.' · '.$show->show_date?->format('M j, Y')])->all();
+        $term = trim(mb_substr($term, 0, 80));
+        $query = Show::query()->from('shows')
+            ->leftJoin('whatnot_channels as c', 'c.id', '=', 'shows.whatnot_channel_id')
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+            ->when(ctype_digit($this->channel), fn ($q) => $q->where('shows.whatnot_channel_id', (int) $this->channel));
+
+        if ($term !== '') {
+            $date = null;
+            try {
+                if (preg_match('/\d/', $term) && ! ctype_digit($term)) $date = Carbon::parse($term)->toDateString();
+            } catch (\Throwable) {
+                $date = null;
+            }
+            $query->where(function ($q) use ($term, $date) {
+                foreach (preg_split('/\s+/', $term) as $word) {
+                    $q->where(fn ($w) => $w->where('shows.title', 'like', '%'.$word.'%')->orWhere('c.name', 'like', '%'.$word.'%'));
+                }
+                if ($date) $q->orWhereDate('shows.show_date', $date);
+                if (ctype_digit($term)) $q->orWhere('shows.id', (int) $term);
+            });
+        }
+
+        return $query->orderByDesc('shows.show_date')->orderByDesc('shows.id')->limit(40)
+            ->get(['shows.id', 'shows.title', 'shows.show_date', 'c.name as channel'])
+            ->map(fn ($show) => ['id' => (int) $show->id, 'title' => (string) $show->title,
+                'date' => $show->show_date ? Carbon::parse($show->show_date)->format('D, M j, Y') : null, 'channel' => $show->channel])
+            ->all();
+    }
+
+    /** The chosen show, for the picker's button. */
+    public function getSelectedShowLabelProperty(): ?array
+    {
+        if ($this->showFilter === '') return null;
+        $show = Show::query()->with('channel:id,name')->find((int) $this->showFilter, ['id', 'title', 'show_date', 'whatnot_channel_id']);
+
+        return $show ? ['title' => (string) $show->title, 'date' => $show->show_date?->format('M j, Y'), 'channel' => $show->channel?->name] : null;
     }
 
     /** @return array<int, string> */

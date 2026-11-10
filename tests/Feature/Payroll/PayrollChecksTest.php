@@ -157,6 +157,15 @@ class PayrollChecksTest extends TestCase
         Livewire::test(LedgerCharges::class)->assertSee('Estill Ed')->assertSee('Estill Amy')->assertDontSee('Natbat')
             ->assertSee('Order refund shipping charge');
 
+        // Each line ties back to its show, buyer and shipment.
+        $orderNo = DB::table('whatnot_ledger_entries')->where('transaction_type', 'Refund')->where('amount', -30)->value('whatnot_order_id');
+        $orderId = DB::table('whatnot_show_orders')->insertGetId(['show_id' => $edShow->id, 'whatnot_order_id' => $orderNo, 'buyer_username' => 'cardfan22',
+            'item_name' => 'Prizm Hobby Box', 'quantity' => 1, 'status' => 'completed', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('shipments')->insert(['show_id' => $edShow->id, 'whatnot_order_id' => $orderId, 'carrier' => 'usps', 'tracking_number' => '9400111899223',
+            'status' => 'delivered', 'created_at' => now(), 'updated_at' => now()]);
+        Livewire::test(LedgerCharges::class)->assertSee('@cardfan22')->assertSee('Prizm Hobby Box')->assertSee('9400111899223')
+            ->assertSee(\App\Filament\Resources\ShowResource::getUrl('view', ['record' => $edShow->id]), false);
+
         // A charged streamer sees only their own lines.
         $edUser = User::factory()->create();
         $ed->update(['user_id' => $edUser->id]);
@@ -244,5 +253,24 @@ class PayrollChecksTest extends TestCase
         $this->actingAs($this->owner);
         $this->assertTrue(\App\Filament\Pages\ProfitLoss::canAccess());
         Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->getRouteKey()])->assertSee('Business account transfer');
+    }
+
+    public function test_regular_admins_open_every_fulfillment_page_whatever_their_saved_role_list_says(): void
+    {
+        \App\Models\Setting::set('enabled_admin_modules', json_encode(['streams', 'payouts', 'reporting', 'fulfillment']));
+        \App\Support\AdminModules::flushMemo();
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        // A saved admin page list from before the Fulfillment Center existed.
+        \App\Support\NavVisibility::setVisibleForRole('admin', [PayrollOverview::class]);
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $this->actingAs($admin);
+
+        foreach ([\App\Filament\Pages\FulfillmentHome::class, \App\Filament\Pages\FulfillmentStationBoard::class,
+            \App\Filament\Pages\FulfillmentActivity::class, \App\Filament\Pages\FulfillmentReports::class] as $page) {
+            $this->assertFalse(\App\Support\NavVisibility::isHiddenForUser($page, $admin), $page);
+            $this->get($page::getUrl())->assertOk();
+        }
+        $this->assertTrue(\App\Filament\Resources\FulfillmentResource::canAccess());
     }
 }

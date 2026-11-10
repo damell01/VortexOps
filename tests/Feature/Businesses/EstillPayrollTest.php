@@ -176,6 +176,51 @@ class EstillPayrollTest extends TestCase
         $this->assertEqualsWithDelta(840.00, (float) $lines[0]->calculated_payout, 0.001);
     }
 
+    public function test_tips_approved_in_the_ledger_are_paid_when_the_show_has_none(): void
+    {
+        $streamer = $this->member('Ledger Tipped');
+        $show = $this->show($streamer, ['tips' => 0]);
+        foreach ([15, 10] as $i => $amount) {
+            $id = \Illuminate\Support\Facades\DB::table('whatnot_ledger_entries')->insertGetId(['whatnot_channel_id' => $this->channel->id,
+                'created_date' => now(), 'amount' => $amount, 'transaction_type' => 'Tip', 'status' => 'Completed', 'dedup_key' => 'tip'.$i,
+                'created_at' => now(), 'updated_at' => now()]);
+            \Illuminate\Support\Facades\DB::table('ledger_attributions')->insert(['whatnot_ledger_entry_id' => $id, 'category' => 'tips', 'target' => 'show',
+                'show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'approved', 'reason' => 't',
+                'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        $lines = app(PayoutService::class)->calculateForShow($show);
+
+        $this->assertCount(1, $lines);
+        $this->assertEqualsWithDelta(825.00, (float) $lines[0]->calculated_payout, 0.001);
+        $this->assertStringContainsString('+ $25 tips', (string) $lines[0]->calculation_notes);
+
+        // The same tips on the show itself are not counted twice.
+        $show->update(['tips' => 25]);
+        $again = app(PayoutService::class)->calculateForShow($show->fresh());
+        $this->assertEqualsWithDelta(825.00, (float) $again[0]->calculated_payout, 0.001);
+    }
+
+    public function test_approving_a_tip_puts_it_on_the_show_and_into_draft_pay(): void
+    {
+        $streamer = $this->member('Approved Tipper');
+        $show = $this->show($streamer, ['tips' => 0]);
+        $run = WeeklyPayoutBatch::create(['week_start' => now()->startOfWeek()->toDateString(), 'week_end' => now()->endOfWeek()->toDateString(),
+            'status' => 'draft', 'business_id' => $this->estill->id]);
+        app(PayoutService::class)->calculateForShow($show);
+        Payout::where('show_id', $show->id)->update(['weekly_payout_batch_id' => $run->id]);
+
+        $id = \Illuminate\Support\Facades\DB::table('whatnot_ledger_entries')->insertGetId(['whatnot_channel_id' => $this->channel->id,
+            'created_date' => now(), 'amount' => 25, 'transaction_type' => 'Tip', 'status' => 'Completed', 'dedup_key' => 'tipx',
+            'created_at' => now(), 'updated_at' => now()]);
+        \Illuminate\Support\Facades\DB::table('ledger_attributions')->insert(['whatnot_ledger_entry_id' => $id, 'category' => 'tips', 'target' => 'show',
+            'show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'approved', 'reason' => 't', 'created_at' => now(), 'updated_at' => now()]);
+        app(\App\Services\LedgerAttributionService::class)->syncShowTips(\App\Models\WhatnotLedgerEntry::findOrFail($id));
+
+        $this->assertEqualsWithDelta(25.0, (float) $show->fresh()->tips, 0.001);
+        $this->assertEqualsWithDelta(825.0, (float) Payout::where('show_id', $show->id)->sum('calculated_payout'), 0.001);
+    }
+
     public function test_a_monthly_tips_run_does_not_clash_with_weekly_runs(): void
     {
         WeeklyPayoutBatch::create(['week_start' => now()->startOfWeek()->toDateString(), 'week_end' => now()->endOfWeek()->toDateString(),

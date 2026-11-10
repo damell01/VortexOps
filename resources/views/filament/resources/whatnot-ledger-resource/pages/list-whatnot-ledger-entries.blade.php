@@ -185,6 +185,66 @@
     }
     .vxled-portal { position: relative; z-index: 1100; }
     .vxled-portal .vxled-panel { margin: 0 !important; }
+    /* Show picker: one column, title then date and channel, searched on the server. */
+    .vxled-toolbar > .vxled-showpick{position:relative;gap:6px;flex:2 1 300px;min-width:0}
+    .vxled-showpick__btn{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit;font:inherit}
+    .vxled-showpick__val{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+    .vxled-showpick__val.is-muted{font-weight:500}
+    .vxled-showpick__sub{flex:none;font-size:12px;color:var(--vxw-muted)}
+    .vxled-showpick__chev{width:16px;height:16px;flex:none;opacity:.6}
+    .vxled-showpick__clear{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:999px;border:0;background:var(--vxw-surface-2,#f1f5f9);cursor:pointer}
+    .vxled-showpick__clear svg{width:14px;height:14px}
+    .vxled-pick-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 16px;background:rgba(15,12,35,.5);backdrop-filter:blur(3px)}
+    .vxled-pick{width:100%;max-width:560px;max-height:min(78dvh,680px);display:flex;flex-direction:column;background:#fff;color:#182033;border:1px solid #ece8f8;border-radius:20px;box-shadow:0 24px 60px -18px rgba(46,16,101,.45);overflow:hidden}
+    .vxled-pick__head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px}
+    .vxled-pick__head h2{margin:0;font-size:17px;font-weight:750}
+    .vxled-pick__x{display:grid;place-items:center;width:34px;height:34px;border-radius:999px;border:0;background:#f4f2fb;cursor:pointer}
+    .vxled-pick__x svg{width:18px;height:18px}
+    .vxled-pick__search{display:flex;align-items:center;gap:8px;margin:0 18px 8px;padding:0 12px;border:1px solid #ddd6fe;border-radius:12px;background:#faf9ff}
+    .vxled-pick__search svg{width:18px;height:18px;opacity:.6}
+    .vxled-pick__search input{flex:1;min-width:0;border:0;background:none;padding:11px 0;font-size:15px;outline:0;box-shadow:none}
+    .vxled-pick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 10px 8px;display:flex;flex-direction:column;gap:2px}
+    .vxled-pick__row{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;padding:10px 12px;border:0;border-radius:12px;background:none;text-align:left;cursor:pointer;color:inherit}
+    .vxled-pick__row.is-active,.vxled-pick__row:focus-visible{background:#f5f3ff;outline:0}
+    .vxled-pick__row[aria-selected="true"]{background:#ede9fe}
+    .vxled-pick__row[aria-selected="true"] .vxled-pick__title{color:#6d28d9}
+    .vxled-pick__title{font-size:15px;font-weight:650;line-height:1.3;overflow-wrap:anywhere}
+    .vxled-pick__meta{font-size:12.5px;color:#64748b}
+    .vxled-pick__empty{padding:16px 12px;margin:0;color:#64748b;font-size:14px}
+    .vxled-pick__foot{padding:8px 18px 12px;font-size:12px;color:#64748b;border-top:1px solid #f1eefb}
+    .dark .vxled-pick{background:#17132a;color:#ece9f8;border-color:#2e2650}
+    .dark .vxled-pick__x{background:#241d40;color:#ece9f8}
+    .dark .vxled-pick__search{background:#1d1834;border-color:#3b2f6b}
+    .dark .vxled-pick__search input{color:#ece9f8}
+    .dark .vxled-pick__row.is-active,.dark .vxled-pick__row:focus-visible{background:#221b3d}
+    .dark .vxled-pick__row[aria-selected="true"]{background:#2e2456}
+    .dark .vxled-pick__row[aria-selected="true"] .vxled-pick__title{color:#c4b5fd}
+    .dark .vxled-pick__meta,.dark .vxled-pick__empty,.dark .vxled-pick__foot{color:#a5a0bf}
+    .dark .vxled-pick__foot{border-color:#2e2650}
+    @media (max-width:640px){.vxled-pick-overlay{padding:0;align-items:flex-end}.vxled-pick{max-width:none;max-height:88dvh;border-radius:20px 20px 0 0}}
+
+    /* Transaction details: a centered modal over the ledger. */
+    .vxled-portal .vxled-panel {
+        position: fixed !important; inset: auto !important;
+        top: 50% !important; left: 50% !important; right: auto !important; bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        width: min(760px, calc(100vw - 32px)) !important; min-width: 0;
+        max-width: calc(100vw - 32px) !important;
+        height: auto !important; max-height: min(88dvh, 920px) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 30px 80px -20px rgba(24, 12, 55, .5) !important;
+    }
+    .vxled-portal .vxled-backdrop { inset: 0 !important; background: rgba(15, 12, 35, .5) !important; backdrop-filter: blur(3px); }
+    .vxled-portal .vxled-panel .vxr-drawer-head { padding: 16px 20px !important; }
+    .vxled-portal .vxled-panel .vxr-card-body { padding: 14px 20px 24px !important; }
+    .vxled-portal .vxled-panel .vxr-drawer-foot { position: sticky; bottom: 0; background: var(--vxw-surface); }
+    @media (max-width: 640px) {
+        .vxled-portal .vxled-panel {
+            top: auto !important; bottom: 0 !important; left: 0 !important; transform: none !important;
+            width: 100vw !important; max-width: 100vw !important; max-height: 92dvh !important;
+            border-radius: 20px 20px 0 0 !important;
+        }
+    }
 </style>
 
 <div class="vxr vxled">
@@ -322,15 +382,67 @@
             <x-filament::icon icon="heroicon-o-magnifying-glass" />
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Order number or details…" aria-label="Search order number or details">
         </label>
-        <label class="vxr-control">
+        @php $pickedShow = $this->selectedShowLabel; @endphp
+        <div class="vxr-control vxled-showpick" x-data="{
+                open: false, term: '', rows: [], loading: false, active: 0, seq: 0,
+                async load() {
+                    const mine = ++this.seq; this.loading = true;
+                    const rows = await $wire.searchShows(this.term);
+                    if (mine !== this.seq) return;
+                    this.rows = rows; this.active = 0; this.loading = false;
+                },
+                show() { this.open = true; this.term = ''; this.load(); this.$nextTick(() => this.$refs.q?.focus()); },
+                pick(id) { this.open = false; $wire.set('showFilter', id === '' ? '' : String(id)); },
+                key(e) {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); this.active = Math.min(this.rows.length - 1, this.active + 1); }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); this.active = Math.max(0, this.active - 1); }
+                    if (e.key === 'Enter' && this.rows[this.active]) { e.preventDefault(); this.pick(this.rows[this.active].id); }
+                },
+            }" x-on:keydown.escape.window="if ($event.isTrusted && open) open = false">
             <x-filament::icon icon="heroicon-o-video-camera" />
-            <select wire:model.live="showFilter" aria-label="Filter ledger by show">
-                <option value="">All shows</option>
-                @foreach ($this->showFilterOptions as $id => $name)
-                    <option value="{{ $id }}">{{ $name }}</option>
-                @endforeach
-            </select>
-        </label>
+            <button type="button" class="vxled-showpick__btn" x-on:click="show()" aria-haspopup="dialog" aria-label="Filter ledger by show{{ $pickedShow ? ': '.$pickedShow['title'] : '' }}">
+                @if ($pickedShow)
+                    <span class="vxled-showpick__val">{{ $pickedShow['title'] }}</span>
+                    <span class="vxled-showpick__sub">{{ $pickedShow['date'] }}</span>
+                @else
+                    <span class="vxled-showpick__val is-muted">All shows</span>
+                @endif
+                <x-filament::icon icon="heroicon-m-chevron-up-down" class="vxled-showpick__chev" />
+            </button>
+            @if ($pickedShow)
+                <button type="button" class="vxled-showpick__clear" wire:click="$set('showFilter', '')" aria-label="Clear show filter"><x-filament::icon icon="heroicon-m-x-mark" /></button>
+            @endif
+            <template x-teleport="body">
+                <div class="vxled-pick-overlay" x-show="open" x-cloak x-on:click.self="open = false">
+                    <section class="vxled-pick" role="dialog" aria-modal="true" aria-label="Choose a show" x-trap.noscroll="open">
+                        <header class="vxled-pick__head">
+                            <h2>Choose a show</h2>
+                            <button type="button" class="vxled-pick__x" x-on:click="open = false" aria-label="Close"><x-filament::icon icon="heroicon-m-x-mark" /></button>
+                        </header>
+                        <label class="vxled-pick__search">
+                            <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                            <input type="search" x-ref="q" x-model="term" x-on:input.debounce.250ms="load()" x-on:keydown="key($event)"
+                                placeholder="Show title, channel, or a date like 11/8" aria-label="Search shows" autocomplete="off">
+                        </label>
+                        <div class="vxled-pick__list" role="listbox" aria-label="Shows">
+                            <button type="button" class="vxled-pick__row" x-show="term === ''" x-on:click="pick('')" aria-selected="{{ $pickedShow ? 'false' : 'true' }}">
+                                <span class="vxled-pick__title">All shows</span><span class="vxled-pick__meta">Clear the show filter</span>
+                            </button>
+                            <template x-for="(row, i) in rows" :key="row.id">
+                                <button type="button" class="vxled-pick__row" role="option" x-on:click="pick(row.id)" x-on:mouseenter="active = i"
+                                    :class="{ 'is-active': i === active }" :aria-selected="String(row.id) === @js($showFilter)">
+                                    <span class="vxled-pick__title" x-text="row.title"></span>
+                                    <span class="vxled-pick__meta"><span x-text="row.date || 'No date'"></span><template x-if="row.channel"><span x-text="' · ' + row.channel"></span></template></span>
+                                </button>
+                            </template>
+                            <p class="vxled-pick__empty" x-show="!loading && rows.length === 0">No shows match that.</p>
+                            <p class="vxled-pick__empty" x-show="loading && rows.length === 0">Loading shows…</p>
+                        </div>
+                        <footer class="vxled-pick__foot">Newest first · up to 40 at a time — type to narrow it down.</footer>
+                    </section>
+                </div>
+            </template>
+        </div>
         <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-user" />
             <select wire:model.live="streamerFilter" aria-label="Filter ledger by streamer">
@@ -552,7 +664,7 @@
             <div class="vxr-drawer-backdrop vxled-backdrop" wire:click="select(null)"></div>
             <aside class="vxr-card vxled-panel" aria-label="Transaction details" wire:key="panel-{{ $selected->id }}"
                 x-data="{ copied: false, copy(v) { navigator.clipboard?.writeText(v); this.copied = true; setTimeout(() => this.copied = false, 1500) } }"
-                x-on:keydown.escape.window="$wire.select(null)">
+                x-on:keydown.escape.window="if ($event.isTrusted) $wire.select(null)">
                 <div class="vxr-drawer-head">
                     <h2 class="vxr-drawer-title">Transaction Details</h2>
                     <button type="button" class="vxr-x" wire:click="select(null)" aria-label="Close details"><x-filament::icon icon="heroicon-m-x-mark" /></button>

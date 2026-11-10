@@ -43,7 +43,10 @@ final class PayChangedAfterPayout
             ->where('shows.show_date', '>=', $since->toDateString())
             ->where(function ($q) {
                 $locked = 'COALESCE(b.finalized_at, b.updated_at)';
-                $q->whereRaw("shows.updated_at > {$locked}")->orWhereRaw("log.updated_at > {$locked}");
+                $q->whereRaw("shows.updated_at > {$locked}")->orWhereRaw("log.updated_at > {$locked}")
+                    // A tip approved to the show in the ledger later changes its pay too.
+                    ->orWhereExists(fn ($e) => $e->selectRaw('1')->from('ledger_attributions as la')
+                        ->whereColumn('la.show_id', 'shows.id')->where('la.status', 'approved')->whereRaw("la.updated_at > {$locked}"));
             })
             ->where(fn ($q) => $q->whereNull('payouts.calculation_notes')->orWhere('payouts.calculation_notes', 'not like', '%Manual Pay Run override%'))
             ->orderByDesc('shows.show_date')

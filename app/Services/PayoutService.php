@@ -228,7 +228,7 @@ class PayoutService
     {
         $netRevenue    = (float) $show->whatnot_net;
         $grossRevenue  = (float) $show->gross_revenue;
-        $tips          = (float) $show->tips;
+        $tips          = $this->showTips($show);
         // On a collab show, the primary streamer keeps the full revenue share
         // for profit-share-based calculations (profit_share, hybrid's profit
         // component, custom_formula's streamer_share_net) — splitting with
@@ -613,6 +613,25 @@ class PayoutService
                 'net_revenue_basis' => $working['net_revenue'],
             ],
         ];
+    }
+
+    /**
+     * A show's tips for pay: the show's own figure (from Whatnot) or the
+     * tips approved to it in the ledger, whichever is larger. The two are the
+     * same money seen twice, so they are never added together; the ledger is
+     * often the only place a tip was recorded at all.
+     */
+    public function showTips(Show $show): float
+    {
+        $own = round((float) $show->tips, 2);
+        if (! $show->getKey()) return $own;
+        $ledger = round((float) \Illuminate\Support\Facades\DB::table('ledger_attributions as a')
+            ->join('whatnot_ledger_entries as le', 'le.id', '=', 'a.whatnot_ledger_entry_id')
+            ->where('a.show_id', $show->getKey())->where('a.status', 'approved')
+            ->where(fn ($q) => $q->where('a.category', 'tips')->orWhereRaw('LOWER(TRIM(le.transaction_type)) IN (?, ?)', ['tip', 'tips']))
+            ->sum('le.amount'), 2);
+
+        return max($own, $ledger);
     }
 
     /** @var array<int, bool> business id => pays tips monthly, for this request */

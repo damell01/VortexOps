@@ -188,6 +188,39 @@ class LedgerAttributionService
         });
         // Ledger page totals and reports show the change straight away.
         \App\Filament\Resources\WhatnotLedgerResource\Pages\ListWhatnotLedgerEntries::forgetReports();
+        $this->syncShowTips($entry);
+    }
+
+    /**
+     * A tip approved to a show lands on the show: its tips become at least
+     * what the ledger has approved for it (never added on top, the same money
+     * is not counted twice), and draft pay for that show is worked out again
+     * so the run includes it. Pay already finalized or paid is never changed;
+     * "Changed after payout" lists the difference instead.
+     */
+    public function syncShowTips(WhatnotLedgerEntry $entry): void
+    {
+        $row = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->first(['show_id', 'category', 'status']);
+        $isTip = in_array(strtolower(trim((string) $entry->transaction_type)), ['tip', 'tips'], true) || ($row->category ?? null) === 'tips';
+        if (! $row || ! $row->show_id || ! $isTip || $row->status !== 'approved') return;
+
+        $show = \App\Models\Show::query()->with(['streamers', 'channel', 'streamerLogEntry'])->find($row->show_id);
+        if (! $show) return;
+        $payouts = app(\App\Services\PayoutService::class);
+        $tips = $payouts->showTips($show);
+        if ($tips > round((float) $show->tips, 2) + 0.004) {
+            if (method_exists($show, 'trackChanges')) $show->trackChanges(['tips' => $tips], 'ledger_tips');
+            $show->forceFill(['tips' => $tips])->save();
+        }
+
+        $drafts = \App\Models\Payout::query()->where('show_id', $show->id)->whereHas('batch', fn ($q) => $q->where('status', 'draft'))->with('batch')->get();
+        if ($drafts->isEmpty()) return;
+        try {
+            $payouts->calculateForShow($show);
+            $drafts->pluck('batch')->filter()->unique('id')->each(fn ($run) => $run->recalculateTotal());
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function review(WhatnotLedgerEntry $entry, int $actorId, bool $approve): void
@@ -232,6 +265,7 @@ class LedgerAttributionService
         });
         // Ledger page totals and reports show the change straight away.
         \App\Filament\Resources\WhatnotLedgerResource\Pages\ListWhatnotLedgerEntries::forgetReports();
+        $this->syncShowTips($entry);
     }
 
     private function event(int $entryId, int $actorId, string $action, mixed $before, mixed $after, ?string $reason): void

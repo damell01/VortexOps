@@ -128,4 +128,15 @@ class LedgerFiltersTest extends TestCase
         $this->get(ShowResource::getUrl('view', ['record' => $this->show->id]))->assertOk()
             ->assertSee(e(WhatnotLedgerResource::getUrl('index', ['show' => $this->show->id, 'period' => 'all'])), false);
     }
+
+    public function test_the_show_picker_searches_titles_channels_and_dates(): void
+    {
+        Show::create(['title' => 'Monday Mystery Night', 'show_date' => now()->subDays(9)->toDateString(), 'whatnot_channel_id' => $this->channel->id, 'status' => 'reconciled']);
+        $page = Livewire::test(ListWhatnotLedgerEntries::class);
+        $this->assertSame(['Friday Breaks', 'Monday Mystery Night'], array_column($page->instance()->searchShows(''), 'title'));
+        $this->assertSame(['Monday Mystery Night'], array_column($page->instance()->searchShows('mystery'), 'title'));
+        $this->assertSame(['Friday Breaks'], array_column($page->instance()->searchShows($this->show->show_date->format('n/j/Y')), 'title'));
+        $this->assertSame('VortexBreaks', $page->instance()->searchShows('friday')[0]['channel']);
+        $page->set('showFilter', (string) $this->show->id)->assertSee('Friday Breaks')->assertSee('Clear show filter', false);
+    }
 }

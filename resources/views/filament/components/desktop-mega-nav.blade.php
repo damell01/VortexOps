@@ -23,6 +23,7 @@ if($assistantOnly){
   \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
   \App\Filament\Pages\EndOfStreamForm::canAccess() ? ['Log a Show',\App\Filament\Pages\EndOfStreamForm::getUrl(panel:'admin')] : null,
   \App\Filament\Pages\Timekeeping::canAccess() ? ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')] : null,
+  \App\Filament\Pages\MyLedgerCharges::canAccess() ? ['My Charges',\App\Filament\Pages\MyLedgerCharges::getUrl(panel:'admin')] : null,
  ]));
 }elseif(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
@@ -56,6 +57,8 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
+ ...(\App\Filament\Pages\PayChangedSincePaid::canAccess() ? [[\App\Support\LedgerNav::changedLabel(),\App\Filament\Pages\PayChangedSincePaid::getUrl(panel:'admin')]] : []),
+ ...(\App\Filament\Resources\WhatnotLedgerResource::canAccess() ? [['Ledger Charges',\App\Filament\Resources\WhatnotLedgerResource::getUrl('charges')]] : []),
 ];
 // Timekeeping is one page — the clock, and for admins a dashboard that opens
 // Time & Attendance's lists — so it is a plain link, not a menu.
@@ -69,9 +72,9 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
  ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
  ['Whatnot Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-up'],
  ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
- ['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar'],
+ ...($user?->canSeeBusinessFinancials() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar']] : []),
  ...(\App\Filament\Pages\ShowPerformance::canAccess() ? [['Show Performance',\App\Filament\Pages\ShowPerformance::getUrl(panel:'admin'),'Financial','heroicon-o-fire']] : []),
- ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index'),'Financial','heroicon-o-document-text'],
+ ...\App\Support\LedgerNav::links(),
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],
 ];

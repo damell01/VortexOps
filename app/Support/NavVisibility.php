@@ -15,6 +15,19 @@ class NavVisibility
         \App\Filament\Pages\ProfitLoss::class,
     ];
 
+    /** The Fulfillment Center: open to every admin (see isHiddenForUser). */
+    public const FULFILLMENT_PAGES = [
+        \App\Filament\Resources\FulfillmentResource::class,
+        \App\Filament\Pages\FulfillmentCenter::class,
+        \App\Filament\Pages\FulfillmentHome::class,
+        \App\Filament\Pages\FulfillmentStationBoard::class,
+        \App\Filament\Pages\FulfillmentActivity::class,
+        \App\Filament\Pages\FulfillmentSchedule::class,
+        \App\Filament\Pages\FulfillmentReports::class,
+        \App\Filament\Pages\FulfillmentOperations::class,
+        \App\Filament\Pages\ShipmentOverview::class,
+    ];
+
     public const ALWAYS_AVAILABLE = [
         // Owner-only preview, deliberately absent from non-owner role settings.
         \App\Filament\Pages\Communications::class,
@@ -147,6 +160,14 @@ class NavVisibility
             return true;
         }
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
+        // Admins run the floor with the fulfillment team, so every Fulfillment
+        // Center page is theirs whatever a saved role list from before it says.
+        // Only an explicit Hide on the Roles screen takes one away.
+        if (in_array($class, self::FULFILLMENT_PAGES, true) && method_exists($user, 'isAdmin') && $user->isAdmin()) {
+            $roles = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
+            $hiddenEverywhere = $roles !== [] && collect($roles)->every(fn ($role) => in_array($class, self::hiddenForRole($role), true));
+            if (! $hiddenEverywhere) return false;
+        }
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;
 

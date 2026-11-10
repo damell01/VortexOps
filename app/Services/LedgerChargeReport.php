@@ -89,14 +89,43 @@ final class LedgerChargeReport
         return ['people' => array_values($people), 'totals' => array_map(fn ($v) => round($v, 2), $totals), 'entries' => $count];
     }
 
-    /** One page of charge lines. */
+    /** One page of charge lines, each with its order's buyer, item and shipment when known. */
     public function lines(string $from, string $until, ?int $streamerId, ?string $category, int $page, int $perPage): Collection
     {
-        return $this->query($from, $until, $streamerId, $category)
+        $lines = $this->query($from, $until, $streamerId, $category)
             ->orderByDesc('le.created_date')->orderByDesc('le.id')
             ->forPage($page, $perPage)
-            ->get(['le.id', 'le.created_date', 'le.transaction_type', 'le.message', 'le.whatnot_order_id', 'le.amount',
-                'a.category', 'a.reason', 'a.streamer_id', 's.name as streamer', 'sh.title as show_title', 'sh.show_date', 'c.name as channel']);
+            ->get(['le.id', 'le.created_date', 'le.transaction_type', 'le.message', 'le.whatnot_order_id', 'le.order_hash', 'le.amount',
+                'a.category', 'a.reason', 'a.streamer_id', 'a.show_id', 's.name as streamer', 'sh.title as show_title', 'sh.show_date', 'c.name as channel']);
+
+        return $this->withOrders($lines);
+    }
+
+    /** Attach buyer, item and shipment (carrier, tracking, status) by Whatnot order number: two queries a page. */
+    private function withOrders(Collection $lines): Collection
+    {
+        $numbers = $lines->pluck('whatnot_order_id')->filter(fn ($n) => filled($n) && $n !== '-')->map(fn ($n) => (string) $n)->unique()->values();
+        $orders = $numbers->isEmpty() ? collect() : DB::table('whatnot_show_orders')->whereIn('whatnot_order_id', $numbers)
+            ->get(['id', 'show_id', 'whatnot_order_id', 'buyer_username', 'buyer_display_name', 'item_name', 'lot_number', 'total_price'])
+            ->groupBy('whatnot_order_id');
+        $shipments = $orders->isEmpty() ? collect() : DB::table('shipments')->whereIn('whatnot_order_id', $orders->flatten(1)->pluck('id'))
+            ->orderByDesc('id')->get(['whatnot_order_id', 'carrier', 'tracking_number', 'status'])->unique('whatnot_order_id')->keyBy('whatnot_order_id');
+
+        return $lines->map(function ($line) use ($orders, $shipments) {
+            $candidates = $orders->get((string) $line->whatnot_order_id, collect());
+            $order = $candidates->firstWhere('show_id', $line->show_id) ?? $candidates->first();
+            $shipment = $order ? $shipments->get($order->id) : null;
+            $line->buyer = $order ? ($order->buyer_username ?: $order->buyer_display_name) : null;
+            $line->item = $order?->item_name;
+            $line->lot = $order?->lot_number;
+            $line->order_total = $order?->total_price;
+            $line->show_id = $line->show_id ?: $order?->show_id;
+            $line->carrier = $shipment?->carrier;
+            $line->tracking = $shipment?->tracking_number;
+            $line->shipment_status = $shipment?->status;
+
+            return $line;
+        });
     }
 
     public function count(string $from, string $until, ?int $streamerId, ?string $category): int

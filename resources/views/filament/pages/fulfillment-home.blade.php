@@ -8,18 +8,30 @@
 @endphp
 @include('fulfillment.dev-banner')
 @include('fulfillment.motion')
-<div class="vxf" wire:poll.20s>
+<div class="vxf" wire:poll.20s x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') !== 'hidden' } catch (e) { return true } })(),
+        toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
         <div>
             <h1>{{ $manager ? 'Fulfillment Operations' : 'My Fulfillment' }}</h1>
             <p>{{ $manager ? 'Live stations, shows ready to pack, and packing activity.' : 'Your shows, your station and your shift.' }}</p>
         </div>
         <div class="vxf-actions">
+            <button type="button" class="vxf-btn" @click="toggleGuide()" :aria-pressed="guide"><x-heroicon-o-light-bulb /> How it works</button>
             <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}"><x-heroicon-o-qr-code /> Station Board</a>
             <a class="vxf-btn" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl() }}"><x-heroicon-o-calendar-days /> Schedule &amp; Activity</a>
             <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
         </div>
     </div>
+
+    <section class="vxf-guide" x-show="guide" x-cloak x-transition aria-label="How the Fulfillment Center works">
+        <ol>
+            <li><b>1</b><div><strong>Shows arrive</strong><span>When a stream ends and its report is approved, the show appears in Ready to pack.</span></div></li>
+            <li><b>2</b><div><strong>Assign</strong><span>{{ $manager ? 'Pick a packer and a station: Assign show on an idle station, or Assign in the list.' : 'A manager gives you a show and a station. Yours appear under My shows.' }}</span></div></li>
+            <li><b>3</b><div><strong>Pack A–Z</strong><span>Press Start. Buyers are lettered in order; scan, Mark Packed, and it moves to the next one.</span></div></li>
+            <li><b>4</b><div><strong>Finish &amp; approve</strong><span>Finish the show, confirm the record, and a manager approves it. Every step is logged for you.</span></div></li>
+        </ol>
+        <button type="button" class="vxf-iconbtn" @click="toggleGuide()" aria-label="Hide the guide"><x-heroicon-o-x-mark /></button>
+    </section>
 
     <section class="vxf-stats" aria-label="Today at a glance">
         @foreach (array_filter([

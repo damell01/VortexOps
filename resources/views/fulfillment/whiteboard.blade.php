@@ -17,6 +17,7 @@
             <svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#7c3aed"/><path d="M8 9h16l-8 15z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><path d="M12.5 12.5h7l-3.5 6.5z" fill="#fff"/></svg>
             <span>VORTEX OPS <small>{{ $station ? 'Station whiteboard' : 'Fulfillment whiteboard' }}</small></span>
             <span class="vxtv__live" id="vxtv-live"><i aria-hidden="true"></i> Live</span>
+            <span class="vxtv__dev">In development</span>
         </div>
         @unless ($station)
             <dl class="vxtv__summary" aria-label="Today">
@@ -28,6 +29,7 @@
         @endunless
         <div class="vxtv__tools">
             <span class="vxtv__clock" id="vxtv-clock" aria-live="off">{{ $initial['now'] }}</span>
+            <a class="vxtv__home" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl(panel: 'admin') }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg> Fulfillment Home</a>
             <label class="sr-only" for="vxf-station-pick">Show station</label>
             <select id="vxf-station-pick" class="vxtv__pick">
                 <option value="{{ route('fulfillment.whiteboard', ['density' => $density]) }}" @selected(! $station)>All stations</option>
@@ -45,7 +47,6 @@
             <button type="button" id="vxf-fullscreen">Full screen</button>
         </div>
     </header>
-    @include('fulfillment.dev-banner')
 
     <section id="vxf-board" class="vxtv__board" aria-live="polite" aria-label="Stations"></section>
     <nav class="vxtv__pages" id="vxtv-pages" aria-label="Station pages" hidden></nav>
@@ -164,7 +165,7 @@
             if (!calm) { refs.letter.classList.remove('is-flip'); void refs.letter.offsetWidth; refs.letter.classList.add('is-flip'); }
         }
         set(refs.buyer, s.buyer || (upNext ? upNext.buyer : (s.status === 'ready' ? 'Waiting to start' : '')));
-        set(refs.whoLabel, s.buyer ? 'Now packing' : upNext ? 'Up next' : '');
+        set(refs.whoLabel, s.buyer ? (s.status === 'paused' ? 'Paused on' : 'Now packing') : upNext ? 'Up next' : '');
         const pct = s.pct || 0;
         refs.arc.setAttribute('stroke-dashoffset', String(C * (1 - pct / 100)));
         refs.ring.setAttribute('aria-label', pct + '% packed');

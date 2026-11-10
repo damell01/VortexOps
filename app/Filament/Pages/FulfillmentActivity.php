@@ -65,6 +65,40 @@ class FulfillmentActivity extends Page
     public bool $shiftOpen = false;
     public ?int $shiftId = null;
     public array $shift = [];
+    public bool $shiftSaving = false;
+    public bool $repeatShift = false;
+    public array $repeatDays = [];
+    public ?string $repeatUntil = null;
+    public string $showSearch = '';
+    public bool $showPickerOpen = false;
+
+    public function chooseShiftKind(string $kind): void
+    {
+        if (! in_array($kind, ['day', 'night', 'custom'], true)) return;
+        $this->shift['kind'] = $kind === 'custom' ? '' : $kind;
+        $this->shift['selection'] = $kind;
+        if ($kind === 'day') { $this->shift['start'] = config('fulfillment.day_start', '08:00'); $this->shift['end'] = config('fulfillment.day_end', '16:00'); }
+        if ($kind === 'night') { $this->shift['start'] = config('fulfillment.night_start', '19:00'); $this->shift['end'] = config('fulfillment.night_end', '23:00'); }
+    }
+
+    public function toggleShiftShow(int $id): void
+    {
+        abort_unless($this->isManager(), 403);
+        if (! array_key_exists($id, $this->assignableShows)) return;
+        $ids = array_map('intval', $this->shift['show_ids'] ?? []);
+        $this->shift['show_ids'] = array_values(array_map('strval', in_array($id, $ids, true) ? array_diff($ids, [$id]) : [...$ids, $id]));
+    }
+
+    public function shiftDuration(): string
+    {
+        try {
+            $start = CarbonImmutable::parse('2000-01-01 ' . ($this->shift['start'] ?? '08:00'));
+            $end = CarbonImmutable::parse('2000-01-01 ' . ($this->shift['end'] ?? '16:00'));
+            if ($end->lessThanOrEqualTo($start)) $end = $end->addDay();
+            $minutes = (int) $start->diffInMinutes($end);
+            return sprintf('%dh %02dm%s', intdiv($minutes, 60), $minutes % 60, $end->isNextDay() ? ' · overnight' : '');
+        } catch (\Throwable) { return 'Choose valid times'; }
+    }
 
     /** Station editor. */
     public string $newStation = '';
@@ -165,7 +199,8 @@ class FulfillmentActivity extends Page
         abort_unless($this->isManager(), 403);
         $this->shiftId = null;
         $this->shift = ['user_id' => $userId ? (string) $userId : '', 'date' => $date ?? today()->toDateString(), 'start' => '08:00', 'end' => '16:00',
-            'station_id' => '', 'kind' => '', 'notes' => '', 'show_ids' => []];
+            'station_id' => '', 'kind' => 'day', 'selection' => 'day', 'notes' => '', 'show_ids' => []];
+        $this->repeatShift = false; $this->repeatDays = []; $this->repeatUntil = null; $this->showSearch = ''; $this->showPickerOpen = false;
         $this->shiftOpen = true;
         $this->resetErrorBag();
     }
@@ -178,8 +213,9 @@ class FulfillmentActivity extends Page
         $this->shiftId = $s->id;
         $this->shift = ['user_id' => (string) $s->user_id, 'date' => $s->starts_at->timezone($tz)->toDateString(),
             'start' => $s->starts_at->timezone($tz)->format('H:i'), 'end' => $s->ends_at->timezone($tz)->format('H:i'),
-            'station_id' => (string) ($s->station_id ?? ''), 'kind' => $s->kind ?? '', 'notes' => $s->notes ?? '',
+            'station_id' => (string) ($s->station_id ?? ''), 'kind' => $s->kind ?? '', 'selection' => $s->kind ?: 'custom', 'notes' => $s->notes ?? '',
             'show_ids' => $s->shows->pluck('id')->map(fn ($v) => (string) $v)->all()];
+        $this->repeatShift = false; $this->repeatDays = []; $this->repeatUntil = null; $this->showSearch = ''; $this->showPickerOpen = false;
         $this->shiftOpen = true;
         $this->resetErrorBag();
     }
@@ -187,6 +223,9 @@ class FulfillmentActivity extends Page
     public function saveShift(): void
     {
         abort_unless($this->isManager(), 403);
+        if ($this->shiftSaving) return;
+        $this->shiftSaving = true;
+        try {
         $this->validate([
             'shift.user_id' => ['required', 'integer'], 'shift.date' => ['required', 'date'],
             'shift.start' => ['required', 'date_format:H:i'], 'shift.end' => ['required', 'date_format:H:i'],
@@ -212,6 +251,7 @@ class FulfillmentActivity extends Page
         $this->shiftOpen = false;
         unset($this->weekShifts);
         Notification::make()->title('Shift saved')->success()->send();
+        } finally { $this->shiftSaving = false; }
     }
 
     public function deleteShift(): void

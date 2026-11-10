@@ -242,7 +242,9 @@
             </section>
         @endif
 
-        {{-- Keep the modal in the Livewire DOM: teleporting conditional siblings can leave Alpine with a null teleport anchor. --}}
+        {{-- Stable Livewire teleport root keeps the shift modal outside page layout and stacking contexts. --}}
+            @teleport('body')
+            <div class="vxf-shift-portal" wire:key="fulfillment-legacy-shift-portal">
             @if ($shiftOpen)
             <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
             <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
@@ -279,10 +281,12 @@
                         @error('repeatDays')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                         @error('repeatUntil')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                     </div>
-                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)" @click="visible = false">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
+                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
                 </form>
             </section>
         @endif
+            </div>
+            @endteleport
     @endif
 
     {{-- ── Show logs ────────────────────────────────────────────────── --}}

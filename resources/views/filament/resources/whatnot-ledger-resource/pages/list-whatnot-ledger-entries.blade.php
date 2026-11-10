@@ -561,6 +561,7 @@
                             <th><button type="button" wire:click="sortBy('transaction_type')">Type <x-filament::icon :icon="$sortIcon('transaction_type')" class="h-4 w-4" /></button></th>
                             <th><button type="button" wire:click="sortBy('status')">Status <x-filament::icon :icon="$sortIcon('status')" class="h-4 w-4" /></button></th>
                             <th><button type="button" wire:click="sortBy('whatnot_order_id')">Order ID <x-filament::icon :icon="$sortIcon('whatnot_order_id')" class="h-4 w-4" /></button></th>
+                            <th>Show / Buyer</th>
                             <th>Details</th>
                             <th><button type="button" wire:click="sortBy('channel')">Channel <x-filament::icon :icon="$sortIcon('channel')" class="h-4 w-4" /></button></th>
                         </tr>
@@ -600,6 +601,18 @@
                                     @endif
                                 </td>
                                 <td style="font-variant-numeric:tabular-nums">{{ $entry->whatnot_order_id ?: '—' }}</td>
+                                <td class="min-w-[180px] max-w-[260px]" x-on:click.stop>
+                                    @if($entry->linked_show_id && $entry->linked_show_title && \App\Filament\Resources\ShowResource::canAccess())
+                                        <a class="block truncate font-semibold text-violet-700 hover:underline dark:text-violet-300"
+                                           href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $entry->linked_show_id]) }}"
+                                           title="{{ $entry->linked_show_title }}">{{ $entry->linked_show_title }}</a>
+                                    @else
+                                        <span class="block truncate text-xs text-[var(--vx-muted)]">{{ $entry->linked_show_title ?: 'Not matched to a show' }}</span>
+                                    @endif
+                                    @if($entry->linked_buyer)
+                                        <span class="block truncate text-xs text-[var(--vx-muted)]" title="{{ $entry->linked_buyer }}">Buyer: {{ $entry->linked_buyer }}</span>
+                                    @endif
+                                </td>
                                 <td><div class="vxled-details" title="{{ $entry->message }}">{{ Str::limit((string) $entry->message, 120) ?: '—' }}</div></td>
                                 <td style="white-space:nowrap">{{ $entry->channel?->name ?? '—' }}</td>
                             </tr>
@@ -607,7 +620,7 @@
                         @else
 
                             <tr>
-                                <td colspan="{{ $canDelete ? 8 : 7 }}">
+                                <td colspan="{{ $canDelete ? 9 : 8 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
                                         @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $businessFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')

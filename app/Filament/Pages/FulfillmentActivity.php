@@ -113,6 +113,38 @@ class FulfillmentActivity extends Page
         Notification::make()->title('Open shift created')->success()->send();
     }
 
+    public ?int $assignBlockId = null;
+    public ?int $assignEmployeeId = null;
+    public ?int $assignStationId = null;
+
+    public function openBlockAssignment(int $blockId): void
+    {
+        abort_unless($this->isManager(), 403);
+        abort_unless(\Illuminate\Support\Facades\DB::table('fulfillment_shift_blocks')->where('id', $blockId)->exists(), 404);
+        $this->assignBlockId = $blockId;
+        $this->assignEmployeeId = null;
+        $this->assignStationId = null;
+    }
+
+    public function saveBlockAssignment(): void
+    {
+        abort_unless($this->isManager() && $this->assignBlockId, 403);
+        $this->validate([
+            'assignEmployeeId' => ['required', 'integer', 'exists:users,id'],
+            'assignStationId' => ['nullable', 'integer', 'exists:fulfillment_stations,id'],
+        ]);
+        try {
+            app(\App\Services\FulfillmentShiftBlockService::class)->assign(
+                auth()->user(), $this->assignBlockId, $this->assignEmployeeId, $this->assignStationId,
+            );
+        } catch (ValidationException $e) {
+            $this->addError('assignEmployeeId', collect($e->errors())->flatten()->first() ?? 'Unable to assign employee.');
+            return;
+        }
+        $this->assignBlockId = null;
+        Notification::make()->title('Employee assigned to shift')->success()->send();
+    }
+
     public function blockRows(): \Illuminate\Support\Collection
     {
         return app(\App\Services\FulfillmentShiftBlockService::class)->week(auth()->user(), $this->weekStart()->utc());

@@ -58,13 +58,13 @@ class NavVisibility
         $map = self::visibleByRole();
         // A role nobody has configured shows its defaults ticked on the Roles
         // screen, so saving it without changes keeps what the role already had.
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : (self::ROLE_DEFAULTS[$role] ?? []));
+        return $map[$role] ?? (self::ROLE_DEFAULTS[$role] ?? []);
     }
 
     public static function hasExplicitVisibility(string $role): bool
     {
         $map = self::visibleByRole();
-        return array_key_exists($role, $map) || ($role === 'fulfillment_admin' && array_key_exists('admin', $map));
+        return array_key_exists($role, $map);
     }
 
     /**
@@ -108,7 +108,7 @@ class NavVisibility
     public static function hiddenForRole(string $role): array
     {
         $map = self::hiddenByRole();
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
+        return $map[$role] ?? [];
     }
 
     public static function setHiddenForRole(string $role, array $classes): void
@@ -125,6 +125,27 @@ class NavVisibility
         if (method_exists($user, 'isStreamerAssistant') && $user->isStreamerAssistant()) {
             return ! in_array($class, [
                 \App\Filament\Pages\DashboardImproved::class,
+                \App\Filament\Pages\TwoFactorAuth::class,
+                \App\Filament\Pages\TwoFactorVerify::class,
+            ], true);
+        }
+        // Fulfillment-only managers do not inherit the general admin sidebar,
+        // even when older saved role settings granted administrative pages.
+        if (method_exists($user, 'isFulfillmentAdmin') && $user->isFulfillmentAdmin()
+            && ! $user->isAdmin()) {
+            $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
+                ? $class::getResource() : $class;
+            return ! in_array($navigationClass, [
+                \App\Filament\Pages\FulfillmentHome::class,
+                \App\Filament\Pages\FulfillmentStationBoard::class,
+                \App\Filament\Pages\FulfillmentSchedule::class,
+                \App\Filament\Pages\FulfillmentActivity::class,
+                \App\Filament\Pages\FulfillmentReports::class,
+                \App\Filament\Pages\FulfillmentOperations::class,
+                \App\Filament\Resources\FulfillmentResource::class,
+                \App\Filament\Resources\InventoryItemResource::class,
+                \App\Filament\Pages\EditProfile::class,
+                \App\Filament\Pages\MyNotifications::class,
                 \App\Filament\Pages\TwoFactorAuth::class,
                 \App\Filament\Pages\TwoFactorVerify::class,
             ], true);
@@ -193,7 +214,7 @@ class NavVisibility
     public static function readonlyForRole(string $role): array
     {
         $map = self::readonlyByRole();
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
+        return $map[$role] ?? [];
     }
 
     public static function setReadonlyForRole(string $role, array $classes): void

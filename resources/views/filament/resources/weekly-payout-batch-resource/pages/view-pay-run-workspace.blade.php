@@ -43,6 +43,16 @@
     $run = $this->record;
     $run->loadMissing(['payouts.streamer','payouts.show','createdBy','finalizedBy']);
     $payouts = $run->payouts;
+    // Show-level approved tip attribution is read-only here; never modify a saved pay run.
+    $tipShowIds = $payouts->pluck('show_id')->filter()->unique()->values()->all();
+    $approvedTipsByShow = empty($tipShowIds) ? collect() : \Illuminate\Support\Facades\DB::table('ledger_attributions as a')
+        ->join('whatnot_ledger_entries as le', 'le.id', '=', 'a.whatnot_ledger_entry_id')
+        ->whereIn('a.show_id', $tipShowIds)
+        ->where('a.status', 'approved')
+        ->where(fn ($q) => $q->where('a.category', 'tips')->orWhereRaw('LOWER(TRIM(le.transaction_type)) IN (?, ?)', ['tip', 'tips']))
+        ->selectRaw('a.show_id, SUM(le.amount) as tip_total')
+        ->groupBy('a.show_id')->pluck('tip_total', 'show_id');
+
     $periodShows = $this->periodShows();
     $problems = $run->status === 'draft' ? app(\App\Services\PayRunReadinessService::class)->problems($run) : [];
     $allPeople = $payouts->groupBy('streamer_id');
@@ -265,6 +275,19 @@
                                 <article class="vx-payroll-line-card">
                                     <div>
                                         <div class="truncate font-semibold text-[var(--vxw-text)]">{{ $payout->show?->title ?? 'General payroll line' }}</div>
+                                    @if($payout->show)
+                                        @php
+                                            $recordedTip = max((float) ($payout->show->tips ?? 0), (float) ($approvedTipsByShow[$payout->show_id] ?? 0));
+                                        @endphp
+                                        @if($recordedTip > 0)
+                                            <span class="vxw-pill" style="background:#dcfce7;color:#166534;border-color:#86efac" title="Recorded show tips; whether they are included in payout depends on the pay formula">
+                                                Tips recorded: {{ $money($recordedTip) }}
+                                            </span>
+                                            @if(! $payout->streamer?->include_tips)
+                                                <span class="vxw-meta" title="This streamer's settings do not include tips in their payout formula">Not included in payout</span>
+                                            @endif
+                                        @endif
+                                    @endif
                                         <div class="vxw-meta">{{ $payout->payout_type === \App\Services\OtherPayService::TYPE ? 'Other Pay' : (\App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? ''))) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
                                         @if(str_contains((string) $payout->calculation_notes, '[OTHER_PAYMENT:'))
                                             <div class="vxw-meta" style="margin-top:4px">

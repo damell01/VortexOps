@@ -7,12 +7,12 @@
     </div>
     @if($open)
         @teleport('body')
-        <div data-vx-dialog data-inventory-recent-changes class="fixed inset-0 z-[9998] flex items-center justify-center overflow-hidden bg-black/80 px-3 sm:px-6" style="position:fixed;inset:0;z-index:9998;height:100dvh;box-sizing:border-box;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))" role="dialog" aria-modal="true" aria-labelledby="recent-inventory-title" x-data x-init="$nextTick(() => $refs.closeRecentChanges?.focus())" x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.close()" x-on:click.self="$wire.close()">
+        <div data-vx-dialog data-inventory-recent-changes class="fixed inset-0 z-[9998] flex items-center justify-center overflow-hidden bg-black/80 px-3 sm:px-6" style="position:fixed;inset:0;z-index:9998;height:100dvh;box-sizing:border-box;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))" role="dialog" aria-modal="true" aria-labelledby="recent-inventory-title" x-data="{ visible: true, dismiss() { if (!this.visible) return; this.visible = false; this.$wire.close(); } }" x-show="visible" x-init="$nextTick(() => $refs.closeRecentChanges?.focus())" x-trap.inert.noscroll="true" x-on:keydown.escape.window="dismiss()" x-on:click.self="dismiss()">
             <section class="flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-purple-500 bg-[#0d0b1d] text-white" style="max-height:100%;box-shadow:0 0 60px rgba(124,58,237,.35)">
                 <header class="shrink-0 border-b border-purple-800/60 bg-gradient-to-r from-[#241047] to-[#0e1a32] p-4 sm:p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div><p class="text-xs font-bold uppercase tracking-widest text-purple-300">Inventory activity</p><h2 id="recent-inventory-title" class="mt-1 text-2xl font-extrabold">Recent Changes</h2><p class="text-sm text-gray-300">Showing inventory changes for your selected period</p></div>
-                        <button type="button" wire:click="close" x-ref="closeRecentChanges" aria-label="Close recent changes" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-purple-500/50 font-bold hover:bg-purple-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-300">✕</button>
+                        <button type="button" x-on:click="dismiss()" x-ref="closeRecentChanges" aria-label="Close recent changes" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-purple-500/50 font-bold hover:bg-purple-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-300">✕</button>
                     </div>
                 </header>
                 <div data-inventory-changes-scroll class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -54,7 +54,7 @@
                     @endif
                 </div>
                 </div>
-                <footer class="shrink-0 border-t border-purple-900 bg-[#100d23] p-4 text-right"><button type="button" wire:click="close" class="min-h-11 w-full rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-5 py-3 font-extrabold text-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300 sm:w-auto">Done</button></footer>
+                <footer class="shrink-0 border-t border-purple-900 bg-[#100d23] p-4 text-right"><button type="button" x-on:click="dismiss()" class="min-h-11 w-full rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-5 py-3 font-extrabold text-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300 sm:w-auto">Done</button></footer>
             </section>
         </div>
         @endteleport

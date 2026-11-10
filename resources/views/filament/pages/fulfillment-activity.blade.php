@@ -124,7 +124,8 @@
             </section>
         @endif
 
-        @if ($shiftOpen)
+        @teleport('body')
+            @if ($shiftOpen)
             <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
             <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
                 <header class="vxf-shift-modal__header"><div><h2 id="vxf-shift-title">{{ $shiftId ? 'Edit Shift' : 'Add Shift' }}</h2><p class="vxf-sub">Create a shift for a team member.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('shiftOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
@@ -153,7 +154,7 @@
                         @if (! $shiftId)
                             <label class="vxf-shift-repeat"><input type="checkbox" wire:model.live="repeatShift"> Repeat Shift (Optional)</label>
                             @if ($repeatShift)<fieldset class="vxf-shift-weekdays"><legend>Repeat on weekdays</legend>@foreach (['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $index => $name)<label><input type="checkbox" wire:model="repeatDays" value="{{ $index + 1 }}"> {{ $name }}</label>@endforeach</fieldset><label class="vxf-field">Repeat until <input type="date" class="vxf-input" wire:model="repeatUntil"></label>@endif
-                        @endif
+                            @endif
                         <details class="vxf-shift-notes"><summary>Notes (Optional)</summary><textarea class="vxf-input" rows="3" maxlength="255" wire:model="shift.notes" placeholder="Shift instructions…"></textarea></details>
                         @error('shift')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                         @error('shift.*')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
@@ -164,6 +165,7 @@
                 </form>
             </section>
         @endif
+        @endteleport
     @endif
 
     {{-- ── Show logs ────────────────────────────────────────────────── --}}

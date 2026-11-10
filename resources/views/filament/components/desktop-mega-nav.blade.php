@@ -189,7 +189,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @foreach($groups as $label=>$links)
 @if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
 @php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp
-<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" wire:navigate.hover @if($here) aria-current="page" @endif><span>{{ $label }}</span></a>
+<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" wire:navigate.hover @if($here) aria-current="page" @endif><x-filament::icon icon="heroicon-o-clock" class="vx-mega-group-icon"/><span>{{ $label }}</span></a>
 @continue
 @endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
@@ -200,7 +200,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     $isCurrent = fn ($url) => ($p = $linkPath($url)) !== '/admin' && $p !== '/' && ($currentPath === $p || str_starts_with($currentPath, $p.'/'));
     $groupHere = collect($links)->contains(fn ($l) => $l[1] !== '#' && $isCurrent($l[1]));
 @endphp
-<button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
+@php $groupIcon = match($label) { 'Shows' => 'heroicon-o-video-camera', 'Fulfillment' => 'heroicon-o-cube', 'Inventory' => 'heroicon-o-archive-box', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-document-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', default => 'heroicon-o-squares-2x2' }; @endphp
+<button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><x-filament::icon :icon="$groupIcon" class="vx-mega-group-icon"/><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" class="vx-mega-chevron"/></button>
 @php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
 <div @class(['vx-mega-menu', 'vx-mega-menu--wide' => count($links) >= 8]) x-cloak x-show="open" x-transition>
 @unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless

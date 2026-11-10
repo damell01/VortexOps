@@ -61,6 +61,63 @@ class FulfillmentActivity extends Page
     public array $resolution = [];
 
 
+    /** Flexible shift blocks are independent of historical employee shifts. */
+    public bool $blockOpen = false;
+    public string $blockDate = '';
+    public string $blockKind = 'day';
+    public string $blockStart = '06:00';
+    public string $blockEnd = '18:00';
+    public int $blockRequired = 3;
+    public string $blockNotes = '';
+
+    public function chooseBlockKind(string $kind): void
+    {
+        abort_unless($this->isManager(), 403);
+        if (! in_array($kind, ['day', 'night', 'custom'], true)) return;
+        $this->blockKind = $kind;
+        if ($kind === 'day') { $this->blockStart = '06:00'; $this->blockEnd = '18:00'; }
+        if ($kind === 'night') { $this->blockStart = '18:00'; $this->blockEnd = '06:00'; }
+    }
+
+    public function openBlock(): void
+    {
+        abort_unless($this->isManager(), 403);
+        $this->blockDate = $this->weekStart()->toDateString();
+        $this->blockOpen = true;
+    }
+
+    public function saveBlock(): void
+    {
+        abort_unless($this->isManager(), 403);
+        $this->validate([
+            'blockDate' => ['required', 'date'],
+            'blockKind' => ['required', 'in:day,night,custom'],
+            'blockStart' => ['required', 'date_format:H:i'],
+            'blockEnd' => ['required', 'date_format:H:i'],
+            'blockRequired' => ['required', 'integer', 'between:1,100'],
+            'blockNotes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $tz = BusinessTime::zone();
+        $start = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockStart, $tz);
+        $end = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockEnd, $tz);
+        if ($end->lessThanOrEqualTo($start)) $end = $end->addDay();
+        app(\App\Services\FulfillmentShiftBlockService::class)->create(auth()->user(), [
+            'starts_at' => $start->utc()->toDateTimeString(),
+            'ends_at' => $end->utc()->toDateTimeString(),
+            'kind' => $this->blockKind,
+            'label' => $this->blockKind === 'day' ? 'Day Team' : ($this->blockKind === 'night' ? 'Night Team' : 'Custom Shift'),
+            'required_staff' => $this->blockRequired,
+            'notes' => $this->blockNotes,
+        ]);
+        $this->blockOpen = false;
+        Notification::make()->title('Open shift created')->success()->send();
+    }
+
+    public function blockRows(): \Illuminate\Support\Collection
+    {
+        return app(\App\Services\FulfillmentShiftBlockService::class)->week(auth()->user(), $this->weekStart()->utc());
+    }
+
     /** Shift drawer. */
     public bool $shiftOpen = false;
     public ?int $shiftId = null;

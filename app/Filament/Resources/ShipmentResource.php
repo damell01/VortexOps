@@ -85,35 +85,23 @@ class ShipmentResource extends Resource
             ->persistFiltersInSession(false)
             ->defaultSort('created_at_whatnot', 'desc')
             ->columns([
-                TextColumn::make('buyer_username')->label('Recipient')->searchable()->sortable()->placeholder('—'),
-                TextColumn::make('created_at_whatnot')->label('Order Date')->dateTime('M j, Y')->sortable()->placeholder('—'),
-                TextColumn::make('item_count')->label('Items')->numeric()->sortable(),
-                TextColumn::make('shipment_value')
-                    ->label('Shipment Value')
-                    ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipment_value') ?? data_get($record->raw_payload, 'total_price'))
-                    ->money('USD')->placeholder('—'),
-                TextColumn::make('shipping_cost')->label('Shipping Cost')->money('USD')->sortable()->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('weight_oz')->label('Weight')->formatStateUsing(function ($state): string {
-                    if ($state === null || $state === '') return '—';
-                    $oz = (float) $state;
-                    if ($oz >= 16) {
-                        $lb = floor($oz / 16);
-                        $remain = round(fmod($oz, 16), 1);
-                        return $remain > 0 ? "{$lb} lb {$remain} oz" : "{$lb} lb";
-                    }
-                    return rtrim(rtrim(number_format($oz, 1), '0'), '.') . ' oz';
-                }),
-                TextColumn::make('dimensions_json')->label('Dimensions')->state(function (Shipment $record): string {
-                    $d = $record->dimensions_json ?? [];
-                    if (! is_array($d) || $d === []) return '—';
-                    $l = $d['box_length_in'] ?? $d['length_in'] ?? $d['length'] ?? null;
-                    $w = $d['box_width_in'] ?? $d['width_in'] ?? $d['width'] ?? null;
-                    $h = $d['box_height_in'] ?? $d['height_in'] ?? $d['height'] ?? null;
-                    return ($l !== null || $w !== null || $h !== null)
-                        ? implode(' × ', array_map(fn ($v) => $v ?? '—', [$l, $w, $h])) . ' in'
-                        : '—';
-                }),
-                TextColumn::make('status')->badge()
+                TextColumn::make('buyer_username')
+                    ->label('Recipient')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    ->limit(22)
+                    ->tooltip(fn (Shipment $record) => $record->buyer_username)
+                    ->description(fn (Shipment $record) => $record->created_at_whatnot?->format('M j, Y') ?? 'Order date unavailable')
+                    ->placeholder('—'),
+                TextColumn::make('item_count')
+                    ->label('Items')
+                    ->numeric()
+                    ->sortable()
+                    ->alignCenter(),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
                     ->formatStateUsing(fn ($state) => $state ? ucwords(str_replace('_', ' ', $state)) : 'Unknown')
                     ->color(fn ($state) => match (strtolower((string) $state)) {
                         'delivered' => 'success',
@@ -121,12 +109,70 @@ class ShipmentResource extends Resource
                         'pending', 'pending delivery', 'ready_to_ship', 'ready to ship', 'label_created', 'label created' => 'warning',
                         'failed', 'returned', 'cancelled', 'canceled' => 'danger',
                         default => 'gray',
-                    })->sortable(),
-                TextColumn::make('carrier')->label('Carrier')->searchable()->placeholder('—'),
-                TextColumn::make('shipping_service')->label('Service')->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipping_service'))->placeholder('—')->toggleable(),
-                TextColumn::make('tracking_number')->label('Tracking')->searchable()->copyable()->copyMessage('Tracking number copied')->fontFamily('mono')->placeholder('—'),
-                IconColumn::make('insurance_added')->label('Insured')->boolean()->toggleable(isToggledHiddenByDefault: true),
-                IconColumn::make('signature_required')->label('Signature')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                    })
+                    ->sortable(),
+                TextColumn::make('carrier')
+                    ->label('Carrier / Service')
+                    ->searchable()
+                    ->formatStateUsing(fn ($state) => $state ? strtoupper((string) $state) : '—')
+                    ->description(fn (Shipment $record) => data_get($record->raw_payload, 'shipping_service'))
+                    ->placeholder('—'),
+                TextColumn::make('tracking_number')
+                    ->label('Tracking')
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('Tracking number copied')
+                    ->fontFamily('mono')
+                    ->limit(20)
+                    ->tooltip(fn (Shipment $record) => $record->tracking_number)
+                    ->placeholder('—'),
+                TextColumn::make('weight_oz')
+                    ->label('Weight / Box')
+                    ->formatStateUsing(function ($state): string {
+                        if ($state === null || $state === '') return '—';
+                        $oz = (float) $state;
+                        if ($oz >= 16) {
+                            $lb = floor($oz / 16);
+                            $remain = round(fmod($oz, 16), 1);
+                            return $remain > 0 ? "{$lb} lb {$remain} oz" : "{$lb} lb";
+                        }
+                        return rtrim(rtrim(number_format($oz, 1), '0'), '.') . ' oz';
+                    })
+                    ->description(function (Shipment $record): ?string {
+                        $d = $record->dimensions_json ?? [];
+                        if (! is_array($d) || $d === []) return null;
+                        $l = $d['box_length_in'] ?? $d['length_in'] ?? $d['length'] ?? null;
+                        $w = $d['box_width_in'] ?? $d['width_in'] ?? $d['width'] ?? null;
+                        $h = $d['box_height_in'] ?? $d['height_in'] ?? $d['height'] ?? null;
+                        return ($l !== null || $w !== null || $h !== null)
+                            ? implode(' × ', array_map(fn ($v) => $v ?? '—', [$l, $w, $h])) . ' in'
+                            : null;
+                    }),
+                TextColumn::make('created_at_whatnot')
+                    ->label('Order Date')
+                    ->dateTime('M j, Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('shipment_value')
+                    ->label('Shipment Value')
+                    ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipment_value') ?? data_get($record->raw_payload, 'total_price'))
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('shipping_cost')
+                    ->label('Shipping Cost')
+                    ->money('USD')
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('insurance_added')
+                    ->label('Insured')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('signature_required')
+                    ->label('Signature')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('show_id')
@@ -151,7 +197,7 @@ class ShipmentResource extends Resource
                     ->visible(fn (Shipment $record) => (bool) $record->show),
             ])
             ->paginationPageOptions(\App\Support\MobileTablePagination::options([25, 50, 100]))
-            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(50))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
             ->striped()
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No shipments for this show yet');

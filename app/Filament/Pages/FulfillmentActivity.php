@@ -84,7 +84,7 @@ class FulfillmentActivity extends Page
     public function toggleShiftShow(int $id): void
     {
         abort_unless($this->isManager(), 403);
-        if (! array_key_exists($id, $this->assignableShows)) return;
+        if (! array_key_exists($id, $this->assignableShows) && ! in_array($id, array_map('intval', $this->shift['show_ids'] ?? []), true)) return;
         $ids = array_map('intval', $this->shift['show_ids'] ?? []);
         $this->shift['show_ids'] = array_values(array_map('strval', in_array($id, $ids, true) ? array_diff($ids, [$id]) : [...$ids, $id]));
     }

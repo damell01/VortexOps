@@ -69,4 +69,12 @@ class YearEndPayTest extends TestCase
             ->assertSee('Ana Lopez')->assertSee('$950.00')->assertSee('No legal name on file')
             ->call('export')->assertFileDownloaded('year-end-pay-2026.csv');
     }
+
+    public function test_only_the_owner_can_open_it(): void
+    {
+        $this->assertTrue(YearEndPay::canAccess());
+        $admin = User::factory()->create(['email' => 'admin@example.test']);
+        $this->actingAs($admin);
+        $this->assertFalse(YearEndPay::canAccess());
+    }
 }

@@ -1104,3 +1104,9 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-pausepick__card{width:min(440px,100%);border-radius:18px;padding:20px;background:var(--vxf-card);border:1px solid var(--vxf-line);box-shadow:0 20px 50px rgba(0,0,0,.3)}
 .vxf-pausepick__card h2{margin:0 0 12px;font-size:18px;font-weight:800}
 .vxf-pausepick__grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vxf-so-rec{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 0}
+.vxf-so-rec>div{padding:8px 10px;border-radius:10px;background:var(--vxf-soft,rgba(148,163,184,.12))}
+.vxf-so-rec dt{font-size:11px;color:var(--vxf-muted,#64748b)}
+.vxf-so-rec dd{margin:2px 0 0;font-weight:800;font-size:18px}
+.vxf-so-missing{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:220px;overflow:auto}
+.vxf-so-missing li{display:flex;flex-wrap:wrap;gap:4px 8px;padding:6px 8px;border-radius:8px;background:rgba(220,38,38,.07)}

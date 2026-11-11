@@ -74,6 +74,36 @@
                                 <li class="{{ $signed ? 'is-done' : 'is-next' }}"><strong>Final sign-off</strong><span>{{ $signed ? $run->approver?->name . ' · ' . $run->approved_at->timezone($tz)->format('M j · g:i A') : 'You' }}</span></li>
                             </ol>
                         </section>
+                        @php $rc = $d['reconciliation'] ?? null; @endphp
+                        @if ($rc)
+                            <section class="vxf-card vxf-card__body" aria-labelledby="vxf-so-rec">
+                                <h3 id="vxf-so-rec" style="margin:0;display:flex;align-items:center;gap:8px">Reconciliation
+                                    <span class="vxf-pill vxf-pill--{{ $rc['ok'] ? 'approved' : 'paused' }}">{{ $rc['ok'] ? 'All accounted for' : 'Check ' . (count($rc['missing_orders']) + count($rc['missing_shipments'])) }}</span></h3>
+                                <dl class="vxf-so-rec">
+                                    <div><dt>Whatnot orders</dt><dd class="vxf-num">{{ $rc['orders'] }}</dd></div>
+                                    <div><dt>Shipments</dt><dd class="vxf-num">{{ $rc['shipments'] }}</dd></div>
+                                    <div><dt>Packages packed</dt><dd class="vxf-num">{{ $rc['packed'] }}</dd></div>
+                                    <div><dt>Buyers packed</dt><dd class="vxf-num">{{ $rc['buyers_packed'] }}/{{ $rc['buyers'] }}</dd></div>
+                                </dl>
+                                @if ($rc['missing_orders'])
+                                    <p class="vxf-sub" style="margin:8px 0 4px;font-weight:700;color:var(--vxf-bad,#dc2626)">{{ count($rc['missing_orders']) }} {{ \Illuminate\Support\Str::plural('order', count($rc['missing_orders'])) }} with no package</p>
+                                    <ul class="vxf-so-missing">
+                                        @foreach (array_slice($rc['missing_orders'], 0, 12) as $m)
+                                            <li><strong>{{ $m['buyer'] ?: 'No buyer' }}</strong> <span class="vxf-sub">{{ $m['order'] ? '#' . $m['order'] : '' }}{{ $m['lot'] ? ' · lot ' . $m['lot'] : '' }}{{ $m['item'] ? ' · ' . \Illuminate\Support\Str::limit($m['item'], 40) : '' }} · {{ $m['why'] }}</span></li>
+                                        @endforeach
+                                        @if (count($rc['missing_orders']) > 12)<li class="vxf-sub">and {{ count($rc['missing_orders']) - 12 }} more</li>@endif
+                                    </ul>
+                                @endif
+                                @if ($rc['missing_shipments'])
+                                    <p class="vxf-sub" style="margin:8px 0 4px;font-weight:700;color:var(--vxf-warn,#d97706)">{{ count($rc['missing_shipments']) }} {{ \Illuminate\Support\Str::plural('shipment', count($rc['missing_shipments'])) }} not packed</p>
+                                    <ul class="vxf-so-missing">
+                                        @foreach (array_slice($rc['missing_shipments'], 0, 8) as $m)
+                                            <li><strong>{{ $m['buyer'] ?: 'No buyer' }}</strong> <span class="vxf-sub">{{ $m['tracking'] ?: 'Shipment ' . $m['shipment'] }}</span></li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </section>
+                        @endif
                         @if ($run->discrepancies)
                             <div class="vxf-alert" role="note"><div><strong>Look at these</strong><ul style="margin:4px 0 0;padding-left:18px">@foreach ($run->discrepancies as $x)<li>{{ $x }}</li>@endforeach</ul></div></div>
                         @endif

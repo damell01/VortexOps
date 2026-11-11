@@ -371,6 +371,28 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame(300, $reasons['Other']['seconds']);
     }
 
+    public function test_reconciliation_lists_orders_with_no_package(): void
+    {
+        $run = $this->started();
+        $service = app(FulfillmentRunService::class);
+        $alpha = $run->buyers()->where('buyer_username', 'Alpha_Rips')->firstOrFail();
+        $service->markPacked($run->id, $alpha->id, $this->packer);
+        // An order that came in after packing started: its buyer is not on the board.
+        WhatnotShowOrder::create(['show_id' => $run->show_id, 'buyer_username' => 'late_buyer', 'whatnot_order_id' => 'ORD-LATE',
+            'item_name' => 'Box', 'quantity' => 1, 'total_price' => 5, 'status' => 'completed']);
+        WhatnotShowOrder::create(['show_id' => $run->show_id, 'buyer_username' => 'gone', 'whatnot_order_id' => 'ORD-X',
+            'item_name' => 'Box', 'quantity' => 1, 'total_price' => 5, 'status' => 'cancelled']);
+
+        $rc = app(\App\Services\FulfillmentReconciliation::class)->forRun($run->fresh());
+        $this->assertSame(5, $rc['orders']);
+        $this->assertSame(2, $rc['packed']);
+        $this->assertFalse($rc['ok']);
+        $missing = collect($rc['missing_orders'])->keyBy('buyer');
+        $this->assertEqualsCanonicalizing(['bigpullz', 'zoe_cards', 'late_buyer'], $missing->keys()->all());
+        $this->assertSame('Buyer was not on the board', $missing['late_buyer']['why']);
+        $this->assertCount(2, $rc['missing_shipments']);
+    }
+
     public function test_the_tv_feed_names_the_show_that_finished(): void
     {
         $run = $this->started();

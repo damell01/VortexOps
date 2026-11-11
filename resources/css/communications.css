@@ -430,3 +430,132 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-message-actions .vx-chatify-reaction-picker button:hover{background:#f0e6ff}
 .dark .vx-chatify-reaction-picker{background:#30233e;border-color:#604a78}
 @media(max-width:640px){.vx-chatify-message-actions .vx-chatify-reaction-picker button{min-width:34px;min-height:34px}}
+
+/* ── Messages v2: a cleaner drawer and a full-screen two-pane view ───────── */
+.vx-chatify-shell .vx-chatify-drawer{--m-ink:#1f1633;--m-muted:#7b6f8f;--m-line:#eee8f6;--m-soft:#f6f2fd;--m-chip:#f1ecfa;--m-accent:#6d28d9;--m-bubble:#f1eff6;--m-pane:#fcfbff;width:min(460px,calc(100vw - 28px));height:min(680px,calc(100dvh - 104px));border-radius:22px;border-color:#e7def6;box-shadow:0 30px 80px -24px rgba(30,17,63,.45)}
+.dark .vx-chatify-shell .vx-chatify-drawer{--m-ink:#f5efff;--m-muted:#b5a7c9;--m-line:#3a2d4c;--m-soft:#2a1f3a;--m-chip:#2d2240;--m-accent:#8b5cf6;--m-bubble:#2f2442;--m-pane:#1b1427}
+.vx-chatify-shell .vx-chatify-drawer-head{justify-content:flex-start;gap:12px;padding:14px 16px;border-color:var(--m-line)}
+.vx-chatify-head-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:13px;background:var(--m-chip,#f1ecfa);color:#6d28d9}
+.vx-chatify-head-icon svg{width:22px;height:22px}
+.vx-chatify-head-copy{flex:1;min-width:0}
+.vx-chatify-shell .vx-chatify-drawer-head strong{font-size:18px;letter-spacing:-.01em;color:var(--m-ink)}
+.vx-chatify-shell .vx-chatify-drawer-head small{font-size:12.5px;color:#7c5bb3;margin-top:1px}
+.vx-chatify-shell .vx-chatify-drawer-actions button{width:38px;height:38px;border-radius:12px;border:0;background:transparent;color:#4b3d63}
+.vx-chatify-shell .vx-chatify-drawer-actions button:hover{background:var(--m-soft)}
+.dark .vx-chatify-shell .vx-chatify-drawer-actions button{color:#e2d6f5}
+
+/* Conversation list */
+.vx-chatify-shell .vx-chatify-native-search{padding:12px 14px 6px;border:0}
+.vx-chatify-shell .vx-chatify-native-search input{border-radius:999px;padding:10px 16px}
+.vx-chatify-shell .vx-chatify-inbox-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:4px 14px 10px;border-bottom:1px solid var(--m-line);font-size:12px}
+.vx-chatify-kinds{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.vx-chatify-kinds button{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:6px 13px;background:var(--m-chip);color:var(--m-ink);font-size:13px;font-weight:600;cursor:pointer}
+.vx-chatify-kinds button.is-active{background:#6d28d9;color:#fff}
+.vx-chatify-kinds b{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#6d28d9;color:#fff;font-size:11px;display:inline-grid;place-items:center}
+.vx-chatify-kinds button.is-active b{background:#fff;color:#6d28d9}
+.vx-chatify-shell .vx-chatify-inbox-toolbar > button,.vx-chatify-shell .vx-chatify-inbox-toolbar > a{border:0;background:none;padding:0;color:#7c5bb3;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none}
+.vx-chatify-shell .vx-chatify-native-thread{position:relative;gap:12px;padding:12px 16px;border-color:var(--m-line);color:var(--m-ink)}
+.vx-chatify-shell .vx-chatify-native-thread.is-current{background:#f3edff}
+.vx-chatify-shell .vx-chatify-native-thread.is-current::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#6d28d9}
+.dark .vx-chatify-shell .vx-chatify-native-thread.is-current{background:#33254a}
+.vx-chatify-shell .vx-chatify-native-thread.is-unread strong{font-weight:800}
+.vx-chatify-shell .vx-chatify-native-thread.is-unread small{color:var(--m-ink)}
+.vx-chatify-shell .vx-chatify-native-avatar{position:relative;width:44px;height:44px;background:#ece4ff;color:#5b21b6;font-size:14px;font-weight:800;letter-spacing:.02em}
+.vx-chatify-shell .vx-chatify-native-avatar.is-group{background:#f1ecfa;color:#6d28d9}
+.vx-chatify-shell .vx-chatify-native-avatar svg{width:20px;height:20px}
+.dark .vx-chatify-shell .vx-chatify-native-avatar{background:#3b2a57;color:#e2d4ff}
+.vx-chatify-online{position:absolute;right:0;bottom:1px;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid #fff}
+.vx-chatify-thread-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none;font-size:11.5px;color:var(--m-muted)}
+.vx-chatify-shell .vx-chatify-unread-count{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#6d28d9;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.vx-chatify-pin{font-size:11px}
+
+/* Conversation */
+.vx-chatify-shell .vx-chatify-conversation-head{gap:12px;padding:12px 16px;border-color:var(--m-line)}
+.vx-chatify-shell .vx-chatify-conversation-head button{display:grid;place-items:center;width:38px;height:38px;padding:0;border-radius:12px;background:transparent;color:#4b3d63;font-size:15px}
+.vx-chatify-shell .vx-chatify-conversation-head button:hover{background:var(--m-soft)}
+.vx-chatify-shell .vx-chatify-conversation-head svg{width:20px;height:20px}
+.dark .vx-chatify-shell .vx-chatify-conversation-head button{color:#e2d6f5}
+.vx-chatify-convo-title{flex:1;min-width:0;display:grid}
+.vx-chatify-convo-title strong{font-size:16px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--m-ink)}
+.vx-chatify-convo-title small{font-size:12.5px;color:var(--m-muted)}
+.vx-chatify-convo-actions{display:flex;gap:2px;align-items:center}
+.vx-chatify-more{position:relative}
+.vx-chatify-more-menu{position:absolute;right:0;top:44px;z-index:6;min-width:180px;display:grid;padding:6px;border:1px solid var(--m-line);border-radius:14px;background:#fff;box-shadow:0 18px 40px -16px rgba(30,17,63,.4)}
+.dark .vx-chatify-more-menu{background:#251b34}
+.vx-chatify-shell .vx-chatify-more-menu button{width:100%!important;height:auto!important;display:flex!important;justify-content:flex-start;gap:8px;padding:9px 10px!important;border-radius:9px;font-size:13.5px!important;font-weight:600;color:var(--m-ink)!important;text-align:left}
+.vx-chatify-shell .vx-chatify-more-menu button[title="Pin chat"]::after{content:"Pin chat"}
+.vx-chatify-shell .vx-chatify-more-menu button[title="Unpin chat"]::after{content:"Unpin chat"}
+.vx-chatify-shell .vx-chatify-more-menu button[aria-label="Copy conversation link"]::after{content:"Copy link"}
+.vx-chatify-shell .vx-chatify-more-menu button[aria-label="Refresh conversation"]::after{content:"Refresh"}
+.vx-chatify-shell .vx-chatify-message-search{padding:8px 16px;border-bottom:1px solid var(--m-line)}
+.vx-chatify-shell .vx-chatify-message-pane{background:var(--m-pane);padding:16px 18px;gap:4px}
+.vx-chatify-shell .vx-chatify-date-separator{align-self:center;margin:10px auto;padding:4px 12px;border-radius:999px;background:#ede6fb;color:#4c1d95;font-size:12px;font-weight:700;width:max-content}
+.dark .vx-chatify-shell .vx-chatify-date-separator{background:#33254a;color:#e2d4ff}
+.vx-chatify-shell .vx-chatify-message-group{display:flex;flex-direction:column}
+.vx-chatify-message-row{display:flex;align-items:flex-end;gap:8px;margin:3px 0}
+.vx-chatify-message-group.is-mine .vx-chatify-message-row{justify-content:flex-end}
+.vx-chatify-msg-avatar{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;background:#ece4ff;color:#5b21b6;font-size:11.5px;font-weight:800}
+.dark .vx-chatify-msg-avatar{background:#3b2a57;color:#e2d4ff}
+.vx-chatify-shell .vx-chatify-message{position:relative;max-width:min(78%,560px);padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--m-bubble);color:var(--m-ink);font-size:14px;line-height:1.45}
+.vx-chatify-shell .vx-chatify-message.is-mine{border-radius:18px 18px 6px 18px;background:#6d28d9;color:#fff}
+.vx-chatify-sender{display:block;font-size:11.5px;font-weight:700;color:#6d28d9;margin-bottom:2px}
+.vx-chatify-shell .vx-chatify-message-meta{display:block;margin-top:4px;font-size:11px;opacity:.75}
+.vx-chatify-shell .vx-chatify-message.is-mine .vx-chatify-message-meta{text-align:right}
+/* Reply, React, Copy, Edit, Delete appear on hover or focus instead of under every message. */
+.vx-chatify-shell .vx-chatify-message-actions{display:none;position:absolute;top:-30px;right:0;z-index:2;gap:2px;padding:3px;border:1px solid var(--m-line);border-radius:10px;background:#fff;box-shadow:0 8px 20px -10px rgba(30,17,63,.4);white-space:nowrap}
+.vx-chatify-shell .vx-chatify-message:not(.is-mine) .vx-chatify-message-actions{right:auto;left:0}
+.vx-chatify-shell .vx-chatify-message:is(:hover,:focus-within) .vx-chatify-message-actions{display:flex}
+.vx-chatify-shell .vx-chatify-message-actions button{border:0;background:none;padding:4px 8px;border-radius:7px;font-size:12px;font-weight:600;color:#4b3d63;cursor:pointer}
+.vx-chatify-shell .vx-chatify-message-actions button:hover{background:var(--m-soft)}
+.dark .vx-chatify-shell .vx-chatify-message-actions{background:#251b34}
+.dark .vx-chatify-shell .vx-chatify-message-actions button{color:#e2d6f5}
+@media (hover:none){.vx-chatify-shell .vx-chatify-message:focus-within .vx-chatify-message-actions{display:flex}}
+
+/* Composer: attach, emoji, a pill to type in, Send */
+.vx-chatify-shell .vx-chatify-composer{align-items:flex-end;gap:8px;padding:12px 14px;border-color:var(--m-line);background:#fff}
+.dark .vx-chatify-shell .vx-chatify-composer{background:#20182c}
+.vx-chatify-shell .vx-chatify-attach-button,.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-button{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;border:0;background:transparent;color:#4b3d63;cursor:pointer}
+.vx-chatify-shell .vx-chatify-attach-button:hover,.vx-chatify-emoji-button:hover{background:var(--m-soft)}
+.vx-chatify-shell .vx-chatify-attach-button svg,.vx-chatify-emoji-button svg{width:22px;height:22px}
+.vx-chatify-shell .vx-chatify-attach-button input{display:none}
+.dark .vx-chatify-shell .vx-chatify-attach-button,.dark .vx-chatify-emoji-button{color:#e2d6f5}
+.vx-chatify-emoji{position:relative}
+.vx-chatify-emoji-menu{position:absolute;bottom:48px;left:0;z-index:5;display:grid;grid-template-columns:repeat(6,36px);gap:2px;padding:6px;border:1px solid var(--m-line);border-radius:14px;background:#fff;box-shadow:0 18px 40px -16px rgba(30,17,63,.4)}
+.dark .vx-chatify-emoji-menu{background:#251b34}
+.vx-chatify-emoji-menu button{width:36px;height:36px;border:0;border-radius:9px;background:none;font-size:20px;cursor:pointer}
+.vx-chatify-emoji-menu button:hover{background:var(--m-soft)}
+.vx-chatify-shell .vx-chatify-composer textarea{flex:1;min-width:0;min-height:44px;max-height:140px;resize:none;padding:11px 16px;border:1px solid #e3daf2;border-radius:22px;background:#f8f6fc;color:var(--m-ink);font:inherit;font-size:14px;line-height:1.4}
+.vx-chatify-shell .vx-chatify-composer textarea:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 3px #8b5cf622}
+.dark .vx-chatify-shell .vx-chatify-composer textarea{background:#2d213c;border-color:#4a365e}
+.vx-chatify-shell .vx-chatify-composer button[type=submit]{display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 18px;border-radius:14px;font-size:14px}
+.vx-chatify-shell .vx-chatify-composer button[type=submit] svg{width:18px;height:18px}
+
+.vx-chatify-empty-pane{display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;color:var(--m-muted);background:var(--m-pane)}
+.vx-chatify-empty-pane strong{color:var(--m-ink);font-size:16px}
+
+/* Full screen: list and conversation side by side */
+.vx-chatify-shell .vx-chatify-drawer.is-full{inset:16px;width:auto;height:auto;max-width:none;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;box-shadow:0 0 0 100vmax rgba(17,10,35,.45),0 30px 90px -20px rgba(0,0,0,.5);z-index:2147482000}
+.vx-chatify-drawer.is-full > .vx-chatify-drawer-head{grid-column:1/-1}
+.vx-chatify-drawer.is-full > .vx-chatify-native-body{grid-column:1;grid-row:2;border-right:1px solid var(--m-line)}
+.vx-chatify-drawer.is-full > .vx-chatify-native-footer{grid-column:1;grid-row:3;border-right:1px solid var(--m-line)}
+.vx-chatify-drawer.is-full > .vx-chatify-conversation,.vx-chatify-drawer.is-full > .vx-chatify-empty-pane{grid-column:2;grid-row:2/4;min-height:0}
+.vx-chatify-drawer.is-full .vx-chatify-back{display:none!important}
+.vx-chatify-drawer.is-full .vx-chatify-new-overlay{inset:75px auto 0 0;width:min(380px,100%);border-right:1px solid var(--m-line)}
+.vx-chatify-drawer.is-full .vx-chatify-message{max-width:min(70%,640px)}
+@media (max-width:760px){
+  .vx-chatify-shell .vx-chatify-drawer.is-full{inset:0;border-radius:0;grid-template-columns:minmax(0,1fr)}
+  .vx-chatify-drawer.is-full > .vx-chatify-conversation,.vx-chatify-drawer.is-full > .vx-chatify-empty-pane{grid-column:1}
+  .vx-chatify-drawer.is-full.has-selected > .vx-chatify-native-body,.vx-chatify-drawer.is-full.has-selected > .vx-chatify-native-footer,.vx-chatify-drawer.is-full:not(.has-selected) > .vx-chatify-empty-pane{display:none!important}
+  .vx-chatify-drawer.is-full .vx-chatify-back{display:grid!important}
+  .vx-chatify-drawer.is-full .vx-chatify-new-overlay{width:100%}
+}
+
+.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-button,.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-menu button{background:transparent;color:#4b3d63;padding:0;font-weight:400}
+.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-menu button{color:inherit}
+.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-button:hover,.vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-menu button:hover{background:var(--m-soft)}
+.dark .vx-chatify-shell .vx-chatify-composer .vx-chatify-emoji-button{color:#e2d6f5}
+@media (max-width:640px){
+  .vx-chatify-shell .vx-chatify-composer{gap:4px;padding:10px}
+  .vx-chatify-shell .vx-chatify-composer button[type=submit]{width:44px;padding:0;justify-content:center}
+  .vx-chatify-shell .vx-chatify-composer button[type=submit] span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+}

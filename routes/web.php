@@ -171,6 +171,7 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name(
 });
 
 Route::middleware(['web', 'auth', 'throttle:30,1'])->get('/admin/communications/group-roles', \App\Http\Controllers\ChatGroupRolesController::class)->name('communications.group-roles');
+Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/team', \App\Http\Controllers\ChatTeamController::class)->name('communications.team');
 
 Route::middleware(['web', 'auth', 'throttle:60,1'])->match(['GET', 'POST'], '/admin/communications/reactions/{messageId}', \App\Http\Controllers\ChatMessageReactionController::class)->name('communications.reactions');
 

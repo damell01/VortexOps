@@ -15,6 +15,10 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Tell the owner when a page, button or job crashes (App\Support\ErrorAlert).
+    // Unset: on in production only. ERROR_ALERTS=true turns it on for Dev too.
+    'error_alerts' => env('ERROR_ALERTS'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

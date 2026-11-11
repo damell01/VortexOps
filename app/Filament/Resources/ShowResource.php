@@ -180,6 +180,12 @@ class ShowResource extends Resource
         return ['title'];
     }
 
+    /** Preload channel labels once per search result batch instead of per hit. */
+    public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('channel:id,name');
+    }
+
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
         return $record->title ?? 'Show #' . $record->id;

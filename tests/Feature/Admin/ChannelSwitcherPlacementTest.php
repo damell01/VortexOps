@@ -58,6 +58,7 @@ class ChannelSwitcherPlacementTest extends TestCase
 
         $html = $this->get('/admin')->getContent();
 
-        $this->assertStringNotContainsString('vx-channel-switcher', $html);
+        // The switcher itself, not the nav styles that mention its class names.
+        $this->assertDoesNotMatchRegularExpression('/class="vx-channel-switcher[" ]/', $html);
     }
 }

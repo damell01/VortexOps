@@ -217,6 +217,11 @@ class NotificationCatalog
                 'description' => 'The queue, worker, disk or Whatnot import needs attention.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
+            'app_error' => [
+                'group' => 'System', 'label' => 'Page or job crashed', 'level' => 'alert',
+                'description' => 'Something in the app failed with an error (a page, a button, a background job). Each different error is sent at most once an hour.',
+                'roles' => ['owner'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
         ];
     }
 

@@ -21,13 +21,16 @@
                     <div class="mt-0.5">{{ $show->start_time?->format('g:i A') ?? 'Time TBD' }}</div>
                 </div>
 
-                <div class="min-w-0">
+                <div class="flex min-w-0 items-center gap-3">
+                    <x-show-cover :show="$show" :size="36" />
+                    <div class="min-w-0">
                     <div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div>
                     <div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                         @if($show->channel)
                             <span class="truncate">{{ $show->channel->display_title ?: $show->channel->name }}</span>
                         @endif
                         <span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">Upcoming</span>
+                    </div>
                     </div>
                 </div>
 

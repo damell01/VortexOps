@@ -110,7 +110,7 @@ class FulfillmentHome extends Page
         $runs = FulfillmentRun::query()
             ->where(fn ($q) => $q->whereIn('station_occupied_id', $stations->pluck('id'))
                 ->orWhere(fn ($ready) => $ready->where('status', FulfillmentRun::READY)->whereIn('station_id', $stations->pluck('id'))))
-            ->with(['show:id,title,show_date,start_time,whatnot_channel_id', 'show.channel:id,name', 'show.streamers:id,name', 'packers:id,name', 'show.fulfillmentUsers:id,name'])
+            ->with(['show:id,title,show_date,start_time,whatnot_channel_id,cover_image_url', 'show.channel:id,name', 'show.streamers:id,name', 'packers:id,name', 'show.fulfillmentUsers:id,name'])
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
             ->get();
 

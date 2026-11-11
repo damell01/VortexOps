@@ -19,7 +19,8 @@
                 <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}"
                    class="group min-w-0 rounded-xl border border-gray-200 bg-gray-50/70 p-3 transition hover:border-primary-300 hover:bg-primary-50/40 dark:border-gray-700 dark:bg-gray-800/40 dark:hover:border-primary-700">
                     <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
+                        <x-show-cover :show="$show" :size="36" />
+                        <div class="min-w-0 flex-1">
                             <div class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{{ $show->show_date?->format('M j') }}</div>
                             <div class="mt-1 truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div>
                         </div>

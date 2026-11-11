@@ -114,7 +114,7 @@ class FulfillmentStationBoard extends Page
         if (! $this->runId) return null;
 
         return FulfillmentRun::query()->with([
-            'show:id,title,show_date,start_time,whatnot_channel_id,status', 'show.channel:id,name', 'show.streamers:id,name',
+            'show:id,title,show_date,start_time,whatnot_channel_id,status,cover_image_url', 'show.channel:id,name', 'show.streamers:id,name',
             'show.fulfillmentUsers:id,name', 'station:id,name,camera_label', 'packers:id,name', 'acknowledger:id,name', 'approver:id,name',
         ])->find($this->runId);
     }

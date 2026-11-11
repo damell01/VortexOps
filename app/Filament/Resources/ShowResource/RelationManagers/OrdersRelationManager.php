@@ -92,6 +92,18 @@ class OrdersRelationManager extends RelationManager
                     ->sortable()
                     ->weight('bold'),
 
+                TextColumn::make('packed_on_camera')
+                    ->label('Packed on camera')
+                    ->state(fn (WhatnotShowOrder $record) => \App\Support\BuyerPackingWindows::label((int) $record->show_id, $record->buyer_username))
+                    ->placeholder('Not packed on the board')
+                    ->icon(fn ($state) => $state ? 'heroicon-m-video-camera' : null)
+                    ->url(fn (WhatnotShowOrder $record) => \App\Filament\Pages\FulfillmentActivity::canAccess() && \App\Support\BuyerPackingWindows::label((int) $record->show_id, $record->buyer_username)
+                        ? \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'lookup', 'q' => $record->whatnot_order_id ?: $record->buyer_username])
+                        : null)
+                    ->tooltip('Packing start and end on the station camera; opens the footage lookup')
+                    ->visible(fn () => \App\Support\FulfillmentAccess::moduleEnabled())
+                    ->toggleable(),
+
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WhatnotShowOrder::statusLabels()[$state] ?? $state)

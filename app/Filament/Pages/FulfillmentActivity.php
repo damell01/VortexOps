@@ -57,6 +57,7 @@ class FulfillmentActivity extends Page
     public string $issueFilter = 'open';
     public string $showsFilter = 'all';
     public int $days = 7;
+    #[Url(as: 'q')]
     public string $lookup = '';
     public array $resolution = [];
 

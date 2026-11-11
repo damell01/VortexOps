@@ -112,7 +112,7 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
             // payout is admin-only, like Payroll.
             'MyLedgerCharges', 'NavigationManager', 'NoShowCleanup', 'OwnerTools', 'PayChangedSincePaid', 'PayRunBackfill', 'PaymentStructures',
             'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShipmentOverview', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
-            'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
+            'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage', 'YearEndPay',
         ], $denied);
     }
 

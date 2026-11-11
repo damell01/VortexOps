@@ -1,13 +1,13 @@
 <x-filament-panels::page>
     {{-- The shared camera scanner (the one Scan Inventory uses) announces a
          read with a window event; hand it straight to the page. --}}
-    <div class="w-full max-w-2xl mx-auto space-y-4 sm:space-y-6" data-vx-touch-page
+    <div class="w-full max-w-2xl mx-auto space-y-4 pb-24 sm:space-y-6 sm:pb-0" data-vx-touch-page
         x-data
         x-on:barcode-scanned.window="$event.detail?.value && $wire.handleBarcodeScan($event.detail.value)">
         <x-touch-mode-toggle />
         {{-- Product Scanner Section --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Scan Product</h2>
+        <div @class(['bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6', 'hidden' => $product || $lastAdd])>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Scan or search</h2>
 
             <button type="button"
                 x-on:click="window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan product', helper: 'Hold the barcode inside the frame. The product loads automatically.' } }))"
@@ -47,6 +47,7 @@
             <div class="relative mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">No barcode? Find it by name</label>
                 <input
+                    id="vx-quick-add-search"
                     wire:model.live.debounce.300ms="productSearch"
                     type="text"
                     autocomplete="off"
@@ -71,91 +72,92 @@
             </div>
         </div>
 
-        {{-- Product Details Section --}}
+        {{-- Step 2: the picked item, in one card. Same layout as Scan Inventory's quick add. --}}
         @if($product)
-        <div class="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-700 rounded-lg p-6">
-            <div class="space-y-4">
-                <div>
-                    <p class="text-xs text-green-700 dark:text-green-400 uppercase font-semibold">Selected Product</p>
-                    <h3 class="text-xl font-bold text-green-900 dark:text-green-100">{{ $product->name }}</h3>
-                    <p class="text-sm text-green-600 dark:text-green-400 mt-1">
-                        SKU: <span class="font-mono">{{ $product->sku }}</span>
-                        @if($product->barcode)
-                            | Barcode: <span class="font-mono">{{ $product->barcode }}</span>
-                        @endif
-                    </p>
-                </div>
-
-                {{-- Quantity Selector --}}
-                <div class="border-t border-green-200 dark:border-green-700 pt-4">
-                    <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-3">Quantity</label>
-                    <div x-data="{ keypad: false, digits: String($wire.quantity || 1), typeDigit(d) { this.digits = this.digits === '0' ? d : this.digits + d; $wire.set('quantity', Number(this.digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('quantity', Number(this.digits || 0)); } }" class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <input wire:model.live.number="quantity" type="number" min="1" step="1"
-                                inputmode="numeric" autocomplete="off" aria-label="Quantity to add"
-                                x-on:focus="digits = $event.target.value || String($wire.quantity || 1); keypad = true" x-on:input="digits = $event.target.value"
-                                class="min-h-12 w-32 rounded-lg border-2 border-green-600 bg-white px-3 text-center text-lg font-bold text-green-900 dark:border-green-500 dark:bg-gray-800 dark:text-white" />
-                            <button type="button" x-on:click="digits = String($wire.quantity || 1); keypad = !keypad"
-                                x-bind:aria-expanded="keypad.toString()" aria-label="Show or hide on-screen number pad"
-                                class="min-h-12 rounded-lg border border-green-600 bg-white px-4 font-semibold text-green-800 dark:bg-gray-800 dark:text-green-200">
-                                Show / hide number pad
-                            </button>
-                        </div>
-                        <div x-show="keypad" x-cloak class="grid max-w-xs grid-cols-3 gap-2" aria-label="On-screen quantity keypad">
-                            <template x-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit">
-                                <button type="button" x-on:click="typeDigit(digit)" x-text="digit"
-                                    class="min-h-12 rounded-lg border border-green-300 bg-white text-lg font-bold text-green-900 dark:bg-gray-800 dark:text-white"></button>
-                            </template>
-                            <button type="button" x-on:click="digits = ''; $wire.set('quantity', 0)"
-                                class="min-h-12 rounded-lg border border-green-300 bg-white font-semibold text-green-900 dark:bg-gray-800 dark:text-white">Clear</button>
-                            <button type="button" x-on:click="typeDigit('0')"
-                                class="min-h-12 rounded-lg border border-green-300 bg-white text-lg font-bold text-green-900 dark:bg-gray-800 dark:text-white">0</button>
-                            <button type="button" x-on:click="erase()"
-                                class="min-h-12 rounded-lg border border-green-300 bg-white font-semibold text-green-900 dark:bg-gray-800 dark:text-white">⌫</button>
-                        </div>
-                        <p class="text-xs text-green-800 dark:text-green-200">If your Bluetooth scanner hides the phone keyboard, use Number pad.</p>
+            @php($qaOnHand = $this->onHand($product))
+            <style>
+                .vx-qa-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;padding:6px 4px;border-radius:12px;border:1px solid rgb(229 231 235);background:#fff;font-size:11px;font-weight:700;line-height:1.15;text-align:center;color:rgb(55 65 81)}
+                .vx-qa-act svg{width:22px;height:22px;color:rgb(124 58 237)}
+                .dark .vx-qa-act{background:rgb(17 24 39);border-color:rgb(55 65 81);color:rgb(229 231 235)}
+                .vx-qa-key{min-height:52px;border-radius:12px;border:1px solid rgb(209 213 219);background:#fff;font-size:22px!important;font-weight:800!important;color:rgb(17 24 39);touch-action:manipulation}
+                .vx-qa-pm{font-size:30px!important;line-height:1;padding:0!important}
+                .vx-qa-key:active{background:rgb(237 233 254)}
+                .dark .vx-qa-key{background:rgb(31 41 55);border-color:rgb(55 65 81);color:#fff}
+            </style>
+            <section id="vx-quick-add-item" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                x-data="{ qty: $wire.entangle('quantity'), fresh: true, onHand: {{ $qaOnHand }},
+                    n() { const v = parseFloat(this.qty); return isFinite(v) && v > 0 ? v : 0 },
+                    key(d) { const cur = this.fresh ? '' : String(this.qty ?? ''); this.fresh = false; const next = (cur === '0' ? '' : cur) + d; if (next.length <= 6) this.qty = Number(next) },
+                    back() { this.fresh = false; const cur = String(this.qty ?? ''); this.qty = cur.length > 1 ? Number(cur.slice(0, -1)) : 0 },
+                    step(d) { this.fresh = true; this.qty = Math.max(1, this.n() + d) } }"
+                x-init="$nextTick(() => $el.scrollIntoView({ block: 'start' }))" style="scroll-margin-top:90px">
+                <div class="flex items-center gap-3 p-3 sm:p-4">
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800">
+                        @if($product->hasImage())<img src="{{ $product->imageUrl() }}" alt="" class="h-full w-full object-cover" />@else<x-heroicon-o-cube class="h-8 w-8 text-gray-400" />@endif
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="truncate text-base font-extrabold text-gray-950 dark:text-white sm:text-lg">{{ $product->name }}</h3>
+                        <p class="truncate text-xs text-gray-500">SKU {{ $product->sku ?: '—' }}</p>
+                        <p class="mt-0.5 text-sm"><b class="text-emerald-700 dark:text-emerald-400">{{ number_format($qaOnHand) }}</b> <span class="text-gray-500">on hand</span></p>
                     </div>
                 </div>
+                <div class="border-t border-gray-100 p-3 dark:border-gray-800 sm:p-4">
+                    <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="Item actions">
+                        <button type="button" class="vx-qa-act" x-on:click="$wire.startOver().then(() => window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan product' } })))"><x-heroicon-o-camera /> <span>Scan another</span></button>
+                        <button type="button" class="vx-qa-act" x-on:click="$wire.startOver().then(() => $nextTick(() => document.getElementById('vx-quick-add-search')?.focus()))"><x-heroicon-o-magnifying-glass /> <span>Look up item</span></button>
+                    </div>
 
-                {{-- Location Selector --}}
-                <div class="border-t border-green-200 dark:border-green-700 pt-4">
-                    <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-2">Storage Location</label>
-                    <select
-                        wire:model="locationId"
-                        class="w-full px-4 py-2 rounded-lg border border-green-300 dark:border-green-600 bg-white dark:bg-gray-700 text-green-900 dark:text-green-100"
-                        style="min-height: 44px;"
-                    >
-                        <option value="">Select location...</option>
+                    <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-quick-add-qty">Quantity</label>
+                    <div class="mt-1 grid grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] overflow-hidden rounded-xl border border-gray-300 dark:border-gray-700">
+                        <button type="button" x-on:click="step(-1)" class="vx-qa-pm min-h-14 bg-violet-50 font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One less">−</button>
+                        <input id="vx-quick-add-qty" x-model.number="qty" type="text" inputmode="none" pattern="[0-9]*" autocomplete="off" aria-label="Quantity to add" x-on:focus="$el.select(); fresh = false" x-on:keydown.enter.prevent="$wire.addStock()"
+                            class="min-h-14 w-full border-0 border-x border-gray-300 text-center text-2xl font-extrabold tabular-nums focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                        <button type="button" x-on:click="step(1)" class="vx-qa-pm min-h-14 bg-violet-50 font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One more">+</button>
+                    </div>
+                    <div class="mt-2 grid grid-cols-3 gap-1.5" aria-label="Number pad">
+                        @foreach(['1','2','3','4','5','6','7','8','9'] as $digit)
+                            <button type="button" x-on:click="key('{{ $digit }}')" class="vx-qa-key">{{ $digit }}</button>
+                        @endforeach
+                        <button type="button" x-on:click="fresh = false; qty = 0" class="vx-qa-key text-sm">Clear</button>
+                        <button type="button" x-on:click="key('0')" class="vx-qa-key">0</button>
+                        <button type="button" x-on:click="back()" class="vx-qa-key" aria-label="Delete last digit"><x-heroicon-o-backspace class="mx-auto h-6 w-6" /></button>
+                    </div>
+
+                    <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-quick-add-loc">Location</label>
+                    <select id="vx-quick-add-loc" wire:model="locationId" class="mt-1 min-h-12 w-full rounded-xl border-gray-300 text-base font-semibold dark:border-gray-700 dark:bg-gray-800">
+                        <option value="">Select location…</option>
                         @foreach($this->locations as $location)
-                            <option value="{{ $location->id }}">
-                                {{ $location->name }}
-                                @if($location->type)
-                                    ({{ ucfirst($location->type) }})
-                                @endif
-                            </option>
+                            <option value="{{ $location->id }}">{{ $location->name }}</option>
                         @endforeach
                     </select>
-                </div>
 
-                {{-- Add Button --}}
-                <button
-                    wire:click="addStock"
-                    wire:loading.attr="disabled"
-                    wire:target="addStock"
-                    class="w-full mt-4 px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition active:opacity-75 touch-manipulation text-lg"
-                    style="min-height: 52px;"
-                >
-                    <span wire:loading.remove wire:target="addStock">Add {{ (int) $quantity }} Unit{{ (int) $quantity === 1 ? '' : 's' }} to Stock</span>
-                    <span wire:loading wire:target="addStock">Adding stock…</span>
-                </button>
-            </div>
-        </div>
-        @else
-        <div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-5 text-center">
-            <p class="text-gray-500 dark:text-gray-400 text-lg">
-                👇 Scan a barcode, enter an SKU, or search by name to get started
-            </p>
-        </div>
+                    <p class="mt-3 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/30"><x-heroicon-o-cube class="h-4 w-4 text-violet-600" /> On hand: <b x-text="onHand.toLocaleString()"></b> → <b class="text-emerald-700 dark:text-emerald-400" x-text="(onHand + n()).toLocaleString()"></b></p>
+
+                    <button type="button" wire:click="addStock" wire:loading.attr="disabled" wire:target="addStock" x-bind:disabled="n() <= 0"
+                        class="mt-3 hidden min-h-12 w-full rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50 sm:block">
+                        <span wire:loading.remove wire:target="addStock" x-text="'Add ' + n().toLocaleString() + (n() === 1 ? ' unit' : ' units')"></span>
+                        <span wire:loading wire:target="addStock">Adding…</span>
+                    </button>
+                </div>
+                <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden">
+                    <button type="button" wire:click="addStock" wire:loading.attr="disabled" wire:target="addStock" x-bind:disabled="n() <= 0" class="min-h-12 w-full rounded-xl bg-violet-600 px-4 text-base font-bold text-white disabled:opacity-50">
+                        <span wire:loading.remove wire:target="addStock" x-text="'Add ' + n().toLocaleString() + (n() === 1 ? ' unit' : ' units')"></span>
+                        <span wire:loading wire:target="addStock">Adding…</span>
+                    </button>
+                </div>
+            </section>
+        @elseif($lastAdd)
+            {{-- Saved: what happened, and the next item one tap away. --}}
+            <section class="rounded-2xl border border-gray-200 bg-white p-4 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900" role="status" aria-live="polite">
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50"><x-heroicon-o-check class="h-7 w-7" /></div>
+                <p class="mt-2 text-base font-extrabold text-gray-950 dark:text-white">Added {{ number_format((float) $lastAdd['quantity']) }} {{ \Illuminate\Support\Str::plural('unit', (float) $lastAdd['quantity']) }} to {{ $lastAdd['location'] }}</p>
+                <p class="text-xs text-gray-500">{{ $lastAdd['name'] }} · now {{ number_format((float) $lastAdd['location_total']) }} there · {{ number_format((float) $lastAdd['total']) }} on hand in all</p>
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button type="button" x-on:click="$wire.startOver().then(() => window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan product' } })))" class="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan next</button>
+                    <button type="button" x-on:click="$wire.startOver().then(() => $nextTick(() => document.getElementById('vx-quick-add-search')?.focus()))" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-violet-200 px-3 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300"><x-heroicon-o-magnifying-glass class="h-5 w-5" /> Look up item</button>
+                    <button type="button" wire:click="addMoreOfLast" class="min-h-12 rounded-xl border border-gray-200 px-3 text-sm font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200">Add more</button>
+                </div>
+            </section>
         @endif
 
         {{-- Recent Additions --}}

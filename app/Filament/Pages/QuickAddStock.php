@@ -28,6 +28,8 @@ class QuickAddStock extends Page
     public ?int $locationId = null;
     public string $barcode = '';
     public array $recentAdds = [];
+    /** The add that was just saved, for the confirmation card: name, quantity, location, totals, product_id. */
+    public ?array $lastAdd = null;
 
     // ── Keyword search (no barcode at hand) ──────────────────────────────────
     public string $productSearch = '';
@@ -97,6 +99,7 @@ class QuickAddStock extends Page
     private function selectProduct(Product $product, string $notificationBody): void
     {
         $this->product = $product;
+        $this->lastAdd = null;
         $this->quantity = 1;
         $this->unitCost = $product->average_cost ?? $product->unit_cost;
         $this->productSearch = '';
@@ -224,6 +227,15 @@ class QuickAddStock extends Page
                 'timestamp' => now()->format('H:i:s'),
             ];
 
+            $this->lastAdd = [
+                'product_id' => $this->product->id,
+                'name' => $this->product->name,
+                'quantity' => $this->quantity,
+                'location' => $location->name,
+                'location_total' => (float) \App\Models\InventoryStock::query()->where('inventory_item_id', $this->product->id)->where('inventory_location_id', $location->id)->value('quantity'),
+                'total' => $this->onHand($this->product),
+            ];
+
             Notification::make()
                 ->title('Stock Added')
                 ->body("{$this->quantity} units of {$this->product->name} added to {$location->name}")
@@ -242,6 +254,34 @@ class QuickAddStock extends Page
                 ->danger()
                 ->send();
         }
+    }
+
+    /** Units on hand across every location. */
+    public function onHand(Product $product): float
+    {
+        return (float) \App\Models\InventoryStock::query()->where('inventory_item_id', $product->id)->sum('quantity');
+    }
+
+    /** "Add more" on the confirmation card: the same item again. */
+    public function addMoreOfLast(): void
+    {
+        $product = $this->lastAdd ? Product::find($this->lastAdd['product_id']) : null;
+        $this->lastAdd = null;
+        if ($product) {
+            $this->product = $product;
+            $this->quantity = 1;
+            $this->unitCost = $product->average_cost ?? $product->unit_cost;
+        }
+    }
+
+    /** Back to step 1 (scan or look up), clearing the confirmation and any picked item. */
+    public function startOver(): void
+    {
+        $this->lastAdd = null;
+        $this->product = null;
+        $this->barcode = '';
+        $this->productSearch = '';
+        $this->productOptions = null;
     }
 
     public function getView(): string

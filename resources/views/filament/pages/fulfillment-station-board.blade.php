@@ -239,6 +239,7 @@
                                 @foreach ($cov['lines'] as $line)
                                     <li>
                                         <span class="vxf-check {{ $line['verified'] >= $line['expected'] ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($line['verified'] >= $line['expected'])<x-heroicon-o-check />@endif</span>
+                                        @if (! empty($line['image']))<img src="{{ $line['image'] }}" alt="" loading="lazy" width="44" height="44" class="vxf-item-photo">@endif
                                         <span style="flex:1;min-width:0;font-weight:600">{{ $line['name'] }}</span>
                                         <span class="vxf-num" style="font-weight:800">{{ $line['verified'] }}/{{ $line['expected'] }}</span>
                                     </li>

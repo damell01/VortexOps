@@ -38,13 +38,15 @@ final class FulfillmentVerificationService
 
         $missing = [];
         $verified = 0;
-        $names = InventoryItem::query()->whereIn('id', $expected->keys())->pluck('name', 'id');
+        $items = InventoryItem::query()->whereIn('id', $expected->keys())->get(['id', 'name', 'image_path'])->keyBy('id');
         $lines = [];
         foreach ($expected as $productId => $quantity) {
             $done = min((int) $quantity, (int) ($scans[$productId] ?? 0));
             $verified += $done;
             if ($done < $quantity) $missing[(int) $productId] = $quantity - $done;
-            $lines[] = ['product_id' => (int) $productId, 'name' => $names[$productId] ?? 'Item #' . $productId, 'expected' => (int) $quantity, 'verified' => $done];
+            $item = $items->get($productId);
+            $lines[] = ['product_id' => (int) $productId, 'name' => $item?->name ?? 'Item #' . $productId, 'expected' => (int) $quantity, 'verified' => $done,
+                'image' => $item?->hasImage() ? $item->imageUrl() : null];
         }
 
         return ['complete' => ! $missing, 'supported' => true, 'expected' => (int) $expected->sum(),

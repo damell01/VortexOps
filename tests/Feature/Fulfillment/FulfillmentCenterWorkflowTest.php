@@ -415,6 +415,18 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->test(\App\Filament\Pages\FulfillmentActivity::class)->assertSee('zoe_cards')->assertSee('Cam 2');
     }
 
+    public function test_the_packing_list_shows_each_items_photo(): void
+    {
+        $run = $this->started($this->show(['zoe_cards' => 1]));
+        $item = \App\Models\InventoryItem::create(['name' => 'Topps Chrome Hobby', 'sku' => 'TCH-1', 'image_path' => 'products/tch.webp', 'is_active' => true]);
+        WhatnotShowOrder::query()->where('show_id', $run->show_id)->update(['inventory_item_id' => $item->id]);
+        $buyer = $run->buyers()->firstOrFail();
+
+        $line = app(\App\Services\FulfillmentVerificationService::class)->coverage($run->id, $buyer->id)['lines'][0];
+        $this->assertSame('Topps Chrome Hobby', $line['name']);
+        $this->assertStringEndsWith('products/tch.webp', $line['image']);
+    }
+
     public function test_the_tv_feed_names_the_show_that_finished(): void
     {
         $run = $this->started();

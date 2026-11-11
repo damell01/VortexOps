@@ -581,3 +581,34 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-shell .vx-chatify-message{min-width:72px;word-break:normal!important;overflow-wrap:break-word!important}
 .vx-chatify-shell .vx-chatify-message-meta{white-space:nowrap}
 .vx-chatify-shell .vx-chatify-message-group .vx-chatify-message-row{width:100%}
+
+/* ── Messages round 2: seen, typing, new-messages line, link cards, photo picks ── */
+.vx-chatify-shell .vx-chatify-tick.is-seen{color:#38bdf8}
+.vx-chatify-shell .vx-chatify-message.is-mine .vx-chatify-tick.is-seen{color:#bae6fd}
+.vx-chatify-shell .vx-chatify-seen-label{display:block;align-self:flex-end;margin:3px 6px 0 auto;font-size:11px;color:var(--m-muted,#7b6f8f);text-align:right}
+.vx-chatify-shell .vx-chatify-new-divider{display:flex;align-items:center;gap:10px;margin:8px 0 10px;color:#dc2626;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.vx-chatify-shell .vx-chatify-new-divider::before,.vx-chatify-shell .vx-chatify-new-divider::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
+.vx-chatify-shell .vx-chatify-typing{display:flex;align-items:center;gap:8px;padding:4px 16px 2px;font-size:12px;color:var(--m-muted,#7b6f8f)}
+.vx-chatify-shell .vx-chatify-typing-dots{display:inline-flex;gap:3px;padding:6px 9px;border-radius:999px;background:var(--m-bubble,#f1eff6)}
+.vx-chatify-shell .vx-chatify-typing-dots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.4;animation:vx-typing 1.2s infinite ease-in-out}
+.vx-chatify-shell .vx-chatify-typing-dots i:nth-child(2){animation-delay:.15s}
+.vx-chatify-shell .vx-chatify-typing-dots i:nth-child(3){animation-delay:.3s}
+@keyframes vx-typing{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:.9}}
+@media (prefers-reduced-motion:reduce){.vx-chatify-shell .vx-chatify-typing-dots i{animation:none}}
+.vx-chatify-shell .vx-chatify-body{white-space:pre-wrap}
+.vx-chatify-shell .vx-chatify-body a{color:inherit;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.vx-chatify-shell .vx-chatify-link-card{display:flex;gap:10px;align-items:center;margin-top:8px;padding:8px;border-radius:12px;background:rgba(255,255,255,.9);color:#1f1633!important;text-decoration:none;border:1px solid rgba(124,58,237,.18);max-width:300px}
+.vx-chatify-shell .vx-chatify-link-card:hover{border-color:rgba(124,58,237,.45)}
+.dark .vx-chatify-shell .vx-chatify-link-card{background:rgba(23,17,35,.85);color:#f5efff!important;border-color:#403052}
+.vx-chatify-shell .vx-chatify-link-card-img{flex:none;width:44px;height:44px;border-radius:9px;overflow:hidden;display:grid;place-items:center;background:#ede9fe;color:#6d28d9;font-weight:800}
+.vx-chatify-shell .vx-chatify-link-card-img.is-pay{background:#dcfce7;color:#047857}
+.vx-chatify-shell .vx-chatify-link-card-img img{width:100%;height:100%;object-fit:cover}
+.vx-chatify-shell .vx-chatify-link-card-copy{display:flex;flex-direction:column;min-width:0;font-size:12px;line-height:1.3}
+.vx-chatify-shell .vx-chatify-link-card-copy small{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed}
+.vx-chatify-shell .vx-chatify-link-card-copy strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-chatify-shell .vx-chatify-link-card-copy span{opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-chatify-shell .vx-chatify-message-attachment img{display:block;max-width:240px;max-height:240px;border-radius:12px;object-fit:cover}
+.vx-chatify-shell .vx-chatify-attachments-selected span.is-photo{position:relative;padding:0;border-radius:10px;overflow:hidden;width:56px;height:56px}
+.vx-chatify-shell .vx-chatify-attachments-selected span.is-photo img{width:100%;height:100%;object-fit:cover}
+.vx-chatify-shell .vx-chatify-attachments-selected span.is-photo button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(15,23,42,.7);color:#fff;line-height:1}
+.vx-chatify-shell .vx-chatify-body a{display:inline!important;padding:0!important;margin:0!important;background:none!important;border:0!important}

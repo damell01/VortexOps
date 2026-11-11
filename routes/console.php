@@ -80,7 +80,19 @@ Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class
 Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activity-log')->withoutOverlapping();
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
-$whatnotLog = storage_path('logs/whatnot-scheduler.log');
+/**
+ * A scheduled command's own log file, or /dev/null when the scheduler's user
+ * cannot write it (typically a file left owned by root after a command was run
+ * by hand as root). The shell's append would otherwise fail and the command
+ * would be reported as failing with exit code 2 even though it never ran.
+ */
+$scheduleLog = function (string $file): string {
+    $path = storage_path('logs/' . $file);
+    $writable = file_exists($path) ? is_writable($path) : is_writable(dirname($path));
+    return $writable ? $path : '/dev/null';
+};
+
+$whatnotLog = $scheduleLog('whatnot-scheduler.log');
 
 // Two authoritative Scrapling pipelines only. The daytime freshness pass keeps
 // operational data current without grinding through large historical backlogs.
@@ -111,7 +123,7 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
 // Reserve 1–5 AM Central for resumable historical show discovery and metrics.
 // The command caps every browser process at the remaining overnight window.
 Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-06-01 --timezone=America/Chicago --start=01:00 --end=05:00')
-    ->appendOutputTo(storage_path('logs/whatnot-nightly-backfill.log'))
+    ->appendOutputTo($scheduleLog('whatnot-nightly-backfill.log'))
     ->skip($whatnotPaused)
     ->dailyAt('01:00')
     ->timezone('America/Chicago')
@@ -152,7 +164,7 @@ Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name(
 Schedule::command('shows:tag-titles')->dailyAt('03:40')->name('tag-show-titles')->withoutOverlapping();
 Schedule::command('inventory:snapshot-value')->dailyAt('23:50')->name('inventory-snapshot-value')->withoutOverlapping();
 
-Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo(storage_path('logs/streamer-auto-assignment.log'));
+Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo($scheduleLog('streamer-auto-assignment.log'));
 
 
 
@@ -160,7 +172,7 @@ Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('a
 // browser lock. Verified zero-tip shows are not rechecked indefinitely.
 // Recent shows are revisited after 24 hours; history is checked once.
 Schedule::command('whatnot:sync-tips-batch --mode=recent --limit=2 --apply')
-    ->appendOutputTo(storage_path('logs/whatnot-tips-sync.log'))
+    ->appendOutputTo($scheduleLog('whatnot-tips-sync.log'))
     ->skip($whatnotPaused)
     ->dailyAt('06:20')
     ->timezone('America/Chicago')
@@ -169,7 +181,7 @@ Schedule::command('whatnot:sync-tips-batch --mode=recent --limit=2 --apply')
     ->runInBackground();
 
 Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
-    ->appendOutputTo(storage_path('logs/whatnot-tips-sync.log'))
+    ->appendOutputTo($scheduleLog('whatnot-tips-sync.log'))
     ->skip($whatnotPaused)
     ->dailyAt('12:20')
     ->timezone('America/Chicago')
@@ -178,7 +190,7 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
     ->runInBackground();
 
 // Reconcile imported ledger transactions against exact Whatnot orders and shows.
-Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));
+Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo($scheduleLog('ledger-show-matching.log'));
 // Morning nudge when ledger money is still not tied to a show, streamer or house.
 // Shows whose earnings changed after their pay was locked (badge + admin alert).
 Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);

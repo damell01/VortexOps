@@ -260,6 +260,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.components.workspace-entry'),
             )
             ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.components.spa-links'),
+            )
+            ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn () => view('filament.components.login-pokemon'),
             )

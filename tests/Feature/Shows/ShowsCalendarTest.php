@@ -61,7 +61,7 @@ class ShowsCalendarTest extends TestCase
 
         Livewire::test(Shows::class)
             ->assertOk()
-            ->assertSet('viewMode', 'month')
+            ->assertSet('viewMode', 'cards')
             ->assertSet('anchor', '2026-10-07')
             ->assertSee('October 2026')
             ->assertSee('Vortex Cards Night');
@@ -73,7 +73,7 @@ class ShowsCalendarTest extends TestCase
 
         // The cell shows the first three and "+3 more"; every show is still in
         // the page's data, which the day panel lists when the day is picked.
-        $page = Livewire::test(Shows::class)
+        $page = Livewire::test(Shows::class)->call('setView', 'month')
             ->assertSeeHtml('title="Slot 0 · ')
             ->assertSeeHtml('title="Slot 2 · ')
             ->assertDontSeeHtml('title="Slot 3 · ')
@@ -86,7 +86,7 @@ class ShowsCalendarTest extends TestCase
     {
         foreach (['14:00', '16:30', '18:00'] as $i => $t) $this->show('2026-10-08', $t, null, "Thursday {$i}");
 
-        Livewire::test(Shows::class)
+        Livewire::test(Shows::class)->call('setView', 'month')
             ->assertSeeHtml('title="Thursday 0 · ')->assertSeeHtml('title="Thursday 1 · ')->assertSeeHtml('title="Thursday 2 · ')
             ->assertDontSee('more</button>', false);
     }
@@ -184,6 +184,18 @@ class ShowsCalendarTest extends TestCase
         Livewire::test(Shows::class)->call('setView', 'list')
             ->assertSee('Wed, Oct 7')->assertSee('Thu, Oct 8')
             ->assertSee('Wednesday Show')->assertDontSee('November Show');
+    }
+
+    public function test_cards_view_shows_each_show_with_its_cover(): void
+    {
+        $show = $this->show('2026-10-07', '14:00', null, 'Covered Show');
+        $show->forceFill(['cover_image_url' => '/storage/show-covers/1-abc.webp'])->saveQuietly();
+        $this->show('2026-10-08', '17:00', null, 'Plain Show');
+        $this->show('2026-11-02', '17:00', null, 'November Show');
+
+        Livewire::test(Shows::class)
+            ->assertSee('Wednesday, Oct 7')->assertSee('Covered Show')->assertSee('/storage/show-covers/1-abc.webp', false)
+            ->assertSee('Plain Show')->assertDontSee('November Show');
     }
 
     public function test_the_drawer_payload_carries_the_show_summary(): void

@@ -45,6 +45,9 @@ final class ErrorAlert
         foreach (self::IGNORED as $class) {
             if ($e instanceof $class) return false;
         }
+        // A deploy rebuilds bootstrap/cache; a scheduler run that starts in that
+        // instant cannot read the old file. The next minute's run is fine.
+        if (str_contains($e->getMessage(), 'bootstrap/cache/') && str_contains($e->getMessage(), 'Failed to open stream')) return false;
 
         return true;
     }

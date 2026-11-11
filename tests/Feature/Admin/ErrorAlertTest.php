@@ -45,5 +45,7 @@ class ErrorAlertTest extends TestCase
         $this->assertTrue(ErrorAlert::enabled());
         $this->assertFalse(ErrorAlert::shouldSend(new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException()));
         $this->assertTrue(ErrorAlert::shouldSend(new \ErrorException('boom')));
+        // A deploy rebuilding its route cache is not a crash.
+        $this->assertFalse(ErrorAlert::shouldSend(new \ErrorException('require(/var/www/vortexops/bootstrap/cache/routes-v7.php): Failed to open stream: No such file or directory')));
     }
 }

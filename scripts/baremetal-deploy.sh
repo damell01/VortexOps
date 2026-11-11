@@ -229,4 +229,11 @@ if [ "$maintenance_enabled" -eq 1 ]; then
   maintenance_enabled=0
 fi
 
+# Deploys run as root but the scheduler, queue and PHP run as www-data. A log
+# or cache file root created here (or by a command run by hand) would refuse
+# the scheduler's writes; a job appending to such a log exits with code 2.
+if [ "$(id -u)" -eq 0 ] && id www-data >/dev/null 2>&1; then
+  chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+fi
+
 echo "Bare-metal deploy complete: $BRANCH @ $(git rev-parse --short HEAD)"

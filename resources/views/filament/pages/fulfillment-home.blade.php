@@ -99,7 +99,7 @@
                             </span>
                         </div>
                         @if ($run && $show)
-                            <p class="vxf-station__show">{{ $show->title }}</p>
+                            <p class="vxf-station__show" style="display:flex;align-items:center;gap:8px"><x-show-cover :show="$show" :size="28" /><span style="min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ $show->title }}</span></p>
                             <p class="vxf-station__meta">
                                 <span><x-heroicon-o-calendar /> {{ $show->show_date?->format('M j') }}{{ $show->start_time ? ', ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</span>
                                 <span><x-heroicon-o-user /> {{ ($run->packers->pluck('name')->join(', ')) ?: ($show->fulfillmentUsers->pluck('name')->join(', ') ?: 'No packer') }}</span>
@@ -180,7 +180,7 @@
                                     $state = ($run->isOnStation() && $run->open_flags_count) ? 'hold' : $run->status;
                                     $needsReport = $requireReport && $run->status === 'ready' && ! in_array((int) $show->id, $approved, true); @endphp
                                 <tr wire:key="q-{{ $run->id }}">
-                                    <td style="min-width:200px"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></td>
+                                    <td style="min-width:200px"><span style="display:flex;gap:10px;align-items:flex-start"><x-show-cover :show="$show" :size="36" /><span style="min-width:0"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></span></span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
                                     <td class="vxf-num" style="white-space:nowrap">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">—</span>' !!} · {!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown" title="Counted once packing starts">pending</span>' !!}</td>
                                     <td>{{ $run->station?->name ?? '—' }}<span class="vxf-sub">

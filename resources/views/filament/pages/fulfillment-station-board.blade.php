@@ -93,7 +93,7 @@
         <section class="vxf-ready__show">
             <a class="vxf-backlink" href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}"><x-heroicon-o-arrow-left /> Fulfillment Home</a>
             <p class="vxf-eyebrow">Ready to pack</p>
-            <h1>{{ $show->title }}</h1>
+            <h1 style="display:flex;align-items:center;gap:12px"><x-show-cover :show="$show" :size="48" /><span>{{ $show->title }}</span></h1>
             <div class="vxf-chips">
                 <span class="vxf-chip"><x-heroicon-o-video-camera /> {{ $show->show_date?->format('M j') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}</span>
                 <span class="vxf-chip"><x-heroicon-o-signal /> {{ $show->channel?->name ?? 'No channel' }}</span>
@@ -147,6 +147,7 @@
     <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())">
         <header class="vxf-sbar">
             <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</span>
+            <x-show-cover :show="$show" :size="40" class="vxf-sbar__cover" />
             <div class="vxf-sbar__show">
                 <h1 title="{{ $show->title }}">{{ $show->title }}</h1>
                 <p>{{ $show->show_date?->format('M j') }}{{ $show->start_time ? ' · ' . $show->start_time->timezone($tz)->format('g:i A') : '' }}

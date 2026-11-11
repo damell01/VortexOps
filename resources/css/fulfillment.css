@@ -1067,3 +1067,4 @@ html.dark .vxf-full{background:#0b1020}
 .fi-resource-fulfillment-center .fi-header .fi-header-heading{white-space:nowrap}
 .fi-resource-fulfillment-center .fi-header-actions-ctn{flex:0 1 auto;max-width:100%;min-width:0}
 .fi-resource-fulfillment-center .fi-header-actions-ctn>.fi-ac{flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:640px){.vxf-sbar__cover{display:none}}

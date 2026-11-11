@@ -120,6 +120,8 @@ trait ReviewsFulfillmentSignoff
         $verified = (int) DB::table('fulfillment_verifications')->where('run_id', $run->id)->whereIn('result', ['matched', 'override'])->sum('quantity');
         $rejected = DB::table('fulfillment_verifications')->where('run_id', $run->id)->where('result', 'unmatched')->count();
 
-        return compact('buyers', 'packages', 'events', 'flags', 'contributions', 'verified', 'rejected');
+        $reconciliation = app(\App\Services\FulfillmentReconciliation::class)->forRun($run);
+
+        return compact('buyers', 'packages', 'events', 'flags', 'contributions', 'verified', 'rejected', 'reconciliation');
     }
 }

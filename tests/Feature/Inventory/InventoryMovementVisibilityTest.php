@@ -27,7 +27,7 @@ class InventoryMovementVisibilityTest extends TestCase
         $this->assertSame([$location->id], InventoryVisibility::locationIdsFor($user));
         $this->assertTrue(InventoryMovement::whereKey($movement->id)->exists());
         Livewire::test(InventoryScanner::class)->set('scanInput', 'STOCK-LINK-1')->call('submitScan')
-            ->assertSee('Move / Correct Stock')->assertSee(InventoryItemResource::getUrl('stock', ['record' => $item]), false);
+            ->assertSee('Move / Correct')->assertSee(InventoryItemResource::getUrl('stock', ['record' => $item]), false);
     }
 
     public function test_streamers_are_not_offered_the_hidden_add_stock_action(): void

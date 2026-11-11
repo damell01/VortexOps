@@ -18,7 +18,7 @@
      x-data="{
         d: @js($payload),
         by: {}, sel: null, openId: null, full: false, filters: false, slide: '',
-        mview: window.__vxShowsMview || 'list', tx: 0, ty: 0, sy: 0,
+        mview: window.__vxShowsMview || 'cards', tx: 0, ty: 0, sy: 0,
         init() {
             const by = {};
             Object.values(this.d.shows).forEach(s => (by[s.date] ||= []).push(s));
@@ -71,6 +71,12 @@
 <style>
 .vx-cal{--vx-bg:#fff;--vx-soft:#f8fafc;--vx-line:#e5e7eb;--vx-line2:#f1f5f9;--vx-text:#0f172a;--vx-muted:#64748b;--vx-faint:#94a3b8;--vx-p:var(--primary-600,#6d28d9);--vx-p-soft:color-mix(in srgb,var(--vx-p) 9%,transparent);min-width:0;color:var(--vx-text)}
 .dark .vx-cal{--vx-bg:#0f172a;--vx-soft:#111c2f;--vx-line:#253247;--vx-line2:#1b2638;--vx-text:#e5e7eb;--vx-muted:#94a3b8;--vx-faint:#64748b}
+.vx-mcards{display:flex;flex-direction:column;gap:6px}
+.vx-mcards-day{scroll-margin-top:120px}
+.vx-mcards-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain}
+.vx-mcards-row::-webkit-scrollbar{display:none}
+.vx-mcards-row .vx-scard{flex:0 0 78%;max-width:300px;scroll-snap-align:start}
+.vx-mcards-row .vx-scard:first-of-type:last-of-type{flex-basis:100%;max-width:none}
 .vx-cards-wrap{padding:6px 16px 18px;max-height:calc(100vh - 220px);overflow-y:auto;scroll-padding-top:4px}
 .vx-cards-day{padding-top:12px}
 .vx-cards-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:.82rem;font-weight:800;position:sticky;top:0;z-index:2;background:var(--vx-bg);padding:6px 0}
@@ -607,6 +613,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     </div>
     <div class="flex items-center gap-2">
         <div class="vx-seg flex-1" role="group" aria-label="Calendar view">
+            <button type="button" :class="mview === 'cards' && 'on'" @click="mview = 'cards'">Cards</button>
             <button type="button" :class="mview === 'month' && 'on'" @click="mview = 'month'">Month</button>
             <button type="button" :class="mview === 'week' && 'on'" @click="mview = 'week'">Week</button>
             <button type="button" :class="mview === 'list' && 'on'" @click="mview = 'list'">List</button>
@@ -620,7 +627,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     <template x-if="mview !== 'month'">
         <div class="vx-strip" @touchstart.passive="ts($event)" @touchend="te($event, n => select(add(sel, 7 * n), n))">
             <template x-for="w in weekDays()" :key="w.s">
-                <button type="button" class="vx-sday" :class="{ on: w.s === sel, today: w.s === d.today }" @click="select(w.s, w.s > sel ? 1 : -1)" :aria-label="fmt(w.s, { weekday: 'long', month: 'long', day: 'numeric' }) + ', ' + w.count + ' shows'">
+                <button type="button" class="vx-sday" :class="{ on: w.s === sel, today: w.s === d.today }" @click="select(w.s, w.s > sel ? 1 : -1); mview === 'cards' && $nextTick(() => document.getElementById('vx-mcards-' + w.s)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))" :aria-label="fmt(w.s, { weekday: 'long', month: 'long', day: 'numeric' }) + ', ' + w.count + ' shows'">
                     <span class="wd" x-text="w.wd"></span><span class="n" x-text="w.n"></span><span class="c" x-text="w.count ? w.count : ''"></span>
                 </button>
             </template>
@@ -635,7 +642,42 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
         </div>
     </template>
 
-    <div @touchstart.passive="ts($event)" @touchend="te($event, n => select(add(sel, mview === 'week' ? 7 * n : n), n))" style="min-height:40vh">
+    {{-- Cards: the picked week, one swipeable row of cover cards per day. --}}
+    <template x-if="mview === 'cards'">
+        <div class="vx-mcards" style="min-height:40vh">
+            <template x-for="w in weekDays().filter(w => w.count)" :key="w.s">
+                <section class="vx-mcards-day" :id="'vx-mcards-' + w.s" x-init="w.s === sel && $nextTick(() => $el.scrollIntoView({ block: 'nearest' }))">
+                    <div class="vx-mday-h"><b x-text="fmt(w.s, { weekday: 'long', month: 'short', day: 'numeric' })" :style="w.s === d.today ? 'color:var(--vx-p)' : ''"></b><span x-text="w.count + (w.count === 1 ? ' show' : ' shows')"></span></div>
+                    <div class="vx-mcards-row" tabindex="0" :aria-label="'Shows on ' + fmt(w.s, { weekday: 'long', month: 'long', day: 'numeric' })">
+                        <template x-for="p in day(w.s)" :key="p.id">
+                            <button type="button" class="vx-scard" :class="p.state" :style="'--c:' + p.color" @click="open(p.id)">
+                                <span class="vx-scard-cover">
+                                    <template x-if="p.cover"><img :src="p.cover" alt="" loading="lazy" decoding="async"></template>
+                                    <template x-if="!p.cover"><span class="vx-scard-ph" aria-hidden="true" x-text="(p.title || '?').charAt(0).toUpperCase()"></span></template>
+                                    <span class="vx-pill" :class="p.state" x-text="p.stateLabel"></span>
+                                    <span class="vx-scard-time" x-text="p.time"></span>
+                                </span>
+                                <span class="vx-scard-body">
+                                    <span class="vx-scard-title" x-text="p.title"></span>
+                                    <span class="vx-scard-meta"><span class="vx-cdot" aria-hidden="true"></span><span class="truncate" x-text="p.channel || 'No channel'"></span></span>
+                                    <span class="vx-scard-meta"><span class="vx-av" x-text="p.streamers ? p.initial : '?'"></span><span class="truncate" x-text="p.streamers || 'Unassigned'"></span></span>
+                                    <template x-if="p.state !== 'upcoming' && p.gross !== null">
+                                        <span class="vx-scard-nums"><span><b x-text="p.gross"></b> sales</span><span><b x-text="p.net"></b> net</span></span>
+                                    </template>
+                                </span>
+                            </button>
+                        </template>
+                    </div>
+                </section>
+            </template>
+            <div x-show="!weekDays().some(w => w.count)" class="vx-card vx-empty" style="margin-top:14px;padding:28px 16px">
+                No shows this week.
+                <template x-if="d.canAdd"><div class="mt-3"><button type="button" class="vx-btn primary" @click="addOn(sel)">Add a show</button></div></template>
+            </div>
+        </div>
+    </template>
+
+    <div x-show="mview !== 'cards'" @touchstart.passive="ts($event)" @touchend="te($event, n => select(add(sel, mview === 'week' ? 7 * n : n), n))" style="min-height:40vh">
         <template x-for="k in [sel + mview]" :key="k">
             <div :class="slide">
                 <template x-for="s in (mview === 'week' ? weekDays().map(w => w.s) : [sel])" :key="s">

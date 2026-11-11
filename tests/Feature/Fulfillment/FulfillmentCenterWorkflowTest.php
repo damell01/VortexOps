@@ -393,6 +393,28 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertCount(2, $rc['missing_shipments']);
     }
 
+    public function test_each_buyer_gets_a_camera_window_linked_to_the_footage_lookup(): void
+    {
+        $this->travelTo(now()->setTime(15, 0));
+        $run = $this->started();
+        $this->station->forceFill(['camera_label' => 'Cam 2'])->save();
+        $service = app(FulfillmentRunService::class);
+        $zoe = $run->buyers()->where('buyer_username', 'zoe_cards')->firstOrFail();
+        $service->selectBuyer($run->id, $zoe->id, $this->packer);
+        $this->travelTo(now()->setTime(15, 3));
+        $service->markPacked($run->id, $zoe->id, $this->packer);
+        \App\Support\BuyerPackingWindows::flush();
+
+        $label = \App\Support\BuyerPackingWindows::label($run->show_id, 'ZOE_cards');
+        $this->assertStringContainsString(' – ', $label);
+        $this->assertStringEndsWith('· Cam 2', $label);
+        $this->assertNull(\App\Support\BuyerPackingWindows::label($run->show_id, 'nobody'));
+
+        $order = WhatnotShowOrder::query()->where('show_id', $run->show_id)->where('buyer_username', 'zoe_cards')->firstOrFail();
+        Livewire::withQueryParams(['tab' => 'lookup', 'q' => $order->whatnot_order_id])->actingAs($this->manager)
+            ->test(\App\Filament\Pages\FulfillmentActivity::class)->assertSee('zoe_cards')->assertSee('Cam 2');
+    }
+
     public function test_the_tv_feed_names_the_show_that_finished(): void
     {
         $run = $this->started();

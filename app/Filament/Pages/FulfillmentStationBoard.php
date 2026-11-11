@@ -301,12 +301,12 @@ class FulfillmentStationBoard extends Page
         $this->say('Issue reported · buyer on hold until a manager resolves it', false);
     }
 
-    public function pause(): void
+    public function pause(string $reason = 'other'): void
     {
-        $this->act(function () {
-            app(FulfillmentRunService::class)->pause($this->runId, auth()->user(), $this->pauseReason ?: null);
+        $this->act(function () use ($reason) {
+            app(FulfillmentRunService::class)->pause($this->runId, auth()->user(), $reason, $this->pauseReason ?: null);
             $this->pauseReason = '';
-            $this->say('Packing paused', true);
+            $this->say('Packing paused · ' . \App\Models\FulfillmentRun::pauseReasonLabel($reason), true);
         });
     }
 

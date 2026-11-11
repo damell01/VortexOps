@@ -146,7 +146,7 @@
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
     <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())">
         <header class="vxf-sbar">
-            <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</span>
+            <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused · ' . \App\Models\FulfillmentRun::pauseReasonLabel($run->pause_reason) : 'Packing' }}</span>
             <x-show-cover :show="$show" :size="40" class="vxf-sbar__cover" />
             <div class="vxf-sbar__show">
                 <h1 title="{{ $show->title }}">{{ $show->title }}</h1>
@@ -298,7 +298,22 @@
                     <div class="vxf-acttiles">
                         @unless ($paused)
                             <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="openFlag"><x-heroicon-o-flag /><span>Flag Issue</span></button>
-                            <button type="button" class="vxf-acttile vxf-acttile--warn" wire:click="pause"><x-heroicon-o-pause /><span>Pause</span></button>
+                            <div x-data="{ open: false }" class="vxf-pausepick" @keydown.escape.window="open = false" style="position:relative;display:contents">
+                                <button type="button" class="vxf-acttile vxf-acttile--warn" @click="open = true" :aria-expanded="open"><x-heroicon-o-pause /><span>Pause</span></button>
+                                <div x-show="open" x-cloak x-transition.opacity class="vxf-pausepick__backdrop" @click.self="open = false" role="dialog" aria-modal="true" aria-labelledby="vxf-pause-title">
+                                    <div class="vxf-pausepick__card">
+                                        <h2 id="vxf-pause-title">Why are you pausing?</h2>
+                                        <div class="vxf-pausepick__grid">
+                                            @foreach (\App\Models\FulfillmentRun::PAUSE_REASONS as $key => $label)
+                                                <button type="button" class="vxf-big" wire:click="pause('{{ $key }}')" @click="open = false">{{ $label }}</button>
+                                            @endforeach
+                                        </div>
+                                        <label class="vxf-sub" for="vxf-pause-note" style="display:block;margin-top:10px">Note (optional)</label>
+                                        <input id="vxf-pause-note" type="text" class="vxf-input" wire:model="pauseReason" maxlength="200" placeholder="e.g. waiting on 2 more boxes" style="width:100%">
+                                        <button type="button" class="vxf-btn vxf-btn--sm" style="margin-top:10px" @click="open = false">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
                         @endunless
                         <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="openReview"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
                     </div>

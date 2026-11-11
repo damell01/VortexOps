@@ -261,6 +261,29 @@ class FulfillmentReports extends Page
             ->map(fn ($r) => ['label' => FulfillmentFlagService::label($r->type), 'n' => (int) $r->n, 'open' => (int) $r->open]);
     }
 
+    /** Pauses in the period by reason: how many, and the time lost to each. */
+    #[Computed]
+    public function pauseReasons(): Collection
+    {
+        [$from, $until] = $this->utc();
+        $events = \App\Models\FulfillmentEvent::query()->whereIn('type', ['paused', 'resumed', 'finished'])->whereBetween('created_at', [$from, $until])
+            ->when(! $this->isManager(), fn ($q) => $q->where('user_id', auth()->id()))
+            ->get(['type', 'data']);
+        $rows = [];
+        foreach ($events as $e) {
+            $key = $e->data['reason_key'] ?? null;
+            if ($e->type === 'paused') {
+                $key ??= 'other';
+                $rows[$key]['n'] = ($rows[$key]['n'] ?? 0) + 1;
+            } elseif ($key !== null) {
+                $rows[$key]['seconds'] = ($rows[$key]['seconds'] ?? 0) + (int) ($e->data['paused_seconds'] ?? 0);
+            }
+        }
+
+        return collect($rows)->map(fn ($r, $key) => ['label' => FulfillmentRun::pauseReasonLabel($key), 'n' => (int) ($r['n'] ?? 0), 'seconds' => (int) ($r['seconds'] ?? 0)])
+            ->sortByDesc('seconds')->values();
+    }
+
     /** The latest issues in the period, under the by-type bars. */
     #[Computed]
     public function recentIssues(): Collection

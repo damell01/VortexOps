@@ -140,6 +140,25 @@
         </section>
     </div>
 
+    {{-- Pauses by reason --}}
+    <section class="vxf-card" aria-labelledby="vxfr-pauses" style="margin-bottom:16px">
+        <div class="vxf-card__head"><h2 id="vxfr-pauses">Pauses by reason</h2></div>
+        @if ($this->pauseReasons->isEmpty())
+            <div class="vxfr-empty"><x-heroicon-o-play /><p>No pauses in this period.</p></div>
+        @else
+            @php $maxPause = max(1, $this->pauseReasons->max('seconds')); @endphp
+            <ul class="vxfr-hbars">
+                @foreach ($this->pauseReasons as $p)
+                    <li tabindex="0" aria-label="{{ $p['label'] }}: {{ $p['n'] }} pauses, {{ \App\Filament\Pages\FulfillmentReports::hours($p['seconds']) }}">
+                        <span class="vxfr-hbars__label">{{ $p['label'] }}</span>
+                        <span class="vxfr-hbars__track"><span style="width: {{ round($p['seconds'] / $maxPause * 100) }}%"></span></span>
+                        <span class="vxf-num vxfr-hbars__n">{{ \App\Filament\Pages\FulfillmentReports::hours($p['seconds']) }}<small>{{ $p['n'] }} {{ \Illuminate\Support\Str::plural('pause', $p['n']) }}</small></span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
     {{-- Packer summary: the digital pay sheet --}}
     <section class="vxf-card" aria-labelledby="vxfr-packers">
         <div class="vxf-card__head">

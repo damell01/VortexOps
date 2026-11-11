@@ -95,6 +95,7 @@ class FulfillmentWhiteboardController extends Controller
                     // Active packing time so far (pauses excluded), for the live timer.
                     'elapsed' => $onStation ? $run->activeSeconds() : null,
                     'ticking' => $run->status === FulfillmentRun::PACKING,
+                    'pause_reason' => $run->status === FulfillmentRun::PAUSED ? FulfillmentRun::pauseReasonLabel($run->pause_reason) : null,
                     'packer' => $people->pluck('name')->map(fn ($n) => explode(' ', trim($n))[0])->join(', ') ?: null,
                     'initials' => $people->take(3)->map(fn ($u) => mb_strtoupper(mb_substr(trim($u->name), 0, 1)))->values()->all(),
                     'letter' => $onStation ? $run->currentBuyer?->letter : null,
@@ -116,7 +117,7 @@ class FulfillmentWhiteboardController extends Controller
             ->whereIn('type', ['buyer_packed', 'started', 'finished', 'issue_flagged', 'issue_resolved', 'paused', 'resumed'])
             ->where('created_at', '>=', now()->subHours(12))
             ->when($only, fn ($q) => $q->where('station_id', $only))
-            ->with('station:id,name')
+            ->with(['station:id,name', 'show:id,title'])
             ->latest('id')->limit(12)->get()
             ->map(fn ($e) => [
                 'id' => $e->id,
@@ -125,13 +126,15 @@ class FulfillmentWhiteboardController extends Controller
                 'station' => $e->station?->name,
                 'letter' => $e->buyer_letter,
                 'buyer' => $e->buyer_username,
+                'show' => $e->type === 'finished' ? $e->show?->title : null,
+                'packages' => $e->type === 'finished' ? ($e->data['packages'] ?? null) : null,
                 'text' => match ($e->type) {
                     'buyer_packed' => 'packed',
                     'started' => 'started packing',
                     'finished' => 'finished the show',
                     'issue_flagged' => 'flagged an issue',
                     'issue_resolved' => 'issue resolved',
-                    'paused' => 'paused',
+                    'paused' => 'paused' . (isset($e->data['reason']) ? ' · ' . $e->data['reason'] : ''),
                     'resumed' => 'resumed',
                     default => \App\Models\FulfillmentEvent::label($e->type),
                 },

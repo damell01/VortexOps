@@ -71,6 +71,28 @@
 <style>
 .vx-cal{--vx-bg:#fff;--vx-soft:#f8fafc;--vx-line:#e5e7eb;--vx-line2:#f1f5f9;--vx-text:#0f172a;--vx-muted:#64748b;--vx-faint:#94a3b8;--vx-p:var(--primary-600,#6d28d9);--vx-p-soft:color-mix(in srgb,var(--vx-p) 9%,transparent);min-width:0;color:var(--vx-text)}
 .dark .vx-cal{--vx-bg:#0f172a;--vx-soft:#111c2f;--vx-line:#253247;--vx-line2:#1b2638;--vx-text:#e5e7eb;--vx-muted:#94a3b8;--vx-faint:#64748b}
+.vx-cards-wrap{padding:6px 16px 18px;max-height:calc(100vh - 220px);overflow-y:auto;scroll-padding-top:4px}
+.vx-cards-day{padding-top:12px}
+.vx-cards-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:.82rem;font-weight:800;position:sticky;top:0;z-index:2;background:var(--vx-bg);padding:6px 0}
+.vx-cards-h span{font-size:.72rem;font-weight:600;color:var(--vx-muted)}
+.vx-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.vx-scard{display:flex;flex-direction:column;text-align:left;border:1px solid var(--vx-line);border-radius:16px;overflow:hidden;background:var(--vx-bg);transition:transform .15s,box-shadow .15s,border-color .15s;min-width:0}
+.vx-scard:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--c) 45%,var(--vx-line));box-shadow:0 14px 30px -18px color-mix(in srgb,var(--c) 70%,transparent)}
+.vx-scard:focus-visible{outline:2px solid var(--vx-p);outline-offset:2px}
+.vx-scard.cancelled{opacity:.6}
+.vx-scard-cover{position:relative;display:block;aspect-ratio:16/10;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 35%,#0f172a),color-mix(in srgb,var(--c) 75%,#fff 10%));overflow:hidden}
+.vx-scard-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.vx-scard-ph{position:absolute;inset:0;display:grid;place-items:center;font-size:2.6rem;font-weight:900;color:rgba(255,255,255,.85)}
+.vx-scard-cover .vx-pill{position:absolute;top:8px;left:8px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.vx-scard-time{position:absolute;right:8px;bottom:8px;padding:3px 8px;border-radius:999px;background:rgba(15,23,42,.72);color:#fff;font-size:.7rem;font-weight:700}
+.vx-scard-body{display:flex;flex-direction:column;gap:5px;padding:10px 12px 12px;min-width:0}
+.vx-scard-title{font-weight:800;font-size:.86rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vx-scard-meta{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--vx-muted);min-width:0}
+.vx-scard-meta .vx-cdot{flex:none}
+.vx-scard-meta .vx-av{width:18px;height:18px;font-size:.6rem;flex:none}
+.vx-scard-nums{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:2px;padding-top:7px;border-top:1px solid var(--vx-line2);font-size:.7rem;color:var(--vx-muted)}
+.vx-scard-nums b{color:var(--vx-text)}
+@media (prefers-reduced-motion: reduce){.vx-scard{transition:none}.vx-scard:hover{transform:none}}
 .vx-cal [x-cloak]{display:none!important}
 .vx-cal .vx-card{background:var(--vx-bg);border:1px solid var(--vx-line);border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
 .vx-cal button{cursor:pointer;touch-action:manipulation}
@@ -361,7 +383,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
         <div wire:loading.delay class="text-xs" style="color:var(--vx-faint)">Loading…</div>
         <div class="ml-auto flex items-center gap-2">
             <div class="vx-seg" role="group" aria-label="Calendar view">
-                @foreach(['month' => 'Month', 'week' => 'Week', 'channels' => 'By channel', 'list' => 'List'] as $v => $label)
+                @foreach(['cards' => 'Cards', 'month' => 'Month', 'week' => 'Week', 'channels' => 'By channel', 'list' => 'List'] as $v => $label)
                     <button type="button" wire:click="setView('{{ $v }}')" @class(['on' => $viewMode === $v]) aria-pressed="{{ $viewMode === $v ? 'true' : 'false' }}">{{ $label }}</button>
                 @endforeach
             </div>
@@ -371,7 +393,39 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     @include('filament.pages.partials.shows-filters')
     @include('filament.pages.partials.shows-channel-toggles')
 
-    @if($viewMode === 'month')
+    @if($viewMode === 'cards')
+        {{-- Cards: the month's shows by day, each with its Whatnot cover. Today's day scrolls into view. --}}
+        <div class="vx-cards-wrap">
+        @forelse($this->agendaDays() as $iso => $shows)
+            @php $date = \Carbon\Carbon::parse($iso); @endphp
+            <section class="vx-cards-day" wire:key="cards-{{ $iso }}" @if($iso === $todayIso) x-init="$nextTick(() => $el.scrollIntoView({ block: 'start', behavior: 'instant' }))" @endif>
+                <h3 class="vx-cards-h"><button type="button" wire:click="openDay('{{ $iso }}')" @if($iso === $todayIso) style="color:var(--vx-p)" @endif>{{ $date->format('l, M j') }}@if($iso === $todayIso) · Today @endif</button><span>{{ $shows->count() }} {{ Str::plural('show', $shows->count()) }}</span></h3>
+                <div class="vx-cards-grid">
+                    @foreach($shows as $p)
+                        <button type="button" class="vx-scard {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click="open({{ $p['id'] }})" title="{{ $p['title'] }}">
+                            <span class="vx-scard-cover">
+                                @if($p['cover'])<img src="{{ $p['cover'] }}" alt="" loading="lazy" decoding="async">@else<span class="vx-scard-ph" aria-hidden="true">{{ mb_strtoupper(mb_substr($p['title'], 0, 1)) }}</span>@endif
+                                <span class="vx-pill {{ $p['state'] }}">{{ $p['stateLabel'] }}</span>
+                                <span class="vx-scard-time">{{ $p['time'] }}</span>
+                            </span>
+                            <span class="vx-scard-body">
+                                <span class="vx-scard-title">{{ $p['title'] }}</span>
+                                <span class="vx-scard-meta"><span class="vx-cdot" aria-hidden="true"></span><span class="truncate">{{ $p['channel'] ?? 'No channel' }}</span></span>
+                                <span class="vx-scard-meta"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span><span class="truncate">{{ $p['streamers'] ?? 'Unassigned' }}</span></span>
+                                @if($p['state'] !== 'upcoming' && $p['gross'] !== null)
+                                    <span class="vx-scard-nums"><span><b>{{ $p['gross'] }}</b> sales</span><span><b>{{ $p['net'] }}</b> net</span><span><b>{{ $p['units'] }}</b> units</span></span>
+                                @endif
+                            </span>
+                        </button>
+                    @endforeach
+                </div>
+            </section>
+        @empty
+            <div class="vx-empty">No shows in {{ $this->anchorDate()->format('F Y') }}{{ $filterCount ? ' match these filters' : '' }}.@if($isAdmin) <button type="button" class="vx-btn primary" style="margin-left:8px" @click="addOn('{{ $todayIso }}')">Add a show</button>@endif</div>
+        @endforelse
+        </div>
+
+    @elseif($viewMode === 'month')
         {{-- Month (as in the mockups): each day shows its count and a strip of
              its channel mix; clicking a day lists all of it in the panel. The
              per-show chips below are hidden by the theme ("Shows month view"). --}}

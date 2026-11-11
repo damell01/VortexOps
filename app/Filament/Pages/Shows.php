@@ -47,14 +47,14 @@ class Shows extends Page
     protected static string $moduleSlug = 'streams';
     protected static ?string $title = 'Shows';
 
-    public const VIEWS = ['month', 'week', 'channels', 'list', 'day'];
+    public const VIEWS = ['cards', 'month', 'week', 'channels', 'list', 'day'];
 
     /** Shows starting before this hour are treated as the tail of the previous evening. */
 
     /** Channel colours, assigned by channel id so each channel keeps its colour. */
     private const PALETTE = ['#ef4444', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#84cc16'];
 
-    #[Url(as: 'view')] public string $viewMode = 'month';
+    #[Url(as: 'view')] public string $viewMode = 'cards';
     #[Url(as: 'date')] public string $anchor = '';
     #[Url(as: 'status')] public string $filterStatus = 'all';
     #[Url(as: 'streamer')] public string $filterStreamer = '';
@@ -69,7 +69,7 @@ class Shows extends Page
         // Older links (Streams overview, bookmarks) pass a from/to period.
         if ($this->anchor === '' && ($from = request()->query('from'))) $this->anchor = (string) $from;
         $this->anchor = $this->anchorDate()->toDateString();
-        if (! in_array($this->viewMode, self::VIEWS, true)) $this->viewMode = 'month';
+        if (! in_array($this->viewMode, self::VIEWS, true)) $this->viewMode = 'cards';
     }
 
     public function getView(): string { return 'filament.pages.shows'; }

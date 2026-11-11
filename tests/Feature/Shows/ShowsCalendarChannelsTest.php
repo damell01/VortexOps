@@ -45,7 +45,7 @@ class ShowsCalendarChannelsTest extends TestCase
         // The cell shows three and "+N more"; the day panel lists every one of
         // them from the page's data, so all of them are still on the page.
         Livewire::test(Shows::class, ['anchor' => '2026-10-14'])
-            ->set('anchor', '2026-10-14')
+            ->set('anchor', '2026-10-14')->call('setView', 'month')
             ->assertSee('Breaks show 6')
             ->assertSee('Shop singles night')
             ->assertSee('more</button>', false);

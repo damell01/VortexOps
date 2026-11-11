@@ -1078,3 +1078,12 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-so-rec dd{margin:2px 0 0;font-weight:800;font-size:18px}
 .vxf-so-missing{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:220px;overflow:auto}
 .vxf-so-missing li{display:flex;flex-wrap:wrap;gap:4px 8px;padding:6px 8px;border-radius:8px;background:rgba(220,38,38,.07)}
+.vxf-dnd-team{display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-bottom:1px solid var(--vxf-line)}
+.vxf-dnd-team__chips{display:flex;flex-wrap:wrap;gap:6px}
+.vxf-dnd-chip{cursor:grab;user-select:none}
+.vxf-dnd-chip:active{cursor:grabbing}
+.vxf-dnd-chip b{display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:999px;background:var(--vxf-brand);color:#fff;font-size:10px;margin-right:2px}
+.vxf-dnd-row{cursor:grab}
+.vxf-dnd-row.is-drop td{background:rgba(124,58,237,.10)}
+.vxf-station.is-drop{outline:3px dashed var(--vxf-brand);outline-offset:2px}
+@media (hover:none){.vxf-dnd-team{display:none}}

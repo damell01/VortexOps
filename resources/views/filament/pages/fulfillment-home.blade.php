@@ -90,7 +90,12 @@
                         $done = (int) ($run->completed_packages ?? 0); $total = $run?->expected_packages;
                         $pct = $total ? min(100, round($done / max(1, $total) * 100)) : 0; @endphp
                     @php $tone = ['packing' => 'packing', 'hold' => 'hold', 'paused' => 'paused', 'ready' => 'ready'][$state] ?? 'idle'; @endphp
-                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}" x-show="status === 'all' || status === @js($state)" x-cloak>
+                    <article class="vxf-card vxf-station vxf-station--{{ $tone }}" wire:key="station-{{ $row['station']->id }}" x-show="status === 'all' || status === @js($state)" x-cloak
+                        @if ($manager) x-data="{ over: false }" x-bind:class="{ 'is-drop': over }"
+                            x-on:dragover="if (window.vxfDnd.accepts($event, {{ $state === 'ready' ? "['run','packer']" : ($run ? "[]" : "['run']") }})) { $event.preventDefault(); over = true }"
+                            x-on:dragleave="over = false"
+                            x-on:drop.prevent="over = false; window.vxfDnd.dropOnStation($event, $wire, {{ \Illuminate\Support\Js::from(['station' => $row['station']->id, 'runId' => $state === 'ready' ? $run?->id : null, 'users' => $state === 'ready' && $show ? $show->fulfillmentUsers->pluck('id')->all() : []]) }})"
+                        @endif>
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
                             <span style="display:inline-flex;gap:6px;align-items:center">
@@ -168,6 +173,17 @@
                     @endforeach
                 </div>
             </div>
+            @if ($manager && count($this->team))
+                <div class="vxf-dnd-team" aria-label="Fulfillment team">
+                    <span class="vxf-sub">Drag a person onto a show or a ready station · drag a show onto a station</span>
+                    <div class="vxf-dnd-team__chips">
+                        @foreach ($this->team as $p)
+                            <span class="vxf-chip vxf-dnd-chip" draggable="true" title="Drag {{ $p['name'] }} onto a show or a ready station"
+                                  x-on:dragstart="window.vxfDnd.start($event, 'packer', {{ \Illuminate\Support\Js::from(['id' => $p['id'], 'name' => $p['name']]) }})"><b>{{ $p['initials'] }}</b> {{ $p['name'] }}</span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
             @if ($this->queue->isEmpty())
                 <p class="vxf-empty">{{ $jobs !== 'all' ? 'No ' . ($jobs === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>
             @else
@@ -179,7 +195,15 @@
                                 @php $show = $run->show; $people = $run->packers->isNotEmpty() ? $run->packers : $show->fulfillmentUsers;
                                     $state = ($run->isOnStation() && $run->open_flags_count) ? 'hold' : $run->status;
                                     $needsReport = $requireReport && $run->status === 'ready' && ! in_array((int) $show->id, $approved, true); @endphp
-                                <tr wire:key="q-{{ $run->id }}">
+                                @php $dndRun = ['runId' => $run->id, 'title' => $show->title, 'users' => $show->fulfillmentUsers->pluck('id')->all(), 'station' => $run->station_id]; @endphp
+                                <tr wire:key="q-{{ $run->id }}"
+                                    @if ($manager && $run->status === 'ready') draggable="true" class="vxf-dnd-row" title="Drag onto a station, or drop a person here"
+                                        x-data="{ over: false }" x-bind:class="{ 'is-drop': over }"
+                                        x-on:dragstart="window.vxfDnd.start($event, 'run', {{ \Illuminate\Support\Js::from($dndRun) }})"
+                                        x-on:dragover="if (window.vxfDnd.accepts($event, ['packer'])) { $event.preventDefault(); over = true }"
+                                        x-on:dragleave="over = false"
+                                        x-on:drop.prevent="over = false; window.vxfDnd.dropOnRun($event, $wire, {{ \Illuminate\Support\Js::from($dndRun) }})"
+                                    @endif>
                                     <td style="min-width:200px"><span style="display:flex;gap:10px;align-items:flex-start"><x-show-cover :show="$show" :size="36" /><span style="min-width:0"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></span></span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
                                     <td class="vxf-num" style="white-space:nowrap">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">—</span>' !!} · {!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown" title="Counted once packing starts">pending</span>' !!}</td>
@@ -362,4 +386,27 @@
         @include('fulfillment.signoff-review')
     @endisland
 </div>
+
+@script
+<script>
+window.vxfDnd = window.vxfDnd || {
+    kind: null, data: null,
+    start(e, kind, data) { this.kind = kind; this.data = data; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', kind + ':' + (data.runId ?? data.id)); },
+    accepts(e, kinds) { return this.kind !== null && kinds.includes(this.kind); },
+    async save(wire, runId, users, station) {
+        const r = await wire.saveAssignment(runId, users, station ?? null);
+        if (r && !r.ok && window.FilamentNotification) new FilamentNotification().title(r.message).warning().send();
+        this.kind = null; this.data = null;
+    },
+    dropOnStation(e, wire, target) {
+        if (this.kind === 'run') return this.save(wire, this.data.runId, this.data.users, target.station);
+        if (this.kind === 'packer' && target.runId) return this.save(wire, target.runId, [...new Set([...(target.users || []), this.data.id])], target.station);
+    },
+    dropOnRun(e, wire, target) {
+        if (this.kind === 'packer') return this.save(wire, target.runId, [...new Set([...(target.users || []), this.data.id])], target.station);
+    },
+};
+if (!window.vxfDndEnd) { window.vxfDndEnd = true; document.addEventListener('dragend', () => { if (window.vxfDnd) setTimeout(() => { window.vxfDnd.kind = null }, 0) }); }
+</script>
+@endscript
 </x-filament-panels::page>

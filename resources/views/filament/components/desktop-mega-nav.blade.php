@@ -57,6 +57,7 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
+ ...(\App\Filament\Pages\YearEndPay::canAccess() ? [['Year-end pay (1099)',\App\Filament\Pages\YearEndPay::getUrl(panel:'admin')]] : []),
  ...(\App\Filament\Pages\PayChangedSincePaid::canAccess() ? [[\App\Support\LedgerNav::changedLabel(),\App\Filament\Pages\PayChangedSincePaid::getUrl(panel:'admin')]] : []),
  ...(\App\Filament\Resources\WhatnotLedgerResource::canAccess() ? [['Ledger Charges',\App\Filament\Resources\WhatnotLedgerResource::getUrl('charges')]] : []),
 ];

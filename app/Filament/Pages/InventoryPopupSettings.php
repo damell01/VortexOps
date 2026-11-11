@@ -59,10 +59,10 @@ class InventoryPopupSettings extends Page
         $this->roles = array_values(array_intersect($validRoles, $this->roles));
         $ids = array_values(array_unique(array_map('intval', $this->selectedStreamers)));
         $validIds = User::query()->with('streamer')->whereIn('id', $ids)->get()->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))->pluck('id')->all();
-        if (count($validIds) !== count($ids)) {
-            $this->addError('selectedStreamers', 'Choose valid streamer accounts only.');
-            return;
-        }
+        // Someone picked earlier who is no longer a streamer (made an admin, archived)
+        // is hidden from the list, so they cannot be unticked: drop them instead of
+        // refusing to save.
+        $this->selectedStreamers = $validIds;
         Setting::set(InventoryPopupPolicy::ENABLED, $this->enabled ? '1' : '0');
         Setting::set(InventoryPopupPolicy::ROLES, json_encode($this->roles));
         Setting::set(InventoryPopupPolicy::USER_IDS, json_encode($validIds));

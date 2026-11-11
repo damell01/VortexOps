@@ -35,4 +35,20 @@ class InventoryPopupSettingsTest extends TestCase
 
         $this->assertFalse(InventoryPopupPolicy::enabledFor($user));
     }
+
+    public function test_a_picked_person_who_is_no_longer_a_streamer_does_not_block_saving(): void
+    {
+        $owner = User::factory()->create(['email' => 'dbellcreations@gmail.com']);
+        $notStreamer = User::factory()->create();
+        Setting::set(InventoryPopupPolicy::USER_IDS, json_encode([$notStreamer->id]));
+        $this->actingAs($owner);
+
+        \Livewire\Livewire::test(\App\Filament\Pages\InventoryPopupSettings::class)
+            ->set('enabled', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('1', (string) Setting::get(InventoryPopupPolicy::ENABLED));
+        $this->assertSame('[]', (string) Setting::get(InventoryPopupPolicy::USER_IDS));
+    }
 }

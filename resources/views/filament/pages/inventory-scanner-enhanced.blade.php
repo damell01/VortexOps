@@ -395,12 +395,22 @@
             {{-- Step 2 of the quick flow: everything for the found item in one screen, nothing below to scroll to. --}}
             @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
             @php($done = $qaFlash && ! isset($qaFlash['error']))
+            <style>
+                .vx-qa-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;padding:6px 4px;border-radius:12px;border:1px solid rgb(229 231 235);background:#fff;font-size:11px;font-weight:700;line-height:1.15;text-align:center;color:rgb(55 65 81)}
+                .vx-qa-act svg{width:22px;height:22px;color:rgb(124 58 237)}
+                .vx-qa-act:active{background:rgb(245 243 255)}
+                .dark .vx-qa-act{background:rgb(17 24 39);border-color:rgb(55 65 81);color:rgb(229 231 235)}
+                .vx-qa-key{min-height:52px;border-radius:12px;border:1px solid rgb(209 213 219);background:#fff;font-size:22px!important;font-weight:800!important;color:rgb(17 24 39);touch-action:manipulation}
+                .vx-qa-key:active{background:rgb(237 233 254)}
+                .dark .vx-qa-key{background:rgb(31 41 55);border-color:rgb(55 65 81);color:#fff}
+            </style>
             <section id="vx-scanner-found-item" style="scroll-margin-top:90px"
-                x-data="{ qty: $wire.entangle('qaQty'), sheet: false, onHand: {{ (float) $selectedItem['total_qty'] }},
+                x-data="{ qty: $wire.entangle('qaQty'), fresh: true, onHand: {{ (float) $selectedItem['total_qty'] }},
+                    key(d) { const cur = this.fresh ? '' : String(this.qty ?? ''); this.fresh = false; const next = (cur === '0' ? '' : cur) + d; if (next.length <= 6) this.qty = next },
+                    back() { this.fresh = false; const cur = String(this.qty ?? ''); this.qty = cur.length > 1 ? cur.slice(0, -1) : '' },
                     n() { const v = parseFloat(this.qty); return isFinite(v) && v > 0 ? v : 0 },
-                    step(d) { this.qty = String(Math.max(1, Math.round((this.n() + d) * 100) / 100)) },
+                    step(d) { this.fresh = true; this.qty = String(Math.max(1, Math.round((this.n() + d) * 100) / 100)) },
                     scanNext() { $wire.switchMode('lookup').then(() => { if (window.matchMedia('(max-width: 639px)').matches) openScanner(); else document.getElementById('vx-scanner-code')?.focus() }) } }"
-                @keydown.escape.window="sheet = false"
                 class="vx-qa overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
 
                 <div class="flex items-center gap-3 p-3 sm:p-4">
@@ -412,7 +422,6 @@
                         <p class="truncate text-xs text-gray-500">SKU {{ $selectedItem['sku'] ?: '—' }}</p>
                         <p class="mt-0.5 text-sm"><b class="text-emerald-700 dark:text-emerald-400">{{ number_format((float) $selectedItem['total_qty']) }}</b> <span class="text-gray-500">on hand</span></p>
                     </div>
-                    <button type="button" @click="sheet = true" class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200" aria-haspopup="dialog"><x-heroicon-m-ellipsis-vertical class="h-4 w-4" /> More</button>
                 </div>
 
                 @if($done)
@@ -428,26 +437,45 @@
                     </div>
                 @else
                     <div class="border-t border-gray-100 p-3 dark:border-gray-800 sm:p-4">
-                        {{-- Quick actions: Add is open; Move swaps to the stock screen; More is the sheet. --}}
-                        <div class="grid grid-cols-3 gap-1.5 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="group" aria-label="Item actions">
-                            <span class="flex min-h-10 items-center justify-center gap-1 rounded-lg bg-white text-xs font-bold text-violet-700 shadow-sm dark:bg-gray-900 dark:text-violet-300" aria-current="true"><x-heroicon-m-plus class="h-4 w-4" /> Add stock</span>
-                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="flex min-h-10 items-center justify-center gap-1 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300"><x-heroicon-m-arrows-right-left class="h-4 w-4" /> Move / Correct</a>
-                            <button type="button" @click="sheet = true" class="flex min-h-10 items-center justify-center gap-1 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300"><x-heroicon-m-ellipsis-horizontal class="h-4 w-4" /> More</button>
+                        {{-- Every action is a visible button: nothing to expand. Add stock is the form below. --}}
+                        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="Item actions">
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="vx-qa-act"><x-heroicon-o-arrows-right-left /> <span>Move / Correct</span></a>
+                            <label class="vx-qa-act cursor-pointer"><x-heroicon-o-camera /> <span>Photo</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="sr-only" /></label>
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="vx-qa-act"><x-heroicon-o-arrow-top-right-on-square /> <span>Details</span></a>
+                            @if($photoItem && \App\Filament\Resources\InventoryItemResource::canEdit($photoItem))
+                                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="vx-qa-act"><x-heroicon-o-pencil-square /> <span>Edit / Barcodes</span></a>
+                            @else
+                                <button type="button" @click="scanNext()" class="vx-qa-act"><x-heroicon-o-camera /> <span>Scan another</span></button>
+                            @endif
                         </div>
+                        {{-- A photo picked with the Photo button: preview state and Save, shown only while one is chosen. --}}
+                        <div wire:loading wire:target="itemPhoto" class="mt-2 text-xs font-semibold text-violet-700" role="status">Uploading photo…</div>
+                        @error('itemPhoto')<p class="mt-2 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
+                        @if($photoFeedback)<p class="mt-2 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
+                        @if($itemPhoto)
+                            <div class="mt-2 flex items-center gap-2 rounded-lg bg-violet-50 p-2 dark:bg-violet-950/30">
+                                <span class="flex-1 text-xs font-semibold text-violet-800 dark:text-violet-200">New photo ready</span>
+                                <button type="button" wire:click="$set('itemPhoto', null)" class="min-h-10 rounded-lg border border-gray-200 px-3 text-xs font-bold dark:border-gray-700">Cancel</button>
+                                <button type="button" wire:click="saveSelectedItemPhoto" wire:loading.attr="disabled" wire:target="itemPhoto,saveSelectedItemPhoto" class="min-h-10 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white disabled:opacity-60">Save photo</button>
+                            </div>
+                        @endif
 
                         @if($qaFlash && isset($qaFlash['error']))<p class="mt-3 rounded-lg bg-red-50 p-2.5 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-200" role="alert">{{ $qaFlash['error'] }}</p>@endif
 
                         <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-qa-qty">Quantity</label>
                         <div class="mt-1 grid grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] overflow-hidden rounded-xl border border-gray-300 dark:border-gray-700">
                             <button type="button" @click="step(-1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One less">−</button>
-                            <input id="vx-qa-qty" x-model="qty" type="number" min="1" step="any" inputmode="decimal" autocomplete="off" @focus="$el.select()" @keydown.enter.prevent="$wire.addSelectedStock()"
+                            <input id="vx-qa-qty" x-model="qty" type="text" inputmode="none" pattern="[0-9]*" autocomplete="off" @focus="$el.select(); fresh = false" @keydown.enter.prevent="$wire.addSelectedStock()"
                                 class="min-h-14 w-full border-0 border-x border-gray-300 text-center text-2xl font-extrabold tabular-nums focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                             <button type="button" @click="step(1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One more">+</button>
                         </div>
-                        <div class="mt-2 flex gap-1.5">
-                            @foreach([5, 10, 12, 24] as $chip)
-                                <button type="button" @click="qty = '{{ $chip }}'" class="min-h-9 flex-1 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200" :class="n() === {{ $chip }} && 'border-violet-400 bg-violet-50 text-violet-700'">{{ $chip }}</button>
+                        <div class="mt-2 grid grid-cols-3 gap-1.5" aria-label="Number pad">
+                            @foreach(['1','2','3','4','5','6','7','8','9'] as $digit)
+                                <button type="button" @click="key('{{ $digit }}')" class="vx-qa-key">{{ $digit }}</button>
                             @endforeach
+                            <button type="button" @click="fresh = false; qty = ''" class="vx-qa-key text-sm">Clear</button>
+                            <button type="button" @click="key('0')" class="vx-qa-key">0</button>
+                            <button type="button" @click="back()" class="vx-qa-key" aria-label="Delete last digit"><x-heroicon-o-backspace class="mx-auto h-6 w-6" /></button>
                         </div>
 
                         <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-qa-loc">Location</label>
@@ -463,57 +491,6 @@
                         <button type="button" @click="scanNext()" class="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300"><x-heroicon-o-camera class="h-4 w-4" /> Scan a different item</button>
                     </div>
                 @endif
-
-                {{-- More actions: a bottom sheet over the item, so nothing is added below the fold. --}}
-                <div x-show="sheet" x-cloak class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/50 sm:items-center" @click.self="sheet = false" x-transition.opacity>
-                    <div class="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-gray-900 sm:rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="vx-qa-sheet-title">
-                        <div class="mx-auto mb-3 h-1.5 w-12 rounded-full bg-gray-300 sm:hidden" aria-hidden="true"></div>
-                        <div class="mb-3 flex items-center justify-between gap-3">
-                            <h3 id="vx-qa-sheet-title" class="text-lg font-extrabold text-gray-950 dark:text-white">Item actions</h3>
-                            <button type="button" @click="sheet = false" class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500" aria-label="Close"><x-heroicon-o-x-mark class="h-6 w-6" /></button>
-                        </div>
-                        <div class="grid gap-2">
-                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-arrows-right-left class="h-5 w-5 text-violet-600" /><span class="flex-1">Move / correct stock</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
-                            <details class="rounded-xl border border-gray-200 dark:border-gray-700" @if($itemPhoto || $photoFeedback) open @endif>
-                                <summary class="flex min-h-12 cursor-pointer list-none items-center gap-3 px-4 text-sm font-bold text-gray-900 dark:text-white"><x-heroicon-o-camera class="h-5 w-5 text-violet-600" /><span class="flex-1">Add / change photo</span><x-heroicon-m-chevron-down class="h-5 w-5 text-gray-400" /></summary>
-                                <div class="px-3 pb-3">
-                                    <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                        <div class="flex items-start gap-3">
-                            @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
-                            @if($photoItem?->hasImage())
-                                <img src="{{ $photoItem->imageUrl() }}" alt="Current item photo" class="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                            @else
-                                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-500 dark:bg-gray-700" aria-hidden="true"><x-heroicon-o-camera class="h-7 w-7" /></div>
-                            @endif
-                            <div class="min-w-0 flex-1">
-                                <label for="vx-scanned-item-photo" class="block text-sm font-semibold text-gray-900 dark:text-white">Item photo <span class="font-normal text-gray-500">(optional)</span></label>
-                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Choose a photo from your device or camera. JPG, PNG or WebP, up to 5 MB.</p>
-                                <div class="mt-2 flex flex-wrap gap-2">
-                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" />Take Photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="sr-only" /></label>
-                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 px-4 py-2 text-xs font-bold text-violet-700"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" wire:model="itemPhoto" class="sr-only" /></label>
-                                    @if($itemPhoto)<button type="button" wire:click="$set('itemPhoto', null)" class="min-h-11 rounded-lg border px-3 text-xs font-bold">Clear</button>@endif
-                                </div>
-                                @error('itemPhoto')<p class="mt-1 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
-                                @if($photoFeedback)<p class="mt-1 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
-                                <div wire:loading wire:target="itemPhoto" class="mt-1 text-xs text-violet-700" role="status">Uploading photo…</div>
-                                @if($itemPhoto)
-                                    <button type="button" wire:click="saveSelectedItemPhoto" wire:loading.attr="disabled" wire:target="itemPhoto,saveSelectedItemPhoto" class="mt-2 min-h-11 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">
-                                        <span wire:loading.remove wire:target="saveSelectedItemPhoto">Save item photo</span>
-                                        <span wire:loading wire:target="saveSelectedItemPhoto">Saving photo…</span>
-                                    </button>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                                </div>
-                            </details>
-                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5 text-violet-600" /><span class="flex-1">View item details</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
-                            @if($photoItem && \App\Filament\Resources\InventoryItemResource::canEdit($photoItem))
-                                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-pencil-square class="h-5 w-5 text-violet-600" /><span class="flex-1">Edit item / manage barcodes</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
-                            @endif
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Phone: the main action stays pinned at the bottom, replacing the camera bar. --}}
                 @unless($done)

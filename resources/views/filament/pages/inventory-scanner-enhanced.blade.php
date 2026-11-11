@@ -177,7 +177,8 @@
             @endif
         @endif
 
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+        @php($vxQaStep2 = $mode === 'quickadd' && $selectedItem && ! $barcodeSuccess)
+        <section @class(['rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5', 'hidden' => $vxQaStep2])>
             <h2 class="text-base font-bold text-gray-950 dark:text-white">Scan or Enter Barcode</h2>
             <button data-camera-scan type="button" @click="openScanner()" class="mt-3 flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-400 bg-violet-50 p-4 text-violet-700 dark:bg-violet-950/30 dark:text-violet-200 sm:hidden">
                 <x-heroicon-o-camera class="h-9 w-9" />
@@ -391,59 +392,92 @@
         @endif
 
         @if($mode === 'quickadd' && $selectedItem && !$barcodeSuccess)
-            <section id="vx-scanner-found-item" style="scroll-margin-top:110px" x-data="{ stockOpen: false, photoOpen: false }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:p-6">
-                    <div class="min-w-0">
-                        <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Existing item found</span>
-                        <h2 class="mt-3 text-xl font-extrabold text-gray-950 dark:text-white">{{ $selectedItem['name'] }}</h2>
-                        <p class="mt-1 text-sm text-gray-500">SKU {{ $selectedItem['sku'] ?: '—' }}</p>
+            {{-- Step 2 of the quick flow: everything for the found item in one screen, nothing below to scroll to. --}}
+            @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
+            @php($done = $qaFlash && ! isset($qaFlash['error']))
+            <section id="vx-scanner-found-item" style="scroll-margin-top:90px"
+                x-data="{ qty: $wire.entangle('qaQty'), sheet: false, onHand: {{ (float) $selectedItem['total_qty'] }},
+                    n() { const v = parseFloat(this.qty); return isFinite(v) && v > 0 ? v : 0 },
+                    step(d) { this.qty = String(Math.max(1, Math.round((this.n() + d) * 100) / 100)) },
+                    scanNext() { $wire.switchMode('lookup').then(() => { if (window.matchMedia('(max-width: 639px)').matches) openScanner(); else document.getElementById('vx-scanner-code')?.focus() }) } }"
+                @keydown.escape.window="sheet = false"
+                class="vx-qa overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+
+                <div class="flex items-center gap-3 p-3 sm:p-4">
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800">
+                        @if($photoItem?->hasImage())<img src="{{ $photoItem->imageUrl() }}" alt="" class="h-full w-full object-cover" />@else<x-heroicon-o-cube class="h-8 w-8 text-gray-400" />@endif
                     </div>
-                    <button type="button" wire:click="switchMode('lookup')" class="min-h-11 rounded-lg border border-gray-200 px-4 text-sm font-bold dark:border-gray-700">Scan another</button>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="truncate text-base font-extrabold text-gray-950 dark:text-white sm:text-lg">{{ $selectedItem['name'] }}</h2>
+                        <p class="truncate text-xs text-gray-500">SKU {{ $selectedItem['sku'] ?: '—' }}</p>
+                        <p class="mt-0.5 text-sm"><b class="text-emerald-700 dark:text-emerald-400">{{ number_format((float) $selectedItem['total_qty']) }}</b> <span class="text-gray-500">on hand</span></p>
+                    </div>
+                    <button type="button" @click="sheet = true" class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200" aria-haspopup="dialog"><x-heroicon-m-ellipsis-vertical class="h-4 w-4" /> More</button>
                 </div>
-                <div class="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)]">
-                    <div class="flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
-                        @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
-                        <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-gray-800">
-                            @if($photoItem?->hasImage())<img src="{{ $photoItem->imageUrl() }}" alt="" class="h-full w-full object-contain" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
+
+                @if($done)
+                    {{-- Saved: say what happened, and make the next scan the obvious next tap. --}}
+                    <div class="border-t border-gray-100 p-4 text-center dark:border-gray-800" role="status" aria-live="polite">
+                        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50"><x-heroicon-o-check class="h-7 w-7" /></div>
+                        <p class="mt-2 text-base font-extrabold text-gray-950 dark:text-white">Added {{ number_format((float) $qaFlash['qty']) }} {{ \Illuminate\Support\Str::plural('unit', (float) $qaFlash['qty']) }} to {{ $qaFlash['location'] }}</p>
+                        <p class="text-xs text-gray-500">Now {{ number_format((float) ($qaFlash['location_total'] ?? 0)) }} there · {{ number_format((float) $selectedItem['total_qty']) }} on hand in all</p>
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            <button type="button" wire:click="$set('qaFlash', null)" class="min-h-12 rounded-xl border border-gray-200 px-3 text-sm font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200">Add more</button>
+                            <button type="button" @click="scanNext()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan next</button>
                         </div>
-                        <div class="min-w-0"><p class="text-xs font-bold uppercase text-gray-500">On hand</p><p class="text-2xl font-extrabold text-emerald-700">{{ number_format((float)$selectedItem['total_qty']) }} <span class="text-sm">units</span></p><p class="mt-2 text-xs text-gray-500">Select an action to continue.</p></div>
                     </div>
-                    <div class="space-y-3">
-                        <h3 class="text-sm font-bold text-gray-950 dark:text-white">What would you like to do?</h3>
-                        <button type="button" @click="stockOpen = !stockOpen; photoOpen = false" :aria-expanded="stockOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"><span>Add / change stock</span><x-heroicon-o-plus class="h-5 w-5" /></button>
-                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-violet-200 px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300"><span>Move / Correct Stock</span><x-heroicon-o-arrows-right-left class="h-5 w-5" /></a>
-                        <button type="button" @click="photoOpen = !photoOpen; stockOpen = false" :aria-expanded="photoOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Add / change item photo</span><x-heroicon-o-camera class="h-5 w-5" /></button>
-                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-violet-200 px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300"><span>View item details</span><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5" /></a>
-                        @if($photoItem && \App\Filament\Resources\InventoryItemResource::canEdit($photoItem))
-                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Edit item / manage barcodes</span><x-heroicon-o-pencil-square class="h-5 w-5" /></a>
-                        @endif
-                    </div>
-                    <div x-show="stockOpen" x-cloak class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20 lg:col-span-2">
-                        <h3 class="text-sm font-extrabold">Add stock</h3>
-                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div x-data="{ keypad: false, digits: String($wire.qaQty || 1), add(d) { this.digits = this.digits === '0' ? d : this.digits + d; $wire.set('qaQty', Number(this.digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('qaQty', Number(this.digits || 0)); } }" class="space-y-2">
-                                <label class="block text-xs font-bold">Quantity
-                                    <input wire:model="qaQty" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off"
-                                        x-on:focus="digits = $event.target.value || String($wire.qaQty || 1); keypad = true" x-on:input="digits = $event.target.value"
-                                        class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
-                                </label>
-                                <button type="button" x-on:click="digits = String($wire.qaQty || 1); keypad = !keypad" x-bind:aria-expanded="keypad.toString()"
-                                    class="min-h-11 rounded-lg border border-violet-400 px-3 text-sm font-bold dark:text-white">Show / hide number pad</button>
-                                <div x-show="keypad" x-cloak class="grid grid-cols-3 gap-2" aria-label="On-screen quantity keypad">
-                                    <template x-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit">
-                                        <button type="button" x-on:click="add(digit)" x-text="digit" class="min-h-12 rounded-lg border border-gray-300 bg-white text-lg font-bold dark:bg-gray-800 dark:text-white"></button>
-                                    </template>
-                                    <button type="button" x-on:click="digits = ''; $wire.set('qaQty', 0)" class="min-h-12 rounded-lg border border-gray-300 dark:text-white">Clear</button>
-                                    <button type="button" x-on:click="add('0')" class="min-h-12 rounded-lg border border-gray-300 dark:text-white">0</button>
-                                    <button type="button" x-on:click="erase()" class="min-h-12 rounded-lg border border-gray-300 dark:text-white">⌫</button>
-                                </div>
-                            </div>
-                            <label class="block text-xs font-bold">Location<select wire:model="qaLocationId" class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                @else
+                    <div class="border-t border-gray-100 p-3 dark:border-gray-800 sm:p-4">
+                        {{-- Quick actions: Add is open; Move swaps to the stock screen; More is the sheet. --}}
+                        <div class="grid grid-cols-3 gap-1.5 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="group" aria-label="Item actions">
+                            <span class="flex min-h-10 items-center justify-center gap-1 rounded-lg bg-white text-xs font-bold text-violet-700 shadow-sm dark:bg-gray-900 dark:text-violet-300" aria-current="true"><x-heroicon-m-plus class="h-4 w-4" /> Add stock</span>
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="flex min-h-10 items-center justify-center gap-1 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300"><x-heroicon-m-arrows-right-left class="h-4 w-4" /> Move / Correct</a>
+                            <button type="button" @click="sheet = true" class="flex min-h-10 items-center justify-center gap-1 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300"><x-heroicon-m-ellipsis-horizontal class="h-4 w-4" /> More</button>
                         </div>
-                        <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-3 min-h-12 w-full rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">Confirm Add Stock</button>
+
+                        @if($qaFlash && isset($qaFlash['error']))<p class="mt-3 rounded-lg bg-red-50 p-2.5 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-200" role="alert">{{ $qaFlash['error'] }}</p>@endif
+
+                        <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-qa-qty">Quantity</label>
+                        <div class="mt-1 grid grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] overflow-hidden rounded-xl border border-gray-300 dark:border-gray-700">
+                            <button type="button" @click="step(-1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One less">−</button>
+                            <input id="vx-qa-qty" x-model="qty" type="number" min="1" step="any" inputmode="decimal" autocomplete="off" @focus="$el.select()" @keydown.enter.prevent="$wire.addSelectedStock()"
+                                class="min-h-14 w-full border-0 border-x border-gray-300 text-center text-2xl font-extrabold tabular-nums focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                            <button type="button" @click="step(1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One more">+</button>
+                        </div>
+                        <div class="mt-2 flex gap-1.5">
+                            @foreach([5, 10, 12, 24] as $chip)
+                                <button type="button" @click="qty = '{{ $chip }}'" class="min-h-9 flex-1 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200" :class="n() === {{ $chip }} && 'border-violet-400 bg-violet-50 text-violet-700'">{{ $chip }}</button>
+                            @endforeach
+                        </div>
+
+                        <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-qa-loc">Location</label>
+                        <select id="vx-qa-loc" wire:model="qaLocationId" class="mt-1 min-h-12 w-full rounded-xl border-gray-300 text-base font-semibold dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select>
+
+                        <p class="mt-3 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/30"><x-heroicon-o-cube class="h-4 w-4 text-violet-600" /> On hand: <b x-text="onHand.toLocaleString()"></b> → <b class="text-emerald-700 dark:text-emerald-400" x-text="(onHand + n()).toLocaleString()"></b></p>
+
+                        <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" :disabled="n() <= 0"
+                            class="mt-3 hidden min-h-12 w-full rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50 sm:block">
+                            <span wire:loading.remove wire:target="addSelectedStock" x-text="'Add ' + n().toLocaleString() + (n() === 1 ? ' unit' : ' units')"></span>
+                            <span wire:loading wire:target="addSelectedStock">Adding…</span>
+                        </button>
+                        <button type="button" @click="scanNext()" class="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300"><x-heroicon-o-camera class="h-4 w-4" /> Scan a different item</button>
                     </div>
-                    <div x-show="photoOpen" x-cloak class="lg:col-span-2">
-                    <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                @endif
+
+                {{-- More actions: a bottom sheet over the item, so nothing is added below the fold. --}}
+                <div x-show="sheet" x-cloak class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/50 sm:items-center" @click.self="sheet = false" x-transition.opacity>
+                    <div class="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-gray-900 sm:rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="vx-qa-sheet-title">
+                        <div class="mx-auto mb-3 h-1.5 w-12 rounded-full bg-gray-300 sm:hidden" aria-hidden="true"></div>
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                            <h3 id="vx-qa-sheet-title" class="text-lg font-extrabold text-gray-950 dark:text-white">Item actions</h3>
+                            <button type="button" @click="sheet = false" class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500" aria-label="Close"><x-heroicon-o-x-mark class="h-6 w-6" /></button>
+                        </div>
+                        <div class="grid gap-2">
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-arrows-right-left class="h-5 w-5 text-violet-600" /><span class="flex-1">Move / correct stock</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
+                            <details class="rounded-xl border border-gray-200 dark:border-gray-700" @if($itemPhoto || $photoFeedback) open @endif>
+                                <summary class="flex min-h-12 cursor-pointer list-none items-center gap-3 px-4 text-sm font-bold text-gray-900 dark:text-white"><x-heroicon-o-camera class="h-5 w-5 text-violet-600" /><span class="flex-1">Add / change photo</span><x-heroicon-m-chevron-down class="h-5 w-5 text-gray-400" /></summary>
+                                <div class="px-3 pb-3">
+                                    <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
                         <div class="flex items-start gap-3">
                             @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
                             @if($photoItem?->hasImage())
@@ -471,15 +505,31 @@
                             </div>
                         </div>
                     </div>
-
+                                </div>
+                            </details>
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5 text-violet-600" /><span class="flex-1">View item details</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
+                            @if($photoItem && \App\Filament\Resources\InventoryItemResource::canEdit($photoItem))
+                                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-900 dark:border-gray-700 dark:text-white"><x-heroicon-o-pencil-square class="h-5 w-5 text-violet-600" /><span class="flex-1">Edit item / manage barcodes</span><x-heroicon-m-chevron-right class="h-5 w-5 text-gray-400" /></a>
+                            @endif
+                        </div>
                     </div>
                 </div>
+
+                {{-- Phone: the main action stays pinned at the bottom, replacing the camera bar. --}}
+                @unless($done)
+                    <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden">
+                        <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" :disabled="n() <= 0" class="min-h-12 w-full rounded-xl bg-violet-600 px-4 text-base font-bold text-white disabled:opacity-50">
+                            <span wire:loading.remove wire:target="addSelectedStock" x-text="'Add ' + n().toLocaleString() + (n() === 1 ? ' unit' : ' units')"></span>
+                            <span wire:loading wire:target="addSelectedStock">Adding…</span>
+                        </button>
+                    </div>
+                @endunless
             </section>
         @endif
 
         @if($errorMessage)<section class="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Not found.</strong> {{ $errorMessage }}</section>@endif
 
-        @if($qaFlash)
+        @if($qaFlash && ! ($vxQaStep2 ?? false))
             <section class="rounded-xl border p-3.5 sm:p-4 {{ isset($qaFlash['error']) ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200' }}">
                 @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div>@if($selectedItemId)<div class="mt-3 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 dark:bg-gray-900 dark:border-gray-700">View Item</a>@if(($flashItem = \App\Models\InventoryItem::find($selectedItemId)) && \App\Filament\Resources\InventoryItemResource::canEdit($flashItem))<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 dark:bg-gray-900 dark:border-gray-700">Edit Item</a>@endif</div>@endif</div></div>@endif
             </section>
@@ -511,6 +561,6 @@
             </section>
         @endif
 
-        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Open Camera Scanner</button></div>
+        <div @class(['fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden', 'hidden' => ($vxQaStep2 ?? false)]) data-vx-mobile-actions><button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Open Camera Scanner</button></div>
     </div>
 </x-filament-panels::page>

@@ -196,6 +196,8 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
 
 // Reconcile imported ledger transactions against exact Whatnot orders and shows.
 Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo($scheduleLog('ledger-show-matching.log'));
+// Once a week, re-check every entry (the hourly run only looks at open and recent ones).
+Schedule::command('ledger:match-shows --all --limit=100000')->weeklyOn(0, '03:10')->name('ledger-show-full-recheck')->withoutOverlapping(120)->appendOutputTo($scheduleLog('ledger-show-matching.log'));
 // Morning nudge when ledger money is still not tied to a show, streamer or house.
 // Shows whose earnings changed after their pay was locked (badge + admin alert).
 Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);

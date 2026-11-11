@@ -230,14 +230,15 @@ class ListInventoryItems extends ListRecords
             $selectedLocation = $this->inventoryPageLocationId();
             $visible = $selectedLocation ? array_values(array_intersect($visible ?? [$selectedLocation], [$selectedLocation])) : [];
         }
+        // MAX() rather than ORDER BY created_at DESC LIMIT 1: MySQL answered the
+        // latter by walking the whole movements table backwards on its date index
+        // once per card (3 s on production); MAX uses (inventory_item_id, created_at).
         $query->addSelect(['last_receipt_at' => \App\Models\InventoryMovement::query()
-            ->select('created_at')
+            ->selectRaw('MAX(created_at)')
             ->whereColumn('inventory_item_id', 'products.id')
             ->whereNull('from_location_id')
             ->whereNotNull('to_location_id')
-            ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
-            ->latest('created_at')
-            ->limit(1)]);
+            ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))]);
         return $query->offset((max(1, $this->catalogPage) - 1) * $this->catalogVisible)->limit($this->catalogVisible)->get();
     }
 

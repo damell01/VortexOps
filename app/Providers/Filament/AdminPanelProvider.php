@@ -261,7 +261,9 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => view('filament.components.spa-links'),
+                // Off by default: routing every in-page link through SPA navigation made
+                // inventory pages hang on phones. VORTEX_SPA_LINKS=true turns it back on.
+                fn () => filter_var(env('VORTEX_SPA_LINKS', false), FILTER_VALIDATE_BOOL) ? view('filament.components.spa-links') : '',
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,

@@ -196,7 +196,7 @@
             @if(in_array($mode, ['lookup', 'quickadd'], true))
                 <div class="relative mt-3 border-t border-gray-200/70 pt-3 dark:border-gray-700/70">
                     <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">No barcode? Find it by name</label>
-                    <input type="text" wire:model.live.debounce.500ms="keywordSearch" autocomplete="off"
+                    <input id="vx-scanner-keyword" type="text" wire:model.live.debounce.500ms="keywordSearch" autocomplete="off"
                         placeholder="Search by item name, SKU or barcode…"
                         class="mt-2 min-h-11 w-full rounded-lg border-gray-300 bg-white px-3 text-base dark:border-gray-600 dark:bg-gray-900" />
 
@@ -411,6 +411,7 @@
                     back() { this.fresh = false; const cur = String(this.qty ?? ''); this.qty = cur.length > 1 ? cur.slice(0, -1) : '' },
                     n() { const v = parseFloat(this.qty); return isFinite(v) && v > 0 ? v : 0 },
                     step(d) { this.fresh = true; this.qty = String(Math.max(1, Math.round((this.n() + d) * 100) / 100)) },
+                    lookup() { $wire.switchMode('lookup').then(() => $nextTick(() => { const el = document.getElementById('vx-scanner-keyword'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus() } })) },
                     scanNext() { $wire.switchMode('lookup').then(() => { if (window.matchMedia('(max-width: 639px)').matches) openScanner(); else document.getElementById('vx-scanner-code')?.focus() }) } }"
                 class="vx-qa overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
 
@@ -432,8 +433,9 @@
                         <p class="mt-2 text-base font-extrabold text-gray-950 dark:text-white">Added {{ number_format((float) $qaFlash['qty']) }} {{ \Illuminate\Support\Str::plural('unit', (float) $qaFlash['qty']) }} to {{ $qaFlash['location'] }}</p>
                         <p class="text-xs text-gray-500">Now {{ number_format((float) ($qaFlash['location_total'] ?? 0)) }} there · {{ number_format((float) $selectedItem['total_qty']) }} on hand in all</p>
                         <div class="mt-4 grid grid-cols-2 gap-2">
+                            <button type="button" @click="scanNext()" class="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan next</button>
+                            <button type="button" @click="lookup()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-violet-200 px-3 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300"><x-heroicon-o-magnifying-glass class="h-5 w-5" /> Look up item</button>
                             <button type="button" wire:click="$set('qaFlash', null)" class="min-h-12 rounded-xl border border-gray-200 px-3 text-sm font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200">Add more</button>
-                            <button type="button" @click="scanNext()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan next</button>
                         </div>
                     </div>
                 @else
@@ -489,7 +491,10 @@
                             <span wire:loading.remove wire:target="addSelectedStock" x-text="'Add ' + n().toLocaleString() + (n() === 1 ? ' unit' : ' units')"></span>
                             <span wire:loading wire:target="addSelectedStock">Adding…</span>
                         </button>
-                        <button type="button" @click="scanNext()" class="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300"><x-heroicon-o-camera class="h-4 w-4" /> Scan a different item</button>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <button type="button" @click="scanNext()" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 text-sm font-bold text-violet-700 dark:border-gray-700 dark:text-violet-300"><x-heroicon-o-camera class="h-4 w-4" /> Scan another</button>
+                            <button type="button" @click="lookup()" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 text-sm font-bold text-violet-700 dark:border-gray-700 dark:text-violet-300"><x-heroicon-o-magnifying-glass class="h-4 w-4" /> Look up item</button>
+                        </div>
                     </div>
                 @endif
 

@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PerfPages extends Command
 {
-    protected $signature = 'perf:pages {--user= : Email of the person to load pages as (default: the owner)} {--path=* : Extra paths to time, e.g. --path=/admin/payouts} {--only=* : Time only these paths}';
+    protected $signature = 'perf:pages {--user= : Email of the person to load pages as (default: the owner)} {--path=* : Extra paths to time, e.g. --path=/admin/payouts} {--only=* : Time only these paths} {--explain : Also print each page\'s slowest query in full, with the database\'s EXPLAIN plan}';
 
     protected $description = 'Time the main pages as a user: total ms, queries, database ms and the slowest query (read-only)';
 
@@ -37,7 +37,7 @@ class PerfPages extends Command
         DB::listen(function (QueryExecuted $q) {
             $this->queries++;
             $this->dbMs += $q->time;
-            if ($q->time > $this->slowest['ms']) $this->slowest = ['ms' => $q->time, 'sql' => $q->sql];
+            if ($q->time > $this->slowest['ms']) $this->slowest = ['ms' => $q->time, 'sql' => $q->sql, 'bindings' => $q->bindings];
         });
 
         $user = $this->option('user')
@@ -53,13 +53,26 @@ class PerfPages extends Command
         $this->info('Timing ' . count($paths) . ' pages as user #' . $user->id . ' (second, warm load of each)…');
 
         $rows = [];
+        $plans = [];
         foreach ($paths as $path) {
             $this->measure($path, $user); // warm-up: autoload, opcache, caches
             $rows[] = $this->measure($path, $user);
+            if ($this->option('explain') && $this->slowest['sql'] !== '') $plans[$path] = $this->slowest;
         }
 
         usort($rows, fn ($a, $b) => $b[2] <=> $a[2]);
         $this->table(['Page', 'Status', 'Total ms', 'Queries', 'DB ms', 'Slowest query (ms)'], array_map(fn ($r) => [$r[0], $r[1], $r[2], $r[3], $r[4], $r[5]], $rows));
+        foreach ($plans as $path => $q) {
+            $this->line('');
+            $this->info($path . ' — slowest query, ' . round($q['ms']) . ' ms');
+            $this->line(\Illuminate\Support\Str::replaceArray('?', array_map(fn ($b) => is_numeric($b) ? (string) $b : "'" . str_replace("'", "''", (string) $b) . "'", $q['bindings'] ?? []), $q['sql']));
+            try {
+                $plan = DB::select('EXPLAIN ' . $q['sql'], $q['bindings'] ?? []);
+                $this->table(array_keys((array) ($plan[0] ?? [])), array_map(fn ($r) => array_map(fn ($v) => is_scalar($v) || $v === null ? (string) $v : json_encode($v), (array) $r), $plan));
+            } catch (\Throwable $e) {
+                $this->line('EXPLAIN failed: ' . $e->getMessage());
+            }
+        }
         $this->line('Under ~300 ms feels instant with SPA navigation; over ~1000 ms is what shows the loading bar.');
 
         return self::SUCCESS;

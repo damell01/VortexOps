@@ -80,6 +80,11 @@ Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class
 Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activity-log')->withoutOverlapping();
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
+// The browser scraper (Scrapling / headless Chromium) is off by default: it
+// competed with the app for CPU, and the Seller API ticks below now bring in
+// shows, orders, analytics and finance. WHATNOT_SCRAPER_SCHEDULE=true turns
+// the scraper jobs back on. Database-only Whatnot jobs are not affected.
+$scraperOff = fn () => $whatnotPaused() || ! filter_var(config('vortex.whatnot.scraper_schedule', false), FILTER_VALIDATE_BOOLEAN);
 /**
  * A scheduled command's own log file, or /dev/null when the scheduler's user
  * cannot write it (typically a file left owned by root after a command was run
@@ -101,7 +106,7 @@ $whatnotLog = $scheduleLog('whatnot-scheduler.log');
 // is intentionally paused so browser time goes to yesterday/today show data.
 Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --analytics-only --analytics-limit=8 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->hourlyAt(15)
     ->timezone('America/Chicago')
     ->unlessBetween('01:00', '04:59')
@@ -113,7 +118,7 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
 // dedicated freshness/reconciliation jobs above and below.
 Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --show-limit=8 --without-orders --without-shipments --analytics-limit=6 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->hourlyAt(45)
     ->timezone('America/Chicago')
     ->unlessBetween('01:00', '04:59')
@@ -124,7 +129,7 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
 // The command caps every browser process at the remaining overnight window.
 Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-06-01 --timezone=America/Chicago --start=01:00 --end=05:00')
     ->appendOutputTo($scheduleLog('whatnot-nightly-backfill.log'))
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->dailyAt('01:00')
     ->timezone('America/Chicago')
     ->name('whatnot-nightly-history-backfill')
@@ -137,7 +142,7 @@ Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-06-
 // ends with nothing, the owner hears about it.
 Schedule::command('whatnot:analytics-catchup')
     ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->hourlyAt(30)
     ->name('whatnot-analytics-catchup')
     ->withoutOverlapping(20);
@@ -173,7 +178,7 @@ Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('a
 // Recent shows are revisited after 24 hours; history is checked once.
 Schedule::command('whatnot:sync-tips-batch --mode=recent --limit=2 --apply')
     ->appendOutputTo($scheduleLog('whatnot-tips-sync.log'))
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->dailyAt('06:20')
     ->timezone('America/Chicago')
     ->name('whatnot-tips-recent')
@@ -182,7 +187,7 @@ Schedule::command('whatnot:sync-tips-batch --mode=recent --limit=2 --apply')
 
 Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
     ->appendOutputTo($scheduleLog('whatnot-tips-sync.log'))
-    ->skip($whatnotPaused)
+    ->skip($scraperOff)
     ->dailyAt('12:20')
     ->timezone('America/Chicago')
     ->name('whatnot-tips-history')

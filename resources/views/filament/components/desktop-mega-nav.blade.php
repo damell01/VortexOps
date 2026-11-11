@@ -1,5 +1,15 @@
 @php
-$user=auth()->user(); $groups=[];
+// The menu (which links this person may open) is the same on every page, and
+// working it out checks ~100 pages' permissions. It is kept for two minutes per
+// person, channel, enabled modules, roles and role page grants; only "which link is current" is
+// worked out on each page, below.
+$user=auth()->user();
+[$groups,$homeUrl,$homeLabel,$navLogo,$assistantOnly,$streamerOnly,$directGroups,$ownerLinks,$fulfillmentOnly] = \Illuminate\Support\Facades\Cache::remember(
+ 'nav:mega:v2:'.($user?->id ?? 0).':'.(\App\Support\ChannelContext::currentId() ?? 'all').':'.md5((string) \App\Models\Setting::get('enabled_admin_modules') . '|' . \App\Models\Setting::get('role_visible_nav') . '|' . \App\Models\Setting::get('role_hidden_nav') . '|' . \App\Models\Setting::get('role_readonly_nav')).':'.md5(json_encode($user?->getRoleNames()?->all() ?? [])).':'.(int) $user?->updated_at?->timestamp,
+ 120,
+ function () use ($user) {
+ $groups=[]; $directGroups=[]; $fulfillmentOnly=false;
+$groups=[];
 // Streamers get a nav built around their own shows: My Shows is home, the
 // calendar is one click away, and inventory/admin tooling stays out of the way.
 // Inventory routes stay reachable (reports create items through them); only the
@@ -76,7 +86,6 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
  ...($user?->canSeeBusinessFinancials() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar']] : []),
  ...(\App\Filament\Pages\ShowPerformance::canAccess() ? [['Show Performance',\App\Filament\Pages\ShowPerformance::getUrl(panel:'admin'),'Financial','heroicon-o-fire']] : []),
                 ...(\App\Filament\Pages\Goals::canAccess() ? [['Goals',\App\Filament\Pages\Goals::getUrl(panel:'admin'),'Financial','heroicon-o-flag']] : []),
-                ...(\App\Filament\Pages\GiveawayRoiReport::canAccess() ? [['Giveaway ROI',\App\Filament\Pages\GiveawayRoiReport::getUrl(panel:'admin'),'Financial','heroicon-o-gift']] : []),
  ...\App\Support\LedgerNav::links(),
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],
@@ -182,6 +191,8 @@ foreach ($groups as $label => $links) {
 $ownerLabels = ['Messages & Announcements','Import Status','Show Data Audit','Show Ingestion Logs','Whatnot Scraper','Streamer Login Notifications','Whatnot API Control Center','Whatnot API Changes','Email Log'];
 $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
+ return [$groups,$homeUrl,$homeLabel,$navLogo,$assistantOnly,$streamerOnly,$directGroups,$ownerLinks,$fulfillmentOnly];
+ });
 @endphp
 
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">

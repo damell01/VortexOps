@@ -74,10 +74,12 @@ class LedgerFiltersTest extends TestCase
             ->assertSee('Chargebacks &amp; corrections', false)->assertSee('All businesses');
         $this->assertCount(6, $this->orders($page));
 
-        // Every chargeback (shipping, refunds, adjustments) in one tap.
+        // Chargebacks & corrections (refunds and adjustments) in one tap; shipping charges are their own type.
         $page->set('categoryFilter', 'chargebacks');
-        $this->assertSame(['7001002', '7001003', '7001004'], $this->orders($page));
-        $this->assertSame(-29.5, $page->instance()->stats['net']);
+        $this->assertSame(['7001003', '7001004'], $this->orders($page));
+        $this->assertSame(-23.0, $page->instance()->stats['net']);
+        $page->set('categoryFilter', 'shipping');
+        $this->assertSame(['7001002'], $this->orders($page));
 
         // Business: entries tied to its streamers.
         $page->set('categoryFilter', '')->set('businessFilter', (string) $this->ed->business_id);

@@ -94,7 +94,10 @@ class GrantedPagesCarryTheirRecordsTest extends TestCase
     {
         $this->actingAs($this->userWith([\App\Filament\Resources\PalletResource::class]));
 
-        $this->get(ShowResource::getUrl('view', ['record' => $this->show]))
+        // Shows come with the fulfillment admin's role now, so check a page that does not.
+        \App\Models\Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory', 'payouts']));
+        \App\Support\AdminModules::flushMemo();
+        $this->get(\App\Filament\Pages\PayrollOverview::getUrl())
             ->assertForbidden();
     }
 

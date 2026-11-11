@@ -500,7 +500,7 @@ a.vxtv__card:hover{transform:translateY(-3px);border-color:var(--tv-brand)}
 .vxf-tile__top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:15px}
 .vxf-tile__sub{font-size:12.5px;color:var(--vxf-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vxf-tile__check{color:var(--vxf-brand);display:inline-flex}.vxf-tile__check svg{width:20px;height:20px}
-.vxf-showcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}
+.vxf-showcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:10px}
 .vxf-showcard{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--vxf-line);background:var(--vxf-card);transition:border-color .15s,transform .15s;animation:vxf-rise .4s both}
 .vxf-showcard:hover{border-color:#c4b5fd;transform:translateY(-1px)}
 .vxf-showcard strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14.5px;line-height:1.3}
@@ -1016,3 +1016,21 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-shift-weekdays label{display:flex;align-items:center;gap:4px}
 .vxf-shift-notes{border:1px solid var(--vxw-border,#ddd);border-radius:10px;padding:12px}.vxf-shift-notes summary{cursor:pointer;font-weight:700}.vxf-shift-notes textarea{width:100%;margin-top:10px}
 @media(max-width:700px){.vxf-shift-modal{inset:0;transform:none;width:100vw;max-height:100dvh;height:100dvh;border-radius:0}.vxf-shift-modal__header,.vxf-shift-modal__footer{padding:14px 16px}.vxf-shift-modal__body{padding:16px}.vxf-shift-types{gap:6px}.vxf-shift-type{padding:9px}.vxf-shift-type strong{font-size:12px}.vxf-shift-type span{font-size:11px}.vxf-shift-time-row{grid-template-columns:1fr}.vxf-shift-modal__body>.vxf-grid2{grid-template-columns:1fr}}
+
+/* Phones and narrow windows: the page grid's one column is the screen's
+   width, never its widest child's (the tab row and header buttons scroll or
+   wrap inside it), so no section is cut off on the right. */
+.vxf{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%}
+.vxf>*,.vxf-island>*{min-width:0;max-width:100%}
+@media (max-width:640px){
+  .vxf-head{align-items:flex-start}
+  .vxf-head>div:first-child{min-width:0;flex:1 1 100%}
+  .vxf-head p{overflow-wrap:anywhere}
+  .vxf-head-actions,.vxf:has(.vxf-home-tabs) .vxf-head-actions{flex-wrap:wrap;width:100%;margin-left:0;overflow:visible}
+  .vxf-head-actions .vxf-btn{flex:1 1 auto;justify-content:center}
+  .vxf-card__head{flex-wrap:wrap;gap:8px}
+  .vxf-card__head .vxf-tabs{flex-wrap:nowrap;overflow-x:auto;width:auto;max-width:100%}
+  .vxf-card__head .vxf-tabs>*{flex:none}
+  .vxf:has(.vxf-home-tabs) .vxf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vxf-home-tabs{max-width:100%}
+}

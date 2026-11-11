@@ -482,7 +482,7 @@
         <label class="vxr-control">
             <select wire:model.live="categoryFilter" aria-label="Ledger category">
                 <option value="">All categories</option>
-                <option value="chargebacks">Chargebacks &amp; corrections (shipping, refunds, adjustments)</option>
+                <option value="chargebacks">Chargebacks &amp; corrections (refunds, adjustments — not shipping)</option>
                 @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
                     <option value="{{ $category }}">{{ ucfirst($category) }}</option>
                 @endforeach
@@ -562,7 +562,7 @@
                 <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
                 <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
-                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('charges') }}"><span>Ledger charges (chargebacks) by streamer</span><span aria-hidden="true">›</span></a>
+                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('charges') }}"><span>Ledger charges by streamer (shipping, chargebacks &amp; corrections)</span><span aria-hidden="true">›</span></a>
             </div>
         </details>
     <div class="vxr-grid">

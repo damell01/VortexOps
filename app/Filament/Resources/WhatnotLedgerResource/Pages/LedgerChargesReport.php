@@ -23,6 +23,6 @@ class LedgerChargesReport extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Chargebacks: shipping charges, refunds and order refund shipping charges charged to Estill Distribution streamers.';
+        return 'What Estill Distribution streamers are charged: shipping charges (their own type) and chargebacks & corrections (refunds and adjustments).';
     }
 }

@@ -177,13 +177,15 @@ class StreamReviewTest extends TestCase
 
     public function test_admin_and_fulfillment_admin_get_desktop_and_mobile_entry_and_streamers_do_not(): void
     {
-        foreach (['admin','fulfillment_admin'] as $role) {
-            $this->role($role);
-            $this->assertTrue(ReviewShowStreamers::canAccess());
-            $menu=view('filament.components.desktop-mega-nav')->render();
-            $this->assertStringContainsString(ShowResource::getUrl('stream-review'),$menu);
-            $this->assertGreaterThanOrEqual(2,substr_count($menu,'Stream Review'));
-        }
+        $this->role('admin');
+        $this->assertTrue(ReviewShowStreamers::canAccess());
+        $menu=view('filament.components.desktop-mega-nav')->render();
+        $this->assertStringContainsString(ShowResource::getUrl('stream-review'),$menu);
+        $this->assertGreaterThanOrEqual(2,substr_count($menu,'Stream Review'));
+        // The fulfillment admin may open it, but it is left out of their menu.
+        $this->role('fulfillment_admin');
+        $this->assertTrue(ReviewShowStreamers::canAccess());
+        $this->assertStringNotContainsString('Stream Review',view('filament.components.desktop-mega-nav')->render());
         $this->role('streamer');
         $this->assertFalse(ReviewShowStreamers::canAccess());
         $this->get(ShowResource::getUrl('stream-review'))->assertForbidden();

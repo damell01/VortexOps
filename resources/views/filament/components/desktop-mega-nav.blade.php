@@ -210,14 +210,18 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endphp
 @php $groupIcon = match($label) { 'Shows' => 'heroicon-o-video-camera', 'Fulfillment' => 'heroicon-o-cube', 'Inventory' => 'heroicon-o-archive-box', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-document-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', default => 'heroicon-o-squares-2x2' }; @endphp
 <button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><x-filament::icon :icon="$groupIcon" class="vx-mega-group-icon"/><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" class="vx-mega-chevron"/></button>
-@php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
-<div @class(['vx-mega-menu', 'vx-mega-menu--wide' => count($links) >= 8]) x-cloak x-show="open" x-transition>
+@php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; $colOpen = false;
+    // Sectioned menus lay their sections side by side so nothing needs scrolling;
+    // a menu that would run off either edge shifts back onto the screen as it opens.
+    $columns = $sectioned && count($links) >= 6; @endphp
+<div @class(['vx-mega-menu', 'vx-mega-menu--wide' => count($links) >= 8 && ! $columns, 'vx-mega-menu--cols' => $columns]) x-cloak x-show="open" x-transition x-effect="if (open) $nextTick(() => { const left = $el.parentElement.getBoundingClientRect().left, right = left + $el.offsetWidth; let dx = 0; if (right > innerWidth - 16) dx = innerWidth - 16 - right; if (left + dx < 16) dx = 16 - left; $el.style.marginLeft = dx + 'px'; })">
 @unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
 @foreach($links as $link)
 @php [$text,$url] = $link; $section = $link[2] ?? null; $icon = \App\Support\NavIcons::for($link); @endphp
-@if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
+@if($sectioned && $section !== $lastSection)@if($columns && $colOpen)</div>@endif @if($columns)<div class="vx-mega-col">@php $colOpen = true; @endphp @endif<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null && ! $columns])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
 <a href="{{ $url }}" wire:navigate.hover @click="open=false" @class(['has-icon' => $icon, 'is-current' => $url !== '#' && $isCurrent($url)]) @if($url !== '#' && $isCurrent($url)) aria-current="page" @endif>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
 @endforeach
+@if($columns && $colOpen)</div>@endif
 @if($label==='Admin' && $ownerLinks)
 <details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" wire:navigate.hover @click="open=false" class="has-icon">@if($ownerIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$ownerIcon" class="vx-mega-link-icon"/>@endif<span>{{ $link[0] }}</span></a>@endforeach</div></details>
 @endif
@@ -362,6 +366,12 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   }
   .fi-topbar .vx-mega-menu--wide {display:grid;grid-template-columns:repeat(2,minmax(185px,1fr));gap:4px 12px;width:min(535px,calc(100vw - 40px))}
   .fi-topbar .vx-mega-menu--wide .vx-mega-menu-title,.fi-topbar .vx-mega-menu--wide .vx-owner-tools {grid-column:1/-1}
+  /* Sectioned menus: one column per section, side by side, no scrolling. */
+  .fi-topbar .vx-mega-menu--cols {display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 18px;width:max-content;max-width:calc(100vw - 32px);max-height:none!important;overflow:visible!important;padding:16px 18px!important}
+  .fi-topbar .vx-mega-menu--cols .vx-mega-col {display:flex;flex-direction:column;gap:2px;min-width:200px;max-width:250px}
+  .fi-topbar .vx-mega-menu--cols .vx-mega-col + .vx-mega-col {padding-left:18px;border-left:1px solid #eee7f8}
+  .fi-topbar .vx-mega-menu--cols .vx-owner-tools {flex-basis:100%}
+  .dark .fi-topbar .vx-mega-menu--cols .vx-mega-col + .vx-mega-col {border-color:#3d3150}
   .fi-topbar .vx-mega-menu a {color:#251d3d!important}
   .fi-topbar .vx-mega-menu a.is-current {background:#eee4ff!important;color:#5915b6!important}
   .dark .fi-topbar .vx-mega-menu {background:#241c35!important;color:#f5f0ff!important;border-color:#55446d!important}

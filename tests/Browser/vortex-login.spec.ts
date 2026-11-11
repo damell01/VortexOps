@@ -10,10 +10,12 @@ for (const width of [390, 1366, 1920]) {
    await route.continue();
   });
   await page.goto('/admin/login');
-  const art=await page.locator('.vx-login-art').boundingBox();
+  // The slab wall fills the background; the sign-in card sits centered and fully on screen.
+  await expect(page.locator('.vx-wall .vx-slab').first()).toBeAttached();
   const form=await page.locator('.fi-simple-main').boundingBox();
-  if(width>800)expect(art!.x+art!.width).toBeLessThan(form!.x);
-  else expect(art!.y+art!.height).toBeLessThanOrEqual(form!.y+2);
+  expect(Math.abs(form!.x+form!.width/2-width/2)).toBeLessThan(4);
+  expect(form!.x).toBeGreaterThanOrEqual(0);
+  expect(form!.x+form!.width).toBeLessThanOrEqual(width);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);
   await page.screenshot({path:`tests/Browser/output/login/before-${width}.png`,fullPage:true});
   await page.locator('input[type=email]').fill(fs.readFileSync('storage/mockup-owner.txt','utf8').trim());

@@ -1,0 +1,49 @@
+/* Sign-in page: a slow wall of Vortex-graded slabs behind one centered card.
+   Loaded after vortex-login.css and overrides its split layout. */
+body:has(.vx-login-wall){background:#140b28}
+body:has(.vx-login-wall) .fi-simple-layout{position:relative!important;overflow:hidden!important;background:#140b28!important;isolation:isolate}
+body:has(.vx-login-wall) .fi-simple-main-ctn{position:relative!important;z-index:1!important;justify-content:center!important;align-items:center!important;padding:72px 20px 40px!important;max-width:none!important}
+body:has(.vx-login-wall) .fi-simple-main{width:min(440px,100%)!important;max-width:440px!important;margin:0 auto!important;padding:32px!important;animation:vx-wall-card .5s ease-out both!important;transform:none!important;box-shadow:0 40px 100px -30px rgba(0,0,0,.75),0 0 0 1px rgba(196,181,253,.25)!important}
+@keyframes vx-wall-card{from{opacity:0}to{opacity:1}}
+body:has(.vx-login-wall) .fi-simple-header{margin-bottom:4px}
+body:has(.vx-login-wall) .vx-login-greeting{margin:0 0 18px!important}
+
+/* The wall */
+.vx-wall{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.vx-wall__cols{position:absolute;inset:-12% -8%;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:20px;transform:rotate(-9deg)}
+.vx-wall__col{display:flex;flex-direction:column;gap:20px;animation:vx-wall-drift 70s linear infinite;will-change:transform}
+.vx-wall__col:nth-child(even){animation-direction:reverse;animation-duration:86s}
+.vx-wall__col:nth-child(3n){animation-duration:78s}
+@keyframes vx-wall-drift{from{transform:translateY(0)}to{transform:translateY(calc(-50% - 10px))}}
+.vx-wall__veil{position:absolute;inset:0;background:radial-gradient(ellipse 34% 60% at 50% 50%,rgba(20,11,40,.72),rgba(20,11,40,.28) 100%),linear-gradient(180deg,rgba(20,11,40,.15),rgba(20,11,40,.45))}
+
+/* A graded slab: clear case, label on top, the card inside */
+.vx-slab{flex:none;aspect-ratio:3/5;border-radius:14px;padding:7px;background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.05));border:1px solid rgba(221,214,254,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 18px 40px -18px rgba(0,0,0,.8);display:flex;flex-direction:column;gap:6px}
+.vx-slab__label{display:grid;grid-template-columns:1fr auto;grid-template-areas:"brand grade" "name grade" "cert grade";align-items:center;column-gap:6px;padding:6px 8px;border-radius:8px;background:linear-gradient(180deg,#f7f3ff,#e7defc);color:#2a1257;font-family:Inter,ui-sans-serif,system-ui,sans-serif;line-height:1.15}
+.vx-slab__brand{grid-area:brand;font-size:9px;font-weight:800;letter-spacing:.18em;color:#6d28d9}
+.vx-slab__name{grid-area:name;font-size:9.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-slab__cert{grid-area:cert;font-size:8px;color:#6b5f8a;font-variant-numeric:tabular-nums}
+.vx-slab__grade{grid-area:grade;display:grid;justify-items:center;background:#6d28d9;color:#fff;border-radius:6px;padding:3px 7px;font-size:17px;font-weight:800;line-height:1}
+.vx-slab__grade small{font-size:6.5px;letter-spacing:.08em;font-weight:700;margin-bottom:2px}
+.vx-slab__window{position:relative;flex:1;border-radius:9px;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#4c1d95,#22104a 75%);border:3px solid #f2ecff}
+.vx-slab__window::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.18) 48%,transparent 60%);background-size:260% 100%;animation:vx-slab-shine 7s ease-in-out infinite}
+.vx-wall__col:nth-child(odd) .vx-slab:nth-child(3n) .vx-slab__window::after{animation-delay:2.2s}
+.vx-wall__col:nth-child(even) .vx-slab:nth-child(2n) .vx-slab__window::after{animation-delay:4.1s}
+@keyframes vx-slab-shine{0%,55%{background-position:130% 0}85%,100%{background-position:-30% 0}}
+.vx-slab__window img{width:82%;height:auto;max-height:80%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+
+/* Brand mark above the card */
+body:has(.vx-login-wall) .fi-simple-main-ctn::before{content:"VORTEX OPS";position:absolute;top:26px;left:50%;transform:translateX(-50%);color:#ede9fe;font:800 15px/1 Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.32em;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+
+@media (max-width:800px){
+  .vx-wall__cols{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;inset:-10% -25%}
+  .vx-wall__col{gap:12px}
+  .vx-wall__col:nth-child(n+6){display:none}
+  @keyframes vx-wall-drift{from{transform:translateY(0)}to{transform:translateY(calc(-50% - 6px))}}
+  body:has(.vx-login-wall) .fi-simple-main-ctn{display:flex!important;padding:64px 16px 28px!important}
+  body:has(.vx-login-wall) .fi-simple-main{margin:0 auto!important;padding:24px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .vx-wall__col,.vx-slab__window::after{animation:none!important}
+  body:has(.vx-login-wall) .fi-simple-main{animation:none!important}
+}

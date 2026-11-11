@@ -264,6 +264,12 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.components.login-pokemon'),
             )
             ->renderHook(
+                // The sign-in page's background: a slow wall of Vortex-graded slabs.
+                PanelsRenderHook::SIMPLE_LAYOUT_START,
+                fn () => view('filament.components.login-wall'),
+                scopes: Login::class,
+            )
+            ->renderHook(
                 // A finished report lands on the next page with a little foil confetti (resources/js/delight.js).
                 PanelsRenderHook::BODY_END,
                 fn () => ($kind = session()->pull('vx_celebrate')) ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate="' . e(is_string($kind) ? $kind : '') . '" hidden></div>') : '',

@@ -69,12 +69,6 @@
                     <div>
                         <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Order items</h4>
                         @forelse($buyer['orders'] as $order)
-                            @if($label)
-                                <label class="mb-2 flex cursor-pointer items-center gap-3 rounded-lg bg-violet-50 p-2 text-sm font-medium text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
-                                    <input type="checkbox" wire:model.live="selectedShipmentIds" value="{{ $shipment->id }}" class="rounded border-violet-300 text-violet-700" />
-                                    Include this shipment in label batch
-                                </label>
-                            @endif
                             <div class="mb-2 rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
                                 <p class="font-semibold text-gray-950 dark:text-white">{{ $order->item_name ?: 'Order item' }} <span class="font-normal text-gray-500">× {{ $order->quantity ?: 1 }}</span></p>
                                 <p class="mt-1 break-all text-xs text-gray-500">Order {{ $order->whatnot_order_id ?: 'ID unavailable' }}</p>
@@ -97,6 +91,12 @@
                                 $bundle = \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['bundled_url'] ?? null);
                                 $dashboard = \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($payload['shipment_url'] ?? null);
                             @endphp
+                            @if($label)
+                                <label class="mb-2 flex cursor-pointer items-center gap-3 rounded-lg bg-violet-50 p-2 text-sm font-medium text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+                                    <input type="checkbox" wire:model.live="selectedShipmentIds" value="{{ $shipment->id }}" class="rounded border-violet-300 text-violet-700" />
+                                    Include this shipment in label batch
+                                </label>
+                            @endif
                             <div class="mb-2 rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
                                 <div class="flex flex-wrap justify-between gap-2"><span class="font-semibold text-gray-950 dark:text-white">{{ $shipment->carrier ?: 'Carrier pending' }}</span><span class="text-gray-500">{{ str_replace('_', ' ', $shipment->status ?: 'Pending') }}</span></div>
                                 <p class="mt-1 break-all text-xs text-gray-600 dark:text-gray-300">Tracking: {{ $shipment->tracking_number ?: 'Not available' }}</p>

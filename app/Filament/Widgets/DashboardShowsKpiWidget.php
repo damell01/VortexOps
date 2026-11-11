@@ -40,8 +40,8 @@ class DashboardShowsKpiWidget extends BaseWidget
                         'products.id'
                     )
                     ->selectRaw('COUNT(*) AS product_count')
-                    ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(stock_totals.stock_quantity, 0), 0)), 0) AS units_total')
-                    ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(stock_totals.stock_quantity, 0), 0) * CASE WHEN COALESCE(products.average_cost, 0) > 0 THEN products.average_cost WHEN COALESCE(products.unit_cost, 0) > 0 THEN products.unit_cost ELSE 0 END), 0) AS inventory_value')
+                    ->selectRaw('COALESCE(SUM(CASE WHEN COALESCE(stock_totals.stock_quantity, 0) > 0 THEN stock_totals.stock_quantity ELSE 0 END), 0) AS units_total')
+                    ->selectRaw('COALESCE(SUM(CASE WHEN COALESCE(stock_totals.stock_quantity, 0) > 0 THEN stock_totals.stock_quantity ELSE 0 END * CASE WHEN COALESCE(products.average_cost, 0) > 0 THEN products.average_cost WHEN COALESCE(products.unit_cost, 0) > 0 THEN products.unit_cost ELSE 0 END), 0) AS inventory_value')
                     ->first();
                 $items = (int) $inventory->product_count;
                 $units = (float) $inventory->units_total;

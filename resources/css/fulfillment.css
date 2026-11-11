@@ -500,7 +500,7 @@ a.vxtv__card:hover{transform:translateY(-3px);border-color:var(--tv-brand)}
 .vxf-tile__top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:15px}
 .vxf-tile__sub{font-size:12.5px;color:var(--vxf-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vxf-tile__check{color:var(--vxf-brand);display:inline-flex}.vxf-tile__check svg{width:20px;height:20px}
-.vxf-showcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}
+.vxf-showcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:10px}
 .vxf-showcard{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--vxf-line);background:var(--vxf-card);transition:border-color .15s,transform .15s;animation:vxf-rise .4s both}
 .vxf-showcard:hover{border-color:#c4b5fd;transform:translateY(-1px)}
 .vxf-showcard strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14.5px;line-height:1.3}
@@ -1047,4 +1047,47 @@ html.dark .vxf-full{background:#0b1020}
   .vxf-shift-portal .vxf-shift-modal__header,
   .vxf-shift-portal .vxf-shift-modal__footer {padding:12px 16px}
   .vxf-shift-portal .vxf-shift-modal__body {padding:14px 16px}
+}
+
+/* Phones and narrow windows: the page grid's one column is the screen's
+   width, never its widest child's (the tab row and header buttons scroll or
+   wrap inside it), so no section is cut off on the right. */
+.vxf{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%}
+.vxf>*,.vxf-island>*{min-width:0;max-width:100%}
+@media (max-width:640px){
+  .vxf-head{align-items:flex-start}
+  .vxf-head>div:first-child{min-width:0;flex:1 1 100%}
+  .vxf-head p{overflow-wrap:anywhere}
+  .vxf-head-actions,.vxf:has(.vxf-home-tabs) .vxf-head-actions{flex-wrap:wrap;width:100%;margin-left:0;overflow:visible}
+  .vxf-head-actions .vxf-btn{flex:1 1 auto;justify-content:center}
+  .vxf-card__head{flex-wrap:wrap;gap:8px}
+  .vxf-card__head .vxf-tabs{flex-wrap:nowrap;overflow-x:auto;width:auto;max-width:100%}
+  .vxf-card__head .vxf-tabs>*{flex:none}
+  .vxf:has(.vxf-home-tabs) .vxf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vxf-home-tabs{max-width:100%}
+}
+
+/* ---- Fulfillment Center on a phone ------------------------------------ */
+@media (max-width:767px){
+  /* Packing screen: the buyer being packed and the buttons come first;
+     the A–Z list follows, in a short scrolling box. */
+  .vxf-sb>section[aria-labelledby="vxf-buyers"]{order:3}
+  .vxf-sb>section[aria-labelledby="vxf-current"]{order:1}
+  .vxf-sb>.vxf-big-actions{order:2}
+  .vxf-sb .vxf-buyers{max-height:min(46vh,380px)}
+  .vxf-current{gap:12px;padding:14px;flex-wrap:nowrap;align-items:center}
+  .vxf-current>div:not(.vxf-bigletter){min-width:0}
+  .vxf-bigletter,.vxf-bigletter--sm{min-width:76px;height:76px;padding:0 10px;font-size:48px;border-radius:18px;box-shadow:0 0 0 4px rgba(124,58,237,.18),0 10px 22px -12px rgba(124,58,237,.7)}
+  .vxf-current h2{font-size:22px;overflow-wrap:anywhere}
+  .vxf-big-actions .vxf-btn{min-height:52px}
+
+  /* A show's page: header buttons two to a row instead of one per line. */
+  .fi-resource-fulfillment-center .fi-header-actions-ctn{width:100%}
+  .fi-resource-fulfillment-center .fi-header-actions-ctn .fi-ac{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  .fi-resource-fulfillment-center .fi-header-actions-ctn .fi-ac-btn-action{width:100%;justify-content:center;white-space:normal;text-align:center;min-height:44px;padding-inline:8px;font-size:13px}
+
+  /* TV whiteboard on a phone: the tools wrap under the title. */
+  .vxtv__tools{width:100%;min-width:0;justify-content:flex-start}
+  .vxtv__tools .vxtv__station-switch{min-width:0;flex:1 1 100%}
+  .vxtv__clock{margin-right:auto}
 }

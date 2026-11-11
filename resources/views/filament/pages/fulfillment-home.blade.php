@@ -19,13 +19,8 @@
             @if ($manager)
                 <button type="button" class="vxf-btn vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {})"><x-heroicon-o-plus /> Assign Show</button>
             @endif
-            <div class="vxf-more" x-data="{ open: false }" x-on:keydown.escape.window="open = false" x-on:click.outside="open = false">
-                <button type="button" class="vxf-btn vxf-btn--icon" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-controls="vxf-more-menu" aria-label="More fulfillment actions" title="More actions"><x-heroicon-o-ellipsis-horizontal /></button>
-                <div id="vxf-more-menu" class="vxf-more__menu" x-show="open" x-cloak>
-                    <button type="button" class="vxf-btn" @click="toggleGuide(); open = false"><x-heroicon-o-light-bulb /> How it works</button>
-                    <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
-                </div>
-            </div>
+            <button type="button" class="vxf-btn" @click="toggleGuide()"><x-heroicon-o-light-bulb /> How it works</button>
+            <a class="vxf-btn" href="{{ route('fulfillment.whiteboard') }}" target="_blank" rel="noopener"><x-heroicon-o-tv /> TV Whiteboard</a>
         </div>
     </div>
 

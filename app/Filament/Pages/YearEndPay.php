@@ -30,7 +30,8 @@ class YearEndPay extends Page
 
     public static function canAccess(): bool
     {
-        return \App\Support\AdminModules::isEnabled('payouts') && (auth()->user()?->isAdmin() ?? false)
+        // Owner only for now: hidden from admins and everyone else.
+        return \App\Support\AdminModules::isEnabled('payouts') && (auth()->user()?->isOwner() ?? false)
             && ! \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user());
     }
 

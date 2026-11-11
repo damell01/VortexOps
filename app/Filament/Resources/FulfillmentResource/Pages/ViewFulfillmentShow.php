@@ -56,6 +56,11 @@ class ViewFulfillmentShow extends ViewRecord
             && ($log->streamer?->payout_type === 'pwe_labels');
     }
 
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Show fulfillment';
+    }
+
     protected function getHeaderActions(): array
     {
         /** @var Show $show */
@@ -69,24 +74,27 @@ class ViewFulfillmentShow extends ViewRecord
             : $show->primaryStreamer()?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
 
         return [
-            Action::make('fulfillment_operations')
-                ->label('Operations Dashboard')
-                ->icon('heroicon-o-chart-bar-square')
-                ->color('gray')
-                ->url(fn () => \App\Filament\Pages\FulfillmentOperations::getUrl())
-                ->visible(fn () => \App\Filament\Pages\FulfillmentOperations::canAccess()),
-            Action::make('fulfillment_schedule')
-                ->label('Team Schedule')
-                ->icon('heroicon-o-calendar-days')
-                ->color('gray')
-                ->url(fn () => \App\Filament\Pages\FulfillmentSchedule::getUrl())
-                ->visible(fn () => \App\Filament\Pages\FulfillmentSchedule::canAccess()),
-            Action::make('shipment_overview')
-                ->label('All Shipment Tracking')
-                ->icon('heroicon-o-truck')
-                ->color('gray')
-                ->url(fn () => \App\Filament\Pages\ShipmentOverview::getUrl())
-                ->visible(fn () => \App\Filament\Pages\ShipmentOverview::canAccess()),
+            // Pages elsewhere in the Fulfillment Center: one menu instead of three buttons.
+            \Filament\Actions\ActionGroup::make([
+                Action::make('fulfillment_operations')
+                    ->label('Fulfillment Home')
+                    ->icon('heroicon-o-chart-bar-square')
+                    ->color('gray')
+                    ->url(fn () => \App\Filament\Pages\FulfillmentHome::getUrl())
+                    ->visible(fn () => \App\Filament\Pages\FulfillmentHome::canAccess()),
+                Action::make('fulfillment_schedule')
+                    ->label('Team Schedule')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('gray')
+                    ->url(fn () => \App\Filament\Pages\FulfillmentSchedule::getUrl())
+                    ->visible(fn () => \App\Filament\Pages\FulfillmentSchedule::canAccess()),
+                Action::make('shipment_overview')
+                    ->label('All Shipment Tracking')
+                    ->icon('heroicon-o-truck')
+                    ->color('gray')
+                    ->url(fn () => \App\Filament\Pages\ShipmentOverview::getUrl())
+                    ->visible(fn () => \App\Filament\Pages\ShipmentOverview::canAccess()),
+            ])->label('Go to')->icon('heroicon-o-squares-2x2')->color('gray')->button(),
             Action::make('shipping_desk')
                 ->label('Shipping & Labels')
                 ->icon('heroicon-o-printer')

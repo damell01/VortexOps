@@ -77,7 +77,7 @@ fi
 # Back up only before changes that can affect persistent data/schema. A UI or
 # controller-only deploy should not wait for a database backup.
 if [ "$BRANCH" = "Production" ] && { [ "$FULL_DEPLOY" -eq 1 ] || [ "$DB_RISK_CHANGED" -eq 1 ]; }; then
-  php artisan db:backup --prune=30
+  php artisan db:backup --prune=7 --keep=4
 fi
 
 # Clear stale compiled state before swapping caches. This is intentionally done

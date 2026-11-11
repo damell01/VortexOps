@@ -13,7 +13,7 @@ if [ "$CONFIRM" != "DEPLOY" ]; then
   exit 1
 fi
 
-php artisan db:backup --prune=30
+php artisan db:backup --prune=7 --keep=4
 
 git fetch origin Production
 git reset --hard origin/Production

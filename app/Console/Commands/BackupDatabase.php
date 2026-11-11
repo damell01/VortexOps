@@ -7,7 +7,8 @@ use Illuminate\Console\Command;
 class BackupDatabase extends Command
 {
     protected $signature = 'db:backup
-                            {--prune=14 : Delete local backups older than this many days (0 = keep all)}';
+                            {--prune=14 : Delete local backups older than this many days (0 = keep all)}
+                            {--keep=0 : Also keep only this many newest backups (0 = no limit)}';
 
     protected $description = 'Dump the database, verify it, write a checksum, optionally mirror it, and prune old local files';
 
@@ -25,6 +26,7 @@ class BackupDatabase extends Command
         $checksumPath = $this->writeChecksum($fullPath);
         $this->mirrorBackup($fullPath, $checksumPath);
         $this->pruneOldBackups((int) $this->option('prune'));
+        $this->keepNewest((int) $this->option('keep'));
 
         return self::SUCCESS;
     }
@@ -183,6 +185,28 @@ class BackupDatabase extends Command
 
         if ($pruned > 0) {
             $this->line("Pruned {$pruned} backup file(s) older than {$days} days.");
+        }
+    }
+
+    /** Keep only the newest N dumps (and their checksum files); the backup just made is always kept. */
+    private function keepNewest(int $keep): void
+    {
+        if ($keep <= 0) {
+            return;
+        }
+
+        $dumps = collect(glob(storage_path('app/backups') . '/*') ?: [])
+            ->filter(fn ($f) => is_file($f) && ! str_ends_with($f, '.sha256'))
+            ->sortByDesc(fn ($f) => filemtime($f))->values();
+        $removed = 0;
+        foreach ($dumps->slice($keep) as $file) {
+            @unlink($file);
+            @unlink($file . '.sha256');
+            $removed++;
+        }
+
+        if ($removed > 0) {
+            $this->line("Kept the newest {$keep} backup(s); removed {$removed} older one(s).");
         }
     }
 

@@ -385,6 +385,22 @@ class InventoryActionsWorkTest extends TestCase
             'one cost lot for the restock, not two');
     }
 
+    public function test_quick_add_confirms_the_add_and_offers_the_next_step(): void
+    {
+        $this->actAsQuickAddOnlyStaff();
+        Livewire::test(QuickAddStock::class)
+            ->call('handleBarcodeScan', '012345678905')
+            ->assertSee('Look up item')->assertSee('Number pad', false)
+            ->set('locationId', $this->main->id)->set('quantity', 5)
+            ->call('addStock')
+            ->assertSet('lastAdd.quantity', 5)
+            ->assertSee('Added 5 units to ' . $this->main->name)->assertSee('Scan next')->assertSee('Look up item')
+            ->call('addMoreOfLast')
+            ->assertSet('product.id', $this->item->id)->assertSet('lastAdd', null)
+            ->call('startOver')
+            ->assertSet('product', null);
+    }
+
     public function test_quick_add_stock_found_by_name_search_books_units_in(): void
     {
         $this->actAsQuickAddOnlyStaff();

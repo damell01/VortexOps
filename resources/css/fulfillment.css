@@ -1091,3 +1091,11 @@ html.dark .vxf-full{background:#0b1020}
   .vxtv__tools .vxtv__station-switch{min-width:0;flex:1 1 100%}
   .vxtv__clock{margin-right:auto}
 }
+
+/* A show's fulfillment page header: the title keeps its width and the buttons
+   wrap under or beside it instead of squeezing it to one word a line. */
+.fi-resource-fulfillment-center .fi-header{flex-wrap:wrap;align-items:flex-end;gap:12px 20px}
+.fi-resource-fulfillment-center .fi-header>div:first-child{flex:1 1 auto;min-width:min(260px,100%)}
+.fi-resource-fulfillment-center .fi-header .fi-header-heading{white-space:nowrap}
+.fi-resource-fulfillment-center .fi-header-actions-ctn{flex:0 1 auto;max-width:100%;min-width:0}
+.fi-resource-fulfillment-center .fi-header-actions-ctn>.fi-ac{flex-wrap:wrap;justify-content:flex-end}

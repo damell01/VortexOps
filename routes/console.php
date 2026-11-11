@@ -66,7 +66,11 @@ Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')
 Schedule::call(function () {
     if (\App\Support\AdminModules::isEnabled('fulfillment')) app(\App\Services\FulfillmentQueue::class)->sync();
 })->everyTenMinutes()->name('fulfillment-ready-sync')->withoutOverlapping();
-Schedule::command('db:backup --prune=14')->dailyAt('02:00')->name('daily-db-backup')->withoutOverlapping();
+Schedule::command('db:backup --prune=7 --keep=4')->dailyAt('02:00')->name('daily-db-backup')->withoutOverlapping();
+// Keep the database small: saved API responses, old raw copies, logs and no-op history (App\Console\Commands\StorageTrim).
+// Sundays it also rebuilds the trimmed tables so MySQL hands the freed space back to the disk.
+Schedule::command('storage:trim --apply')->dailyAt('03:40')->name('storage-trim')->withoutOverlapping(60)->when(fn () => now()->dayOfWeek !== 0);
+Schedule::command('storage:trim --apply --optimize')->weeklyOn(0, '03:40')->name('storage-trim-optimize')->withoutOverlapping(120);
 Schedule::command('storage:prune-runtime --days=14 --imports-hours=48 --max-log-mb=25')->dailyAt('03:15')->name('prune-runtime-storage')->withoutOverlapping();
 Schedule::command('health:check')->everyThirtyMinutes()->sendOutputTo('/dev/null');
 Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);

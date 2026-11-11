@@ -134,7 +134,7 @@
                 <x-filament::icon icon="heroicon-o-map-pin" />
                 <select wire:model.live="reportLocation" aria-label="Location">
                     <option value="">All locations</option>
-                    @foreach($data['location_options'] as $locationName)<option>{{ $locationName }}</option>@endforeach
+                    @foreach($data['location_options'] as $locationName)<option value="{{ $locationName }}">{{ trim($locationName) }}</option>@endforeach
                 </select>
             </label>
             <label class="vxr-control">

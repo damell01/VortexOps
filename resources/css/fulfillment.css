@@ -1119,3 +1119,4 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-dnd-row.is-drop td{background:rgba(124,58,237,.10)}
 .vxf-station.is-drop{outline:3px dashed var(--vxf-brand);outline-offset:2px}
 @media (hover:none){.vxf-dnd-team{display:none}}
+.vxf-item-photo{width:44px;height:44px;flex:none;border-radius:8px;object-fit:cover;background:var(--vxf-soft);border:1px solid var(--vxf-line)}

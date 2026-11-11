@@ -57,13 +57,27 @@ class WhatnotSchedulePauseTest extends TestCase
         $this->assertNotEmpty($this->whatnotEvents());
     }
 
-    public function test_they_run_by_default(): void
+    public function test_they_run_when_the_scraper_schedule_is_on(): void
     {
-        config(['vortex.whatnot.schedule_enabled' => true]);
+        config(['vortex.whatnot.schedule_enabled' => true, 'vortex.whatnot.scraper_schedule' => true]);
 
         foreach ($this->whatnotEvents() as $event) {
             $this->assertTrue($event->filtersPass($this->app), "{$event->command} was skipped while enabled");
         }
+    }
+
+    public function test_browser_scraper_jobs_are_off_by_default_and_database_jobs_still_run(): void
+    {
+        config(['vortex.whatnot.schedule_enabled' => true, 'vortex.whatnot.scraper_schedule' => false]);
+
+        $scraper = ['whatnot:sync-reporting', 'whatnot:backfill-nightly', 'whatnot:analytics-catchup', 'whatnot:sync-tips-batch'];
+        $checked = 0;
+        foreach ($this->whatnotEvents() as $event) {
+            $isScraper = collect($scraper)->contains(fn ($c) => str_contains((string) $event->command, $c));
+            $this->assertSame(! $isScraper, $event->filtersPass($this->app), "{$event->command} " . ($isScraper ? 'ran with the scraper off' : 'was skipped though it does not use the browser'));
+            $checked += (int) $isScraper;
+        }
+        $this->assertGreaterThan(0, $checked);
     }
 
     public function test_disabling_the_flag_pauses_every_one_of_them(): void

@@ -113,6 +113,7 @@ class DashboardImproved extends Dashboard
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
                 DashboardShowsKpiWidget::class,
+                \App\Filament\Widgets\GoalsProgressWidget::class,
                 UpcomingShowsWidget::class,
                 DashboardNeedsAttentionWidget::class,
                 RecentShowsWidget::class,

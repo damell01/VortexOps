@@ -401,6 +401,7 @@
                 .vx-qa-act:active{background:rgb(245 243 255)}
                 .dark .vx-qa-act{background:rgb(17 24 39);border-color:rgb(55 65 81);color:rgb(229 231 235)}
                 .vx-qa-key{min-height:52px;border-radius:12px;border:1px solid rgb(209 213 219);background:#fff;font-size:22px!important;font-weight:800!important;color:rgb(17 24 39);touch-action:manipulation}
+                .vx-qa-pm{font-size:30px!important;line-height:1;padding:0!important}
                 .vx-qa-key:active{background:rgb(237 233 254)}
                 .dark .vx-qa-key{background:rgb(31 41 55);border-color:rgb(55 65 81);color:#fff}
             </style>
@@ -464,10 +465,10 @@
 
                         <label class="mt-3 block text-xs font-bold text-gray-700 dark:text-gray-200" for="vx-qa-qty">Quantity</label>
                         <div class="mt-1 grid grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] overflow-hidden rounded-xl border border-gray-300 dark:border-gray-700">
-                            <button type="button" @click="step(-1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One less">−</button>
+                            <button type="button" @click="step(-1)" class="vx-qa-pm min-h-14 bg-violet-50 font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One less">−</button>
                             <input id="vx-qa-qty" x-model="qty" type="text" inputmode="none" pattern="[0-9]*" autocomplete="off" @focus="$el.select(); fresh = false" @keydown.enter.prevent="$wire.addSelectedStock()"
                                 class="min-h-14 w-full border-0 border-x border-gray-300 text-center text-2xl font-extrabold tabular-nums focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
-                            <button type="button" @click="step(1)" class="min-h-14 bg-violet-50 text-2xl font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One more">+</button>
+                            <button type="button" @click="step(1)" class="vx-qa-pm min-h-14 bg-violet-50 font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" aria-label="One more">+</button>
                         </div>
                         <div class="mt-2 grid grid-cols-3 gap-1.5" aria-label="Number pad">
                             @foreach(['1','2','3','4','5','6','7','8','9'] as $digit)

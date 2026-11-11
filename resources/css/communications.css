@@ -559,3 +559,25 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
   .vx-chatify-shell .vx-chatify-composer button[type=submit]{width:44px;padding:0;justify-content:center}
   .vx-chatify-shell .vx-chatify-composer button[type=submit] span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 }
+
+/* ── Messages polish (2026-11): runs, ticks, header bell, phone full-screen ── */
+.vx-chatify-shell .vx-chatify-message-group.is-cont{margin-top:-8px}
+.vx-chatify-shell .vx-chatify-message-group.is-cont .vx-chatify-msg-avatar{visibility:hidden}
+.vx-chatify-shell .vx-chatify-message-group:not(.is-run-end) .vx-chatify-message{border-bottom-left-radius:8px}
+.vx-chatify-shell .vx-chatify-message-group.is-mine:not(.is-run-end) .vx-chatify-message{border-bottom-left-radius:18px;border-bottom-right-radius:8px}
+.vx-chatify-shell .vx-chatify-tick{font-weight:800;letter-spacing:-.1em}
+.vx-chatify-shell .vx-chatify-head-link{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;color:inherit;opacity:.8}
+.vx-chatify-shell .vx-chatify-head-link:hover{opacity:1;background:rgba(124,58,237,.08)}
+.vx-chatify-shell .vx-chatify-head-link svg{width:20px;height:20px}
+@media (max-width:640px){
+  /* The button sits above the bottom menu, and steps aside while the chat is open. */
+  .vx-chatify-shell .vx-chatify-launch{bottom:calc(78px + env(safe-area-inset-bottom));right:12px;padding:12px 14px}
+  .vx-chatify-shell.is-open .vx-chatify-launch{display:none}
+  /* On a phone the chat is the whole screen, above the bottom menu, with room for the home bar. */
+  .vx-chatify-shell .vx-chatify-drawer.vx-chatify-native{inset:0!important;z-index:95;border-radius:0!important;border:0!important;width:auto!important;height:auto!important;max-height:none!important;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .vx-chatify-shell .vx-chatify-composer{padding-bottom:max(9px,env(safe-area-inset-bottom))}
+}
+/* Short messages keep their words whole; the time never wraps. */
+.vx-chatify-shell .vx-chatify-message{min-width:72px;word-break:normal!important;overflow-wrap:break-word!important}
+.vx-chatify-shell .vx-chatify-message-meta{white-space:nowrap}
+.vx-chatify-shell .vx-chatify-message-group .vx-chatify-message-row{width:100%}

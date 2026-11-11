@@ -75,6 +75,7 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
  ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
  ...($user?->canSeeBusinessFinancials() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar']] : []),
  ...(\App\Filament\Pages\ShowPerformance::canAccess() ? [['Show Performance',\App\Filament\Pages\ShowPerformance::getUrl(panel:'admin'),'Financial','heroicon-o-fire']] : []),
+                ...(\App\Filament\Pages\GiveawayRoiReport::canAccess() ? [['Giveaway ROI',\App\Filament\Pages\GiveawayRoiReport::getUrl(panel:'admin'),'Financial','heroicon-o-gift']] : []),
  ...\App\Support\LedgerNav::links(),
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],

@@ -272,13 +272,21 @@ class FulfillmentRunService
         });
     }
 
-    public function pause(int $runId, User $actor, ?string $reason = null): void
+    /**
+     * $reason is a key of FulfillmentRun::PAUSE_REASONS; anything else (older
+     * callers sent free text) is kept as the note under "Other".
+     */
+    public function pause(int $runId, User $actor, ?string $reason = null, ?string $note = null): void
     {
-        DB::transaction(function () use ($runId, $actor, $reason) {
+        $key = $reason !== null && array_key_exists($reason, FulfillmentRun::PAUSE_REASONS) ? $reason : 'other';
+        if ($reason !== null && $key === 'other' && $reason !== 'other' && trim($reason) !== '') $note = trim($reason . ($note ? ' · ' . $note : ''));
+        DB::transaction(function () use ($runId, $actor, $key, $note) {
             $run = $this->lockActiveRun($runId, $actor);
             if ($run->status === FulfillmentRun::PAUSED) return;
-            DB::table('fulfillment_runs')->where('id', $runId)->update(['status' => FulfillmentRun::PAUSED, 'paused_at' => now(), 'updated_at' => now()]);
-            FulfillmentLog::record('paused', $runId, $actor->id, array_filter(['reason' => $reason ? trim($reason) : null]));
+            DB::table('fulfillment_runs')->where('id', $runId)->update(['status' => FulfillmentRun::PAUSED, 'paused_at' => now(), 'pause_reason' => $key, 'updated_at' => now()]);
+            FulfillmentLog::record('paused', $runId, $actor->id, array_filter([
+                'reason_key' => $key, 'reason' => FulfillmentRun::pauseReasonLabel($key), 'note' => $note ? trim($note) : null,
+            ]));
         });
     }
 
@@ -289,10 +297,10 @@ class FulfillmentRunService
             if ($run->status !== FulfillmentRun::PAUSED) return;
             $paused = $run->paused_at ? (int) \Illuminate\Support\Carbon::parse($run->paused_at)->diffInSeconds(now()) : 0;
             DB::table('fulfillment_runs')->where('id', $runId)->update([
-                'status' => FulfillmentRun::PACKING, 'paused_at' => null,
+                'status' => FulfillmentRun::PACKING, 'paused_at' => null, 'pause_reason' => null,
                 'paused_seconds' => (int) $run->paused_seconds + max(0, $paused), 'updated_at' => now(),
             ]);
-            FulfillmentLog::record('resumed', $runId, $actor->id, ['paused_seconds' => max(0, $paused)]);
+            FulfillmentLog::record('resumed', $runId, $actor->id, ['paused_seconds' => max(0, $paused), 'reason_key' => $run->pause_reason ?? 'other']);
         });
     }
 
@@ -318,11 +326,12 @@ class FulfillmentRunService
 
             DB::table('fulfillment_runs')->where('id', $runId)->update([
                 'status' => FulfillmentRun::COMPLETED, 'station_occupied_id' => null, 'current_buyer_id' => null,
-                'paused_at' => null, 'paused_seconds' => (int) $run->paused_seconds + $pausedExtra,
+                'paused_at' => null, 'pause_reason' => null, 'paused_seconds' => (int) $run->paused_seconds + $pausedExtra,
                 'finished_at' => now(), 'completed_packages' => $packed,
                 'discrepancies' => $discrepancies ? json_encode($discrepancies) : null, 'updated_at' => now(),
             ]);
-            FulfillmentLog::record('finished', $runId, $actor->id, ['packages' => $packed, 'discrepancies' => $discrepancies ?: null]);
+            FulfillmentLog::record('finished', $runId, $actor->id, array_filter(['packages' => $packed, 'discrepancies' => $discrepancies ?: null,
+                'paused_seconds' => $pausedExtra ?: null, 'reason_key' => $pausedExtra ? ($run->pause_reason ?? 'other') : null], fn ($v) => $v !== null));
 
             return FulfillmentRun::query()->with('show:id,title')->find($runId);
         });

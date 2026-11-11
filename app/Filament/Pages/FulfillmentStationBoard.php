@@ -301,12 +301,12 @@ class FulfillmentStationBoard extends Page
         $this->say('Issue reported · buyer on hold until a manager resolves it', false);
     }
 
-    public function pause(): void
+    public function pause(string $reason = 'other'): void
     {
-        $this->act(function () {
-            app(FulfillmentRunService::class)->pause($this->runId, auth()->user(), $this->pauseReason ?: null);
+        $this->act(function () use ($reason) {
+            app(FulfillmentRunService::class)->pause($this->runId, auth()->user(), $reason, $this->pauseReason ?: null);
             $this->pauseReason = '';
-            $this->say('Packing paused', true);
+            $this->say('Packing paused · ' . \App\Models\FulfillmentRun::pauseReasonLabel($reason), true);
         });
     }
 
@@ -320,7 +320,7 @@ class FulfillmentStationBoard extends Page
                 'Packing station blocked: ' . ($run->station?->name ?? 'Station') . '. Manager assistance requested.',
                 $run->id, null, null, null, true,
             );
-            app(FulfillmentRunService::class)->pause($run->id, auth()->user(), 'Station blocked; manager assistance requested');
+            app(FulfillmentRunService::class)->pause($run->id, auth()->user(), 'issue', 'Station blocked; manager assistance requested');
             $this->say('Station blocked — manager notified', true);
         });
     }

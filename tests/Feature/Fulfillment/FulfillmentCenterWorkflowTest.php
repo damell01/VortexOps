@@ -348,6 +348,38 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame(45 * 60, $run->fresh()->activeSeconds());
     }
 
+    public function test_pause_reasons_are_kept_shown_and_totalled(): void
+    {
+        $this->travelTo(now()->setTime(10, 0));
+        $run = $this->started();
+        app(FulfillmentRunService::class)->pause($run->id, $this->packer, 'break', 'coffee');
+        $this->assertSame('break', $run->fresh()->pause_reason);
+        $feed = app(\App\Http\Controllers\FulfillmentWhiteboardController::class)->payload();
+        $this->assertSame('Break', collect($feed['stations'])->firstWhere('status', 'paused')['pause_reason']);
+        $this->assertSame('paused · Break', collect($feed['activity'])->firstWhere('type', 'paused')['text']);
+
+        $this->travelTo(now()->setTime(10, 20));
+        app(FulfillmentRunService::class)->resume($run->id, $this->packer);
+        $this->assertNull($run->fresh()->pause_reason);
+        app(FulfillmentRunService::class)->pause($run->id, $this->packer, 'Waiting on boxes');   // free text → Other
+        $this->travelTo(now()->setTime(10, 25));
+        app(FulfillmentRunService::class)->resume($run->id, $this->packer);
+
+        $reasons = Livewire::actingAs($this->manager)->test(\App\Filament\Pages\FulfillmentReports::class)->instance()->pauseReasons->keyBy('label');
+        $this->assertSame(1200, $reasons['Break']['seconds']);
+        $this->assertSame(1, $reasons['Other']['n']);
+        $this->assertSame(300, $reasons['Other']['seconds']);
+    }
+
+    public function test_the_tv_feed_names_the_show_that_finished(): void
+    {
+        $run = $this->started();
+        \App\Services\FulfillmentLog::record('finished', $run->id, $this->packer->id, ['packages' => 4]);
+        $finished = collect(app(\App\Http\Controllers\FulfillmentWhiteboardController::class)->payload()['activity'])->firstWhere('type', 'finished');
+        $this->assertSame($run->show->title, $finished['show']);
+        $this->assertSame(4, $finished['packages']);
+    }
+
     public function test_a_station_runs_one_show_at_a_time_and_a_member_cannot_start_unassigned_work(): void
     {
         $this->started();
@@ -415,14 +447,14 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame('A', $card['letter']);
         $this->assertSame('Alpha_Rips', $card['buyer']);
         $this->assertSame([
-            'id', 'name', 'status', 'issue', 'show', 'stream', 'started', 'elapsed', 'ticking', 'packer', 'initials', 'letter', 'buyer', 'next',
+            'id', 'name', 'status', 'issue', 'show', 'stream', 'started', 'elapsed', 'ticking', 'pause_reason', 'packer', 'initials', 'letter', 'buyer', 'next',
             'buyers_done', 'buyers_total', 'done', 'total', 'unit', 'pct',
         ], array_keys($card));
         // Next in line skips the current buyer; the ticker and summary carry no pay, values or addresses.
         $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz'], ['letter' => 'Z', 'buyer' => 'zoe_cards']], $card['next']);
         $this->assertSame(['packing' => 1, 'stations' => FulfillmentStation::query()->where('active', true)->count(), 'packed_today' => 0, 'buyers_today' => 0, 'issues' => 0], $json['summary']);
         $this->assertSame('started', $json['activity'][0]['type']);
-        $this->assertSame(['id', 'type', 'at', 'station', 'letter', 'buyer', 'text'], array_keys($json['activity'][0]));
+        $this->assertSame(['id', 'type', 'at', 'station', 'letter', 'buyer', 'show', 'packages', 'text'], array_keys($json['activity'][0]));
         $this->assertStringNotContainsString('total_price', json_encode($json));
         $this->actingAs($this->packer)->post(route('fulfillment.whiteboard'))->assertStatus(405);
 

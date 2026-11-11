@@ -1100,3 +1100,7 @@ html.dark .vxf-full{background:#0b1020}
 .fi-resource-fulfillment-center .fi-header-actions-ctn{flex:0 1 auto;max-width:100%;min-width:0}
 .fi-resource-fulfillment-center .fi-header-actions-ctn>.fi-ac{flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.vxf-sbar__cover{display:none}}
+.vxf-pausepick__backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.55)}
+.vxf-pausepick__card{width:min(440px,100%);border-radius:18px;padding:20px;background:var(--vxf-card);border:1px solid var(--vxf-line);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.vxf-pausepick__card h2{margin:0 0 12px;font-size:18px;font-weight:800}
+.vxf-pausepick__grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}

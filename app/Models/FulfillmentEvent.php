@@ -27,6 +27,7 @@ class FulfillmentEvent extends Model
     public function run(): BelongsTo { return $this->belongsTo(FulfillmentRun::class, 'run_id'); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function station(): BelongsTo { return $this->belongsTo(FulfillmentStation::class, 'station_id'); }
+    public function show(): BelongsTo { return $this->belongsTo(Show::class); }
 
     public static function label(string $type): string
     {

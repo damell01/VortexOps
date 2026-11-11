@@ -15,6 +15,21 @@
         .vxtv__station-link:hover, .vxtv__station-link:focus-visible { border-color:#a78bfa; background:#30205b; }
         .vxtv__station-link[aria-current="page"] { background:#7c3aed; border-color:#b794f6; color:white; }
         @media(max-width:1050px) { .vxtv__station-switch { max-width:100%; overflow-x:auto; flex-wrap:nowrap; } }
+        /* Show-finished celebration */
+        .vxtv-cheer { position:fixed; inset:0; z-index:90; display:grid; place-items:center; pointer-events:none; background:radial-gradient(circle at 50% 45%, rgba(124,58,237,.45), rgba(6,9,20,.82) 70%); animation:vxtv-cheer-in .5s ease-out both; overflow:hidden; }
+        .vxtv-cheer[hidden] { display:none; }
+        .vxtv-cheer.is-out { animation:vxtv-cheer-out .6s ease-in both; }
+        .vxtv-cheer__card { text-align:center; color:#fff; font-family:system-ui,sans-serif; padding:32px 48px; border-radius:28px; background:rgba(23,27,59,.92); border:2px solid #a78bfa; box-shadow:0 30px 80px rgba(0,0,0,.5); animation:vxtv-cheer-pop .7s cubic-bezier(.2,1.6,.4,1) both; max-width:min(860px,90vw); }
+        .vxtv-cheer__emoji { font-size:clamp(56px,9vw,110px); line-height:1; }
+        .vxtv-cheer__kicker { margin-top:10px; font:800 clamp(16px,2vw,24px)/1.2 system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#86efac; }
+        .vxtv-cheer__title { margin:8px 0 0; font:900 clamp(28px,4.6vw,64px)/1.1 system-ui,sans-serif; }
+        .vxtv-cheer__meta { margin-top:10px; font:600 clamp(16px,2vw,26px)/1.3 system-ui,sans-serif; color:#c7d2fe; }
+        .vxtv-cheer__bit { position:absolute; top:-20px; width:12px; height:18px; border-radius:3px; animation:vxtv-fall linear forwards; }
+        @keyframes vxtv-cheer-in { from { opacity:0 } to { opacity:1 } }
+        @keyframes vxtv-cheer-out { to { opacity:0 } }
+        @keyframes vxtv-cheer-pop { from { transform:scale(.6); opacity:0 } to { transform:scale(1); opacity:1 } }
+        @keyframes vxtv-fall { to { transform:translateY(110vh) rotate(720deg); } }
+        @media (prefers-reduced-motion: reduce) { .vxtv-cheer, .vxtv-cheer__card { animation:none } .vxtv-cheer__bit { display:none } }
     </style>
 </head>
 <body>
@@ -53,6 +68,9 @@
     </header>
 
     <section id="vxf-board" class="vxtv__board" aria-live="polite" aria-label="Stations"></section>
+    <div class="vxtv-cheer" id="vxtv-cheer" role="status" aria-live="assertive" hidden>
+        <div class="vxtv-cheer__card"><div class="vxtv-cheer__emoji" aria-hidden="true">🎉</div><div class="vxtv-cheer__kicker">Show packed!</div><p class="vxtv-cheer__title" data-cheer="title"></p><div class="vxtv-cheer__meta" data-cheer="meta"></div></div>
+    </div>
     <nav class="vxtv__pages" id="vxtv-pages" aria-label="Station pages" hidden></nav>
 
     @unless ($station)
@@ -187,7 +205,7 @@
         refs.nextList.replaceChildren(...(s.next || []).slice(upNext ? 1 : 0).map(n => { const chip = el('span', 'vxtv__chip'); chip.append(el('b', null, n.letter), el('span', null, n.buyer)); return chip; }));
         refs.nextWrap.hidden = !((s.next || []).slice(upNext ? 1 : 0).length);
         set(refs.buyers, s.buyers_total ? s.buyers_done + ' / ' + s.buyers_total + ' buyers' : '');
-        entry.elapsed = s.elapsed; entry.ticking = !!s.ticking; entry.received = received;
+        entry.elapsed = s.elapsed; entry.ticking = !!s.ticking; entry.received = received; entry.pause = s.pause_reason || '';
         paintTimer(entry);
     }
 
@@ -195,7 +213,7 @@
         if (!entry.refs.timer) return;
         if (entry.elapsed === null || entry.elapsed === undefined) { set(entry.refs.timer, ''); return; }
         const live = entry.ticking ? (Date.now() - entry.received) / 1000 : 0;
-        set(entry.refs.timer, (entry.ticking ? '⏱ ' : 'Paused · ') + fmt(entry.elapsed + live));
+        set(entry.refs.timer, (entry.ticking ? '⏱ ' : 'Paused' + (entry.pause ? ' (' + entry.pause + ')' : '') + ' · ') + fmt(entry.elapsed + live));
     }
 
     // ── Pages rotate when there are more stations than fit ───────────────
@@ -241,6 +259,42 @@
         if (data.summary) for (const [k, v] of Object.entries(data.summary)) document.querySelectorAll('[data-sum="' + k + '"]').forEach(n => countTo(n, v));
         if (data.summary) document.querySelectorAll('.vxtv__sum-issue').forEach(n => n.classList.toggle('is-alert', data.summary.issues > 0));
         renderTicker(data.activity || []);
+        cheerFor(data.activity || []);
+    }
+
+    // ── Celebrate a show finishing ────────────────────────────────────────
+    // Only shows that finish while the screen is up: the first feed sets the mark.
+    let cheerMark = null, cheerQueue = [], cheering = false;
+    const cheerEl = document.getElementById('vxtv-cheer');
+    function cheerFor(items) {
+        const top = items.reduce((m, i) => Math.max(m, i.id), 0);
+        if (cheerMark === null) { cheerMark = top; return; }
+        items.filter(i => i.type === 'finished' && i.id > cheerMark).sort((a, b) => a.id - b.id).forEach(i => cheerQueue.push(i));
+        cheerMark = Math.max(cheerMark, top);
+        nextCheer();
+    }
+    function nextCheer() {
+        if (cheering || !cheerQueue.length) return;
+        cheering = true;
+        const i = cheerQueue.shift();
+        set(cheerEl.querySelector('[data-cheer="title"]'), i.show || 'A show');
+        set(cheerEl.querySelector('[data-cheer="meta"]'), [i.station, i.packages ? i.packages + ' packages' : null].filter(Boolean).join(' · '));
+        cheerEl.querySelectorAll('.vxtv-cheer__bit').forEach(n => n.remove());
+        if (!calm) {
+            const colors = ['#a78bfa', '#86efac', '#fbbf24', '#60a5fa', '#f472b6', '#fff'];
+            for (let k = 0; k < 90; k++) {
+                const b = el('span', 'vxtv-cheer__bit');
+                b.style.left = (Math.random() * 100) + 'vw';
+                b.style.background = colors[k % colors.length];
+                b.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+                b.style.animationDelay = (Math.random() * 1.2) + 's';
+                cheerEl.append(b);
+            }
+        }
+        cheerEl.classList.remove('is-out');
+        cheerEl.hidden = false;
+        setTimeout(() => cheerEl.classList.add('is-out'), 6400);
+        setTimeout(() => { cheerEl.hidden = true; cheering = false; nextCheer(); }, 7000);
     }
 
     // ── Recent activity ticker ───────────────────────────────────────────

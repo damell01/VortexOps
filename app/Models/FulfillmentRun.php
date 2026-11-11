@@ -25,6 +25,14 @@ class FulfillmentRun extends Model
     /** Statuses in which the run still holds its station. */
     public const ON_STATION = [self::PACKING, self::PAUSED];
 
+    /** Why packing was paused; shown on the board and totalled in reports. */
+    public const PAUSE_REASONS = ['break' => 'Break', 'product' => 'Waiting on product', 'issue' => 'Issue', 'other' => 'Other'];
+
+    public static function pauseReasonLabel(?string $key): string
+    {
+        return self::PAUSE_REASONS[$key ?? ''] ?? 'Other';
+    }
+
     /** Statuses in which the show is still fulfillment work. */
     public const OPEN = [self::READY, self::PACKING, self::PAUSED];
 

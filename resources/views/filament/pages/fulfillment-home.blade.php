@@ -94,7 +94,7 @@
                         <div class="vxf-station__top">
                             <span class="vxf-station__name">{{ $row['station']->name }}</span>
                             <span style="display:inline-flex;gap:6px;align-items:center">
-                                <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}</span>
+                                <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}@if ($state === 'paused' && $run?->pause_reason) · {{ \App\Models\FulfillmentRun::pauseReasonLabel($run->pause_reason) }}@endif</span>
                                 <a class="vxf-station__tv" href="{{ route('fulfillment.whiteboard', ['station' => $row['station']->id]) }}" target="_blank" rel="noopener" title="Open {{ $row['station']->name }} on the TV whiteboard" aria-label="Open {{ $row['station']->name }} on the TV whiteboard"><x-heroicon-o-tv /></a>
                             </span>
                         </div>

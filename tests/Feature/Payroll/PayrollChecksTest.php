@@ -225,6 +225,57 @@ class PayrollChecksTest extends TestCase
         $this->assertCount(0, app(PayChangedAfterPayout::class)->rows());
     }
 
+    public function test_a_changed_line_is_carried_to_the_next_draft_run_and_drops_off_the_list(): void
+    {
+        $nat = $this->member('Natbat', $this->vcx);
+        $show = $this->show($nat, $this->breaks, 1000, now()->subDays(10)->toDateString());
+        app(\App\Services\PayoutService::class)->calculateForShow($show->fresh(['streamers', 'streamerLogEntry', 'channel']));
+        $payout = Payout::query()->where('show_id', $show->id)->where('streamer_id', $nat->id)->firstOrFail();
+        $paidRun = WeeklyPayoutBatch::create(['business_id' => $this->vcx->id, 'week_start' => now()->subDays(13)->toDateString(), 'week_end' => now()->subDays(7)->toDateString(),
+            'status' => 'paid', 'finalized_at' => now()->subDays(6)]);
+        DB::table('weekly_payout_batches')->where('id', $paidRun->id)->update(['updated_at' => now()->subDays(6)]);
+        $payout->update(['weekly_payout_batch_id' => $paidRun->id, 'status' => 'paid']);
+        // An Other Pay extra on the paid run is not a change to the show's pay.
+        Payout::create(['weekly_payout_batch_id' => $paidRun->id, 'streamer_id' => $nat->id, 'show_id' => $show->id, 'payout_type' => \App\Services\OtherPayService::TYPE,
+            'calculated_payout' => 25, 'calculation_notes' => 'Other Pay: gas', 'status' => 'paid']);
+        DB::table('shows')->where('id', $show->id)->update(['updated_at' => now()->subDays(8)]);
+        $this->assertCount(0, app(PayChangedAfterPayout::class)->rows());
+
+        $show->refresh()->trackChanges(['whatnot_net' => 1500], 'import');
+        $show->update(['whatnot_net' => 1500]);
+        $row = app(PayChangedAfterPayout::class)->rows()->first();
+        $this->assertNotNull($row);
+        $difference = $row['difference'];
+        $this->assertGreaterThan(0, $difference);
+
+        // No draft run yet: nothing to carry it to.
+        Livewire::test(PayChangedSincePaid::class)->assertSee('No draft run yet');
+
+        $next = WeeklyPayoutBatch::create(['business_id' => $this->vcx->id, 'week_start' => now()->subDays(6)->toDateString(), 'week_end' => now()->toDateString(), 'status' => 'draft']);
+        Livewire::test(PayChangedSincePaid::class)->assertSee('Carry to next run')->assertSee('#' . $next->id)
+            ->call('settle', $show->id, $nat->id, 'Net corrected by Whatnot');
+
+        $line = Payout::query()->where('weekly_payout_batch_id', $next->id)->where('streamer_id', $nat->id)->firstOrFail();
+        $this->assertSame(\App\Services\OtherPayService::TYPE, $line->payout_type);
+        $this->assertEqualsWithDelta($difference, (float) $line->calculated_payout, 0.001);
+        $this->assertStringContainsString('Pay change settlement', $line->calculation_notes);
+        $this->assertStringContainsString('Net corrected by Whatnot', $line->calculation_notes);
+        $this->assertEqualsWithDelta($difference, (float) $next->fresh()->total_payout, 0.001);
+        $this->assertCount(0, app(PayChangedAfterPayout::class)->rows());   // settled: off the list
+
+        // Settling again does nothing; recalculating the draft run keeps the line.
+        Livewire::test(PayChangedSincePaid::class)->call('settle', $show->id, $nat->id, '');
+        $this->assertSame(1, Payout::query()->where('weekly_payout_batch_id', $next->id)->count());
+
+        // It changes again later: only the new difference shows.
+        $show->refresh()->trackChanges(['whatnot_net' => 1600], 'import');
+        $show->update(['whatnot_net' => 1600]);
+        $again = app(PayChangedAfterPayout::class)->rows()->first();
+        $this->assertNotNull($again);
+        $this->assertEqualsWithDelta($difference, (float) $again['settled'], 0.001);
+        $this->assertLessThan($difference, $again['difference']);
+    }
+
     public function test_the_fulfillment_admin_sees_everything_but_business_profitability(): void
     {
         \Spatie\Permission\Models\Role::findOrCreate('fulfillment_admin', 'web');

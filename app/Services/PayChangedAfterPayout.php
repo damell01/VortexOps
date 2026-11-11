@@ -29,7 +29,7 @@ final class PayChangedAfterPayout
      * @return Collection<int, array{show_id:int, show:string, show_date:?string, streamer_id:int, streamer:string, run_id:int, run_status:string,
      *   locked_at:?string, paid:float, now:float, difference:float, lines:list<string>, changes:list<array{field:string,old:?string,new:?string,at:string}>}>
      */
-    public function rows(int $limit = 150): Collection
+    public function rows(int $limit = 150, ?int $onlyShowId = null): Collection
     {
         $since = now()->subDays(self::DAYS);
 
@@ -40,6 +40,10 @@ final class PayChangedAfterPayout
             ->leftJoin('streamer_log_entries as log', 'log.show_id', '=', 'shows.id')
             ->whereIn('b.status', self::LOCKED)
             ->whereNotNull('payouts.streamer_id')
+            // Other Pay lines are extras on a run, not the show's calculated pay;
+            // settlements of earlier changes are added back below.
+            ->where('payouts.payout_type', '!=', OtherPayService::TYPE)
+            ->when($onlyShowId, fn ($q) => $q->where('shows.id', $onlyShowId))
             ->where('shows.show_date', '>=', $since->toDateString())
             ->where(function ($q) {
                 $locked = 'COALESCE(b.finalized_at, b.updated_at)';
@@ -55,6 +59,15 @@ final class PayChangedAfterPayout
                 'b.id as run_id', 'b.status as run_status', 'b.finalized_at', 'b.updated_at as run_updated_at']);
 
         if ($locked->isEmpty()) return collect();
+
+        // Differences already carried onto a later run count as paid.
+        $settled = \Illuminate\Support\Facades\Schema::hasTable('pay_change_settlements')
+            ? DB::table('pay_change_settlements as s')->join('payouts as p', 'p.id', '=', 's.payout_id')
+                ->whereIn('s.show_id', $locked->pluck('show_id')->unique())
+                ->groupBy('s.show_id', 's.streamer_id')
+                ->selectRaw('s.show_id, s.streamer_id, SUM(p.calculated_payout) as total')
+                ->get()->keyBy(fn ($r) => $r->show_id . ':' . $r->streamer_id)
+            : collect();
 
         $shows = Show::query()->whereIn('id', $locked->pluck('show_id')->unique())
             ->with(['streamers', 'streamerLogEntry', 'channel'])->get()->keyBy('id');
@@ -83,6 +96,8 @@ final class PayChangedAfterPayout
                     $now += $nowType;
                     if (abs($nowType - $paidType) >= 0.01) $labels[] = str_replace('_', ' ', (string) $type);
                 }
+                $settledAmount = round((float) ($settled->get($showId . ':' . $streamerId)->total ?? 0), 2);
+                $paid += $settledAmount;
                 $difference = round($now - $paid, 2);
                 if (abs($difference) < 0.01) continue;
 
@@ -92,7 +107,7 @@ final class PayChangedAfterPayout
                     'streamer_id' => (int) $streamerId, 'streamer' => (string) ($row['streamer']->name ?? \App\Models\Streamer::query()->whereKey($streamerId)->value('name')),
                     'run_id' => (int) $first->run_id, 'run_status' => (string) $first->run_status,
                     'locked_at' => $lockedAt ? Carbon::parse($lockedAt)->toIso8601String() : null,
-                    'paid' => round($paid, 2), 'now' => round($now, 2), 'difference' => $difference, 'lines' => $labels,
+                    'paid' => round($paid, 2), 'now' => round($now, 2), 'difference' => $difference, 'settled' => $settledAmount, 'lines' => $labels,
                     'changes' => $this->changesSince((int) $showId, $lockedAt),
                 ]);
             }
@@ -100,6 +115,12 @@ final class PayChangedAfterPayout
         }
 
         return $out->sortByDesc(fn ($r) => abs($r['difference']))->values();
+    }
+
+    /** One show and person, worked out fresh (for settling). */
+    public function rowFor(int $showId, int $streamerId): ?array
+    {
+        return $this->rows(150, $showId)->first(fn ($r) => $r['show_id'] === $showId && $r['streamer_id'] === $streamerId);
     }
 
     private const CACHE = 'payroll:pay-changed-after-payout';

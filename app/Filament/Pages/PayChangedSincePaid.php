@@ -55,6 +55,31 @@ class PayChangedSincePaid extends Page
 
     public function getViewData(): array
     {
-        return ['rows' => app(PayChangedAfterPayout::class)->refresh()];
+        $rows = app(PayChangedAfterPayout::class)->refresh();
+        $settlement = app(\App\Services\PayChangeSettlement::class);
+        $targets = $rows->pluck('streamer_id')->unique()->mapWithKeys(function ($id) use ($settlement) {
+            $streamer = \App\Models\Streamer::query()->find($id);
+            $run = $streamer ? $settlement->targetRun($streamer) : null;
+
+            return [$id => $run ? ['id' => $run->id, 'label' => '#' . $run->id . ' · ' . $run->week_start?->format('M j') . ' – ' . $run->week_end?->format('M j')] : null];
+        });
+
+        return ['rows' => $rows, 'targets' => $targets];
+    }
+
+    /** Carry one difference onto the person's next draft run, as an adjustment line with a note. */
+    public function settle(int $showId, int $streamerId, string $note = ''): void
+    {
+        abort_unless(static::canAccess(), 403);
+        try {
+            $payout = app(\App\Services\PayChangeSettlement::class)->settle($showId, $streamerId, mb_substr(trim($note), 0, 500) ?: null, auth()->id());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Filament\Notifications\Notification::make()->title('Not carried over')->body(collect($e->errors())->flatten()->first())->danger()->send();
+
+            return;
+        }
+        \Filament\Notifications\Notification::make()->title('Carried to run #' . $payout->weekly_payout_batch_id)
+            ->body(($payout->calculated_payout < 0 ? 'Deduction of $' : 'Adjustment of $') . number_format(abs((float) $payout->calculated_payout), 2) . ' added.')
+            ->success()->send();
     }
 }

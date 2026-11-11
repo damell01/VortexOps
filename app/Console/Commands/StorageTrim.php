@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Schema;
  * person made, pay runs and payouts, and each real change to a show.
  *
  * Trimmed after a while:
- *  - saved Whatnot API responses: the newest of each feed is kept, older ones
- *    after 7 days (the API can be asked again);
+ *  - saved Whatnot API responses: the newest 20 of each feed and the last
+ *    day are kept (they are applied as they arrive; the API can be asked again);
  *  - the raw copy kept beside ledger entries and orders after 30 days: only
  *    the keys the app still reads (IDs, livestream evidence, labels) stay;
  *  - automatic ledger-match history after 30 days (people's decisions stay);
@@ -72,22 +72,33 @@ class StorageTrim extends Command
         return self::SUCCESS;
     }
 
-    /** Saved API responses: keep the newest per channel and feed, drop the rest after 7 days. */
+    /**
+     * Saved API responses are read right after they are captured (to apply
+     * them) and the newest few are shown on the API status page. Keep the
+     * newest 20 of each channel's feed plus anything from the last day.
+     */
     private function snapshots(): ?array
     {
         if (! Schema::hasTable('whatnot_api_snapshots')) return null;
-        $newest = DB::table('whatnot_api_snapshots')->selectRaw('MAX(id) as id')->groupBy('whatnot_channel_id', 'resource')->pluck('id')->all();
-        $query = fn () => DB::table('whatnot_api_snapshots')->where('fetched_at', '<', now()->subDays(7))->whereNotIn('id', $newest ?: [0]);
-        $count = $query()->count();
-        if ($this->apply && $count) {
-            do {
-                $ids = $query()->orderBy('id')->limit(500)->pluck('id');
-                DB::table('whatnot_api_snapshots')->whereIn('id', $ids)->delete();
-            } while ($ids->isNotEmpty());
-            $this->touched['whatnot_api_snapshots'] = true;
+        $groups = DB::table('whatnot_api_snapshots')->select('whatnot_channel_id', 'resource')->distinct()->get();
+        $count = 0;
+        foreach ($groups as $group) {
+            $keepFrom = DB::table('whatnot_api_snapshots')->where('whatnot_channel_id', $group->whatnot_channel_id)->where('resource', $group->resource)
+                ->orderByDesc('id')->skip(19)->value('id');
+            if ($keepFrom === null) continue;
+            $query = fn () => DB::table('whatnot_api_snapshots')->where('whatnot_channel_id', $group->whatnot_channel_id)->where('resource', $group->resource)
+                ->where('id', '<', $keepFrom)->where('fetched_at', '<', now()->subDay());
+            $count += $query()->count();
+            if ($this->apply) {
+                do {
+                    $ids = $query()->orderBy('id')->limit(500)->pluck('id');
+                    DB::table('whatnot_api_snapshots')->whereIn('id', $ids)->delete();
+                } while ($ids->isNotEmpty());
+            }
         }
+        if ($this->apply && $count) $this->touched['whatnot_api_snapshots'] = true;
 
-        return ['Saved Whatnot API responses older than 7 days (newest of each kept)', 'whatnot_api_snapshots', number_format($count)];
+        return ['Saved Whatnot API responses older than a day (newest 20 of each feed kept)', 'whatnot_api_snapshots', number_format($count)];
     }
 
     /** Old raw copies: keep only the keys the app reads, plus every "_"-prefixed evidence key. */

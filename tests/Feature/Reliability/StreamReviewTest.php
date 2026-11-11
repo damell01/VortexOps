@@ -82,8 +82,11 @@ class StreamReviewTest extends TestCase
         $july=$this->show(['title'=>'July target','show_date'=>'2026-07-04','whatnot_channel_id'=>$b->id]);
         Livewire::test(ReviewShowStreamers::class)->searchTable('June')
             ->assertCanSeeTableRecords([$june])->assertCanNotSeeTableRecords([$july]);
+        // Search and filters are kept for the session (so Back keeps them); start each check clean.
+        session()->flush();
         Livewire::test(ReviewShowStreamers::class)->filterTable('whatnot_channel_id',$b->id)
             ->assertCanSeeTableRecords([$july])->assertCanNotSeeTableRecords([$june]);
+        session()->flush();
         Livewire::test(ReviewShowStreamers::class)->filterTable('dates',['from'=>'2026-06-01','until'=>'2026-06-30'])
             ->assertCanSeeTableRecords([$june])->assertCanNotSeeTableRecords([$july]);
     }

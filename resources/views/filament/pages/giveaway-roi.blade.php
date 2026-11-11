@@ -13,10 +13,7 @@
                     <select id="gr-channel" class="vxw-input" wire:model.live="channel"><option value="">All channels</option>@foreach($channels as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
                 </label>
             </div>
-            <div class="vx-report-actions" style="display:flex;gap:8px">
-                <button type="button" class="vxw-btn vxw-btn--sm" onclick="window.print()"><x-filament::icon icon="heroicon-m-printer" /> Print</button>
-                <button type="button" class="vxw-btn vxw-btn--sm" wire:click="export"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export CSV</button>
-            </div>
+            <x-report-toolbar :exports="['export' => 'Export CSV']" />
         </div>
         <div class="vxw-stats">
             <div class="vxw-stat"><div class="vxw-stat-label">Spent on giveaways</div><div class="vxw-stat-value">{{ $money($totals['cost']) }}</div><div class="vxw-meta">{{ $money($totals['product_cost']) }} product · {{ $money($totals['whatnot_spend']) }} Whatnot</div></div>

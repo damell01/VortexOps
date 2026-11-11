@@ -27,11 +27,21 @@ class StatusColorTest extends TestCase
         $this->assertSame('danger', StatusColor::for('rejected'));
     }
 
+    public function test_green_done_blue_in_progress_amber_attention_red_problem(): void
+    {
+        $this->assertSame('success', StatusColor::for('completed'));
+        $this->assertSame('info', StatusColor::for('in_progress'));
+        $this->assertSame('info', StatusColor::for('packing'));
+        $this->assertSame('warning', StatusColor::for('pending_review'));
+        $this->assertSame('warning', StatusColor::for('paused'));
+        $this->assertSame('danger', StatusColor::for('failed'));
+    }
+
     public function test_matching_is_case_insensitive(): void
     {
         // Imported ledger statuses arrive capitalised.
         $this->assertSame('success', StatusColor::for('Completed'));
-        $this->assertSame('warning', StatusColor::for('  Processing  '));
+        $this->assertSame('info', StatusColor::for('  Processing  '));
     }
 
     public function test_unknown_and_null_fall_back_to_gray(): void

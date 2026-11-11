@@ -11,12 +11,12 @@ namespace App\Support;
  * there. Route a status column's colour through {@see self::for()} and every
  * badge in the app speaks the same visual language.
  *
- * The buckets read by operational meaning to whoever's looking:
- *   gray    — not started / inactive / archived (nothing to do)
- *   warning — needs attention or in progress (someone should look)
- *   info    — acknowledged and advancing, awaiting the next step
- *   success — done well / terminal-good
- *   danger  — a problem: rejected, refunded, cancelled, failed
+ * The buckets read the same everywhere in the app:
+ *   success (green) — done
+ *   info    (blue)  — in progress, moving on its own
+ *   warning (amber) — needs attention: someone should look or act
+ *   danger  (red)   — a problem: rejected, refunded, cancelled, failed
+ *   gray            — not started / inactive / archived (nothing to do)
  *
  * A genuinely domain-specific status (e.g. an "active" loan means money is
  * still owed, so it's a warning not a success) should keep its own inline
@@ -32,18 +32,23 @@ class StatusColor
         'expected'         => 'gray',
         'closed'           => 'gray',
 
-        // warning — needs attention / in progress
+        // warning (amber) — needs attention
         'pending'          => 'warning',
         'pending_review'   => 'warning',
         'pending_approval' => 'warning',
-        'in_progress'      => 'warning',
-        'processing'       => 'warning',
-        'receiving'        => 'warning',
         'reviewing'        => 'warning',
-        'opening'          => 'warning',
         'partial'          => 'warning',
+        'needs_info'       => 'warning',
+        'paused'           => 'warning',
+        'on_hold'          => 'warning',
+        'hold'             => 'warning',
 
-        // info — acknowledged, advancing toward done
+        // info (blue) — in progress
+        'in_progress'       => 'info',
+        'processing'        => 'info',
+        'receiving'         => 'info',
+        'opening'           => 'info',
+        'packing'           => 'info',
         'approved'          => 'info',
         'streamer_reviewed' => 'info',
         'finalized'         => 'info',
@@ -51,11 +56,13 @@ class StatusColor
         'mapping'           => 'info',
         'received'          => 'info',
         'shipped'           => 'info',
-        'needs_info'        => 'info',
+        'in_transit'        => 'info',
         'opened'            => 'info',
         'parsing'           => 'info',
 
-        // success — terminal-good
+        // success (green) — done
+        'delivered'      => 'success',
+        'signed_off'     => 'success',
         'completed'      => 'success',
         'processed'      => 'success',
         'reconciled'     => 'success',
@@ -66,7 +73,7 @@ class StatusColor
         'success'        => 'success',
         'active'         => 'success',
 
-        // danger — a problem
+        // danger (red) — a problem
         'rejected'  => 'danger',
         'refunded'  => 'danger',
         'cancelled' => 'danger',

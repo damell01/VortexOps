@@ -104,6 +104,7 @@
             <p class="vxr-subtitle">Stock health, movement and money tied up in inventory.</p>
         </div>
         <div class="vxr-actions">
+            <x-report-toolbar :exports="$itemTabs ? ['exportPdf' => 'Export to PDF', 'exportCsv' => 'Export this tab to CSV'] : ['exportCsv' => 'Export this tab to CSV']" />
             <select wire:model.live="reportStock" class="vxr-select" aria-label="Inventory scope">
                 <option value="">All Inventory</option>
                 <option value="in">In stock only</option>
@@ -113,18 +114,6 @@
             <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="vxr-btn">
                 <x-filament::icon icon="heroicon-o-squares-2x2" /> Item list
             </a>
-            <div x-data="{ open: false }" class="invr-export">
-                <button type="button" @click="open = !open" class="vxr-btn vxr-btn--primary">
-                    <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export
-                </button>
-                <div x-cloak x-show="open" @click.outside="open = false" class="invr-menu">
-                    @if($itemTabs)
-                        <button type="button" wire:click="exportPdf" @click="open = false"><x-filament::icon icon="heroicon-o-document-text" /> Export to PDF</button>
-                    @endif
-                    <button type="button" wire:click="exportCsv" @click="open = false"><x-filament::icon icon="heroicon-o-table-cells" /> Export this tab to CSV</button>
-                    <button type="button" onclick="window.print()" @click="open = false"><x-filament::icon icon="heroicon-o-printer" /> Print report</button>
-                </div>
-            </div>
         </div>
     </div>
 

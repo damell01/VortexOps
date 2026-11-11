@@ -133,6 +133,7 @@
         </div>
 
         <div class="vxr-actions" style="align-items:center">
+            <x-report-toolbar />
             <div class="vxsa-picker" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
                 <button type="button" class="vxr-control vxsa-picker-btn" @click="open = ! open" :aria-expanded="open" aria-label="Date range">
                     <x-filament::icon icon="heroicon-o-calendar-days" />
@@ -196,9 +197,6 @@
                 </a>
             @endif
 
-            <button type="button" wire:click="exportCsv" class="vxr-btn vxr-btn--primary" title="Export CSV">
-                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export
-            </button>
         </div>
     </header>
 

@@ -49,8 +49,9 @@
                     <div class="vx-chatify-message-search" x-show="showMessageSearch || messageSearch" x-cloak><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><span x-show="historySearching">Searching history…</span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch.length>=2 && !historySearching && !filteredMessages().length">No matching messages found in the conversation.</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
-                            <div class="vx-chatify-message-group" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index)}"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
-                                <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
+                            <div class="vx-chatify-message-group" :id="'vxm-'+message.id" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index)}"><div class="vx-chatify-new-divider" x-show="String(message.id)===String(firstUnreadId)" x-cloak><span>New messages</span></div><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
+                                <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span class="vx-chatify-body" x-show="message.attributes?.body" x-html="linkify(message.attributes?.body)"></span>
+                                <template x-for="card in cardsFor(message)" :key="card.url"><a class="vx-chatify-link-card" :href="card.url"><span class="vx-chatify-link-card-img" :class="'is-'+card.icon"><template x-if="card.image"><img :src="card.image" alt="" loading="lazy"></template><template x-if="!card.image"><span x-text="card.kind.charAt(0)"></span></template></span><span class="vx-chatify-link-card-copy"><small x-text="card.kind"></small><strong x-text="card.title"></strong><span x-text="card.detail"></span></span></a></template>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
                                     <div class="vx-chatify-message-attachment">
                                         <template x-if="isImage(attachment)">
@@ -66,16 +67,17 @@
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
-                                <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="reaction in reactionSummary(message.id)" :key="reaction.emoji"><button type="button" x-on:click="toggleReaction(message,reaction.emoji)" :aria-label="reaction.count+' reactions: '+reaction.emoji" :aria-pressed="reaction.mine" :class="reaction.mine ? 'is-mine' : ''"><span x-text="reaction.emoji"></span> <span x-text="reaction.count"></span></button></template></div><small class="vx-chatify-message-meta" x-show="isRunEnd(index) || message.attributes?.edited_at"><time :datetime="message.attributes?.created_at" :title="formatFull(message.attributes?.created_at)" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span class="vx-chatify-tick" x-show="isMine(message)" aria-label="Sent"> ✓</span></small>
-                            </div></div></div>
+                                <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="reaction in reactionSummary(message.id)" :key="reaction.emoji"><button type="button" x-on:click="toggleReaction(message,reaction.emoji)" :aria-label="reaction.count+' reactions: '+reaction.emoji" :aria-pressed="reaction.mine" :class="reaction.mine ? 'is-mine' : ''"><span x-text="reaction.emoji"></span> <span x-text="reaction.count"></span></button></template></div><small class="vx-chatify-message-meta" x-show="isRunEnd(index) || message.attributes?.edited_at"><time :datetime="message.attributes?.created_at" :title="formatFull(message.attributes?.created_at)" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span class="vx-chatify-tick" :class="seenBy(message).length ? 'is-seen' : ''" x-show="isMine(message)" :aria-label="seenBy(message).length ? 'Seen' : 'Sent'" x-text="seenBy(message).length ? ' ✓✓' : ' ✓'"></span></small>
+                            </div></div><small class="vx-chatify-seen-label" x-show="isMine(message) && index===lastMineIndex() && seenBy(message).length" x-text="seenLabel(message)"></small></div>
                         </template>
                     </div>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
+                    <div class="vx-chatify-typing" x-show="presence.typing.length" x-cloak aria-live="polite"><span class="vx-chatify-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span><span x-text="typingText()"></span></div>
                     <div class="vx-chatify-reply-banner" x-show="replyTo" x-cloak><div><strong>Replying to message</strong><small x-text="replyTo?.attributes?.body || 'Attachment'"></small></div><button type="button" x-on:click="replyTo=null" aria-label="Cancel reply">✕</button></div>
                     <div class="vx-chatify-edit-banner" x-show="editingMessage" x-cloak><strong>Editing message</strong><button type="button" x-on:click="cancelEdit()">Cancel</button></div>
                     <div class="vx-chatify-attachments-selected" x-show="files.length" x-cloak>
                         <template x-for="(file,index) in files" :key="index">
-                            <span><span x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
+                            <span :class="isImageFile(file) ? 'is-photo' : ''"><template x-if="isImageFile(file)"><img :src="fileThumb(file)" alt=""></template><span x-show="!isImageFile(file)" x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
                         </template>
                     </div>
                     <div class="vx-chatify-user-list" x-show="mentionQuery !== null && mentionCandidates().length" x-cloak role="listbox" aria-label="Mention a teammate" style="max-height:160px;overflow:auto">
@@ -89,7 +91,7 @@
                             <button type="button" class="vx-chatify-emoji-button" x-on:click="emojiOpen=!emojiOpen" :aria-expanded="String(emojiOpen)" title="Emoji" aria-label="Add an emoji"><x-filament::icon icon="heroicon-o-face-smile" /></button>
                             <div class="vx-chatify-emoji-menu" x-show="emojiOpen" x-cloak role="listbox" aria-label="Emoji"><template x-for="e in emojiSet" :key="e"><button type="button" role="option" x-on:click="insertEmoji(e)" x-text="e"></button></template></div>
                         </div>
-                        <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery()" :placeholder="selected && selected.attributes?.conversation_type!=='group' ? 'Message '+label(selected).split(' ')[0]+'…' : 'Write a message…'" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey && !$event.isComposing){$event.preventDefault();mentionQuery=null;send()}" x-on:keydown.escape="mentionQuery=null"></textarea>
+                        <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery();notifyTyping()" :placeholder="selected && selected.attributes?.conversation_type!=='group' ? 'Message '+label(selected).split(' ')[0]+'…' : 'Write a message…'" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey && !$event.isComposing){$event.preventDefault();mentionQuery=null;send()}" x-on:keydown.escape="mentionQuery=null"></textarea>
                         <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))"><x-filament::icon icon="heroicon-o-paper-airplane" /><span x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></span></button>
                     </form>
                 </div>
@@ -141,7 +143,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -180,6 +182,39 @@
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {const q=this.search.toLowerCase();return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && (this.kind==='all' || this.kind==='unread' || (this.kind==='group' ? t?.attributes?.conversation_type==='group' : t?.attributes?.conversation_type!=='group')) && (this.label(t).toLowerCase().includes(q) || (q.length>1 && String(t?.relationships?.last_message?.attributes?.body || '').toLowerCase().includes(q)))).sort((a,b)=>(Number(this.isPinned(b))-Number(this.isPinned(a))) || (Number(this.isSelfChat(a) && !this.isPinned(a))-Number(this.isSelfChat(b) && !this.isPinned(b))));},
+                        localBase:@json(url('/admin/communications')),
+                        async local(path, options={}) {
+                            const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest','Content-Type':'application/json',...(options.headers || {})};
+                            if(options.method && options.method !== 'GET') headers['X-CSRF-TOKEN']=document.querySelector('meta[name="csrf-token"]')?.content || '';
+                            const r=await fetch(this.localBase+path,{credentials:'same-origin',...options,headers});
+                            if(!r.ok) throw new Error('HTTP '+r.status);
+                            return r.json();
+                        },
+                        async loadPresence(id) {
+                            try {const data=await this.local('/conversations/'+encodeURIComponent(id)+'/presence');if(String(this.selected?.id)===String(id))this.presence={read:Array.isArray(data.read)?data.read:[],typing:Array.isArray(data.typing)?data.typing:[]};} catch(e) {}
+                        },
+                        notifyTyping() {
+                            if(!this.selected || !this.draft.trim() || Date.now()-this.typingSentAt<3000) return;
+                            this.typingSentAt=Date.now();
+                            this.local('/conversations/'+encodeURIComponent(this.selected.id)+'/presence',{method:'POST',body:JSON.stringify({typing:true})}).catch(()=>{});
+                        },
+                        typingText() {const n=this.presence.typing;if(!n.length)return '';if(n.length===1)return n[0]+' is typing…';if(n.length===2)return n[0]+' and '+n[1]+' are typing…';return n.length+' people are typing…';},
+                        // Who has read up to (or past) this message, from each participant's last read time.
+                        seenBy(m) {const at=new Date(m?.attributes?.created_at || 0).getTime();return this.presence.read.filter(p=>p.last_read_at && new Date(p.last_read_at).getTime()>=at);},
+                        lastMineIndex() {const list=this.filteredMessages();for(let i=list.length-1;i>=0;i--){if(this.isMine(list[i]))return i;}return -1;},
+                        seenLabel(m) {const who=this.seenBy(m);if(!who.length)return '';if(this.selected?.attributes?.conversation_type!=='group')return 'Seen';const first=who.map(p=>String(p.name||'').split(' ')[0]);return 'Seen by '+(first.length<=2?first.join(' and '):first.length+' people');},
+                        escapeHtml(v) {return String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));},
+                        // Text is escaped first; only http(s) links become anchors. Links into the app open in place, others in a new tab.
+                        linkify(body) {return this.escapeHtml(body).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g,u=>{const raw=u.replace(/&amp;/g,'&');let same=false;try{same=new URL(raw).origin===location.origin}catch(e){}let text=u;if(same){try{const x=new URL(raw);text=this.escapeHtml(x.pathname+x.search)}catch(e){}}return '<a href="'+u+'"'+(same?'':' target="_blank" rel="noopener noreferrer"')+'>'+text+'</a>';});},
+                        appLinks(m) {const body=String(m?.attributes?.body || '');const found=body.match(/https?:\/\/[^\s<]+/g) || [];return [...new Set(found.map(u=>u.replace(/[.,;:!?)\]'"]+$/,'')))].filter(u=>{try{const x=new URL(u);return x.origin===location.origin && /^\/admin\/(shows|inventory-items|weekly-payout-batches)\/\d+/.test(x.pathname)}catch(e){return false}}).slice(0,3);},
+                        cardsFor(m) {
+                            const urls=this.appLinks(m);if(!urls.length)return [];
+                            const missing=urls.filter(u=>!(u in this.cardsRequested));
+                            if(missing.length){missing.forEach(u=>this.cardsRequested[u]=true);this.local('/link-previews',{method:'POST',body:JSON.stringify({urls:missing})}).then(d=>{this.cards={...this.cards,...(d.cards||{})};}).catch(()=>{});}
+                            return urls.map(u=>this.cards[u]).filter(Boolean);
+                        },
+                        isImageFile(f) {return /^image\//.test(f?.type || '');},
+                        fileThumb(f) {if(!this.thumbs.has(f))this.thumbs.set(f,URL.createObjectURL(f));return this.thumbs.get(f);},
                         filteredMessages() {return this.messageSearch.trim() ? this.searchResults : this.messages;},
                         totalUnread() {return this.threads.reduce((sum,t)=>sum+this.unread(t),0);},
                         async enableAlerts() {
@@ -220,7 +255,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -245,10 +280,15 @@
                                 const list=this.items(data);
                                 this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);this.loadReactionBatch(list);
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
+                                if(firstLoad && this.unreadAtOpen>0){const theirs=this.messages.filter(m=>!this.isMine(m));const first=theirs[Math.max(0,theirs.length-this.unreadAtOpen)];this.firstUnreadId=first ? first.id : null;}
                                 this.$nextTick(()=>{
-                                    if(this.$refs.messagePane && (firstLoad || nearBottom))this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;
+                                    const pane=this.$refs.messagePane;
+                                    const mark=firstLoad && this.firstUnreadId ? document.getElementById('vxm-'+this.firstUnreadId) : null;
+                                    if(pane && mark){pane.scrollTop=Math.max(0,mark.offsetTop-pane.offsetTop-24);}
+                                    else if(pane && (firstLoad || nearBottom))pane.scrollTop=pane.scrollHeight;
                                     this.lastMessageId=this.messages.at(-1)?.id;
                                 });
+                                this.loadPresence(id);
                                 this.error='';
                                 if(document.visibilityState==='visible')this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{});
                             } catch(e) {
@@ -496,7 +536,7 @@
                                 if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));
                                 this.files.forEach(file=>body.append('attachments[]',file,file.name));
                                 await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});this.signalChatUpdate(conversationId);
-                                this.draft='';this.files=[];this.replyTo=null;
+                                this.draft='';this.files=[];this.replyTo=null;this.typingSentAt=0;this.local('/conversations/'+encodeURIComponent(conversationId)+'/presence',{method:'POST',body:JSON.stringify({typing:false})}).catch(()=>{});
                                 await this.loadMessages();
                                 this.load();
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}
@@ -536,14 +576,14 @@
                                 if(t?.id) await this.openThread(t);
                             } catch(e) {this.error=e.message;} finally {this.creating=false;}
                         },
-                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);},
+                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},2500);},
                         toggle() {
                             if(this.open) {this.close();return;}
                             this.open=true;if(!this.loaded)this.load();
                             this.startPolling();
                         },
-                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}},
-                        destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);}
+                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},
+                        destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);}
                     };
                 }
             </script>

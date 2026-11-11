@@ -74,6 +74,7 @@
             <p class="vxr-subtitle">Show revenue, channel performance and streamer activity.</p>
         </div>
         <div class="vxrep-head-tools" id="show-performance">
+            <x-report-toolbar />
             <div class="vxr-seg" role="group" aria-label="Period">
                 @foreach ($this->getPeriodOptions() as $days => $label)
                     <button type="button" wire:click="setPeriod('{{ $days }}')" class="{{ $period === (string) $days ? 'is-active' : '' }}"
@@ -97,9 +98,6 @@
                     @endforeach
                 </select>
             </label>
-            <button type="button" class="vxr-btn vxr-btn--primary" wire:click="exportCsv">
-                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export CSV
-            </button>
         </div>
     </div>
 

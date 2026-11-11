@@ -2,6 +2,8 @@
 @php $s = $this->summary; @endphp
 <div class="space-y-6">
 
+<div class="flex justify-end"><x-report-toolbar :exports="['exportCsv' => 'Export top vendors CSV']" /></div>
+
 {{-- ── Summary KPIs ──────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
@@ -120,14 +122,6 @@
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Top Vendors</h3>
                 <p class="text-xs text-gray-500 mt-0.5">By number of receiving sessions</p>
             </div>
-            <a
-                wire:click.prevent="exportCsv"
-                href="#"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
-            >
-                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
-                CSV
-            </a>
         </div>
         @if(count($this->topVendors) === 0)
             <p class="px-5 py-5 text-center text-xs text-gray-500">No vendor data yet.</p>

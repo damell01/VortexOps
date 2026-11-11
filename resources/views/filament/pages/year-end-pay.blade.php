@@ -14,7 +14,7 @@
                     <input id="ye-min" class="vxw-input" type="text" inputmode="decimal" placeholder="$0" wire:model.live.debounce.500ms="minimum" style="width:140px">
                 </label>
             </div>
-            <button type="button" class="vxw-btn vxw-btn--sm" wire:click="export"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export CSV</button>
+            <x-report-toolbar :exports="['export' => 'Export CSV']" />
         </div>
         <div class="vxw-stats">
             <div class="vxw-stat"><div class="vxw-stat-label">People</div><div class="vxw-stat-value">{{ $rows->count() }}</div></div>

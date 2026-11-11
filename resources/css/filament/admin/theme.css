@@ -1608,3 +1608,40 @@ html body .fi-modal.fi-no-database .fi-modal-window .fi-no-notification{margin:0
   .fi-modal.fi-no-database .fi-modal-header{padding:18px 18px 12px!important}
   html body .fi-modal.fi-no-database .fi-modal-window .fi-modal-content{padding:12px 14px 16px!important}
 }
+
+/* ── Skeleton loading: lazy widgets and sections show placeholder lines that shimmer, not blank space ── */
+.fi-loading-section{position:relative;overflow:hidden;min-height:8rem;border-radius:1rem;background:#fff;border:1px solid rgba(15,23,42,.08)}
+.dark .fi-loading-section{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08)}
+.fi-loading-section::before{content:"";position:absolute;inset:20px 20px auto 20px;height:calc(100% - 40px);max-height:150px;
+  background:
+    linear-gradient(rgba(148,163,184,.28),rgba(148,163,184,.28)) 0 0/38% 14px no-repeat,
+    linear-gradient(rgba(148,163,184,.2),rgba(148,163,184,.2)) 0 34px/72% 10px no-repeat,
+    linear-gradient(rgba(148,163,184,.2),rgba(148,163,184,.2)) 0 56px/56% 10px no-repeat,
+    linear-gradient(rgba(148,163,184,.2),rgba(148,163,184,.2)) 0 78px/64% 10px no-repeat,
+    linear-gradient(rgba(148,163,184,.16),rgba(148,163,184,.16)) 0 100px/44% 10px no-repeat;
+  border-radius:6px}
+.fi-loading-section::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:vx-skeleton 1.4s ease-in-out infinite}
+.dark .fi-loading-section::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)}
+@keyframes vx-skeleton{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){.fi-loading-section::after{animation:none;display:none}}
+/* A generic skeleton block for custom pages: <div class="vx-skeleton" style="height:120px"></div> */
+.vx-skeleton{position:relative;overflow:hidden;border-radius:12px;background:rgba(148,163,184,.18)}
+.vx-skeleton::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:vx-skeleton 1.4s ease-in-out infinite}
+.dark .vx-skeleton::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)}
+@media (prefers-reduced-motion: reduce){.vx-skeleton::after{display:none}}
+
+/* ── Report toolbar: Print and Export, same look and place on every report ── */
+.vx-report-toolbar{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vx-report-toolbar__btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:10px;border:1px solid rgba(15,23,42,.14);background:#fff;color:#0f172a;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.vx-report-toolbar__btn:hover{background:#f8fafc;border-color:rgba(15,23,42,.24)}
+.vx-report-toolbar__btn:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.vx-report-toolbar__btn svg{width:16px;height:16px}
+.dark .vx-report-toolbar__btn{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#e5e7eb}
+.dark .vx-report-toolbar__btn:hover{background:rgba(255,255,255,.09)}
+.vx-report-toolbar__menu{position:relative}
+.vx-report-toolbar__list{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;padding:6px;border-radius:12px;background:#fff;border:1px solid rgba(15,23,42,.12);box-shadow:0 18px 40px -18px rgba(15,23,42,.35);display:grid}
+.dark .vx-report-toolbar__list{background:#111827;border-color:rgba(255,255,255,.12)}
+.vx-report-toolbar__list button{text-align:left;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:500;background:none;border:0;cursor:pointer;color:inherit}
+.vx-report-toolbar__list button:hover{background:rgba(124,58,237,.08)}
+@media print{.vx-report-toolbar{display:none!important}}

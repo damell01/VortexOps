@@ -181,6 +181,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(\Illuminate\Mail\Events\MessageSent::class, [\App\Listeners\LogOutgoingEmail::class, 'sent']);
 
         Table::configureUsing(fn (Table $table) => TableFilterPresentation::apply($table));
+        Table::configureUsing(fn (Table $table) => \App\Support\TableDefaults::apply($table));
+        // Lazy Livewire components without their own placeholder show a skeleton, not blank space.
+        config(['livewire.component_placeholder' => config('livewire.component_placeholder') ?? 'placeholders.skeleton']);
 
         Route::middleware('web')->prefix('inventory-scanner-api')->group(function (): void {
             Route::get('/items', [InventoryScannerBarcodeController::class, 'search']);

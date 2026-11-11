@@ -1594,15 +1594,17 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 html body .fi-modal.fi-no-database .fi-modal-window-ctn > .fi-modal-window:not(.vx-a):not(.vx-b){
   position:fixed!important;top:50%!important;left:50%!important;right:auto!important;bottom:auto!important;
   transform:translate(-50%,-50%)!important;margin:0!important;
-  width:min(560px,calc(100vw - 24px))!important;max-width:none!important;
-  height:auto!important;max-height:min(80dvh,760px)!important;
+  width:min(720px,calc(100vw - 32px))!important;max-width:none!important;
+  height:auto!important;min-height:min(520px,72dvh)!important;max-height:min(84dvh,820px)!important;
   display:flex!important;flex-direction:column!important;overflow:hidden!important;border-radius:18px!important;
   box-shadow:0 30px 80px -24px rgba(24,12,55,.5)!important;
 }
-.fi-modal.fi-no-database .fi-modal-header{position:sticky;top:0;padding:18px 20px 12px!important}
-.fi-modal.fi-no-database .fi-modal-content{flex:0 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden!important;padding:4px 12px 14px!important}
-.fi-modal.fi-no-database .fi-no-notification{margin:6px 0!important;border-radius:14px!important}
+.fi-modal.fi-no-database .fi-modal-header{position:sticky;top:0;padding:24px 28px 16px!important;border-bottom:1px solid rgba(124,58,237,.12)}
+html body .fi-modal.fi-no-database .fi-modal-window .fi-modal-content{margin:0!important;flex:1 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden!important;padding:16px 24px 24px!important;display:flex;flex-direction:column;gap:12px}
+html body .fi-modal.fi-no-database .fi-modal-window .fi-no-notification{margin:0!important;width:auto!important;border-radius:16px!important;padding:16px 18px!important;border:1px solid rgba(124,58,237,.12)!important;box-shadow:0 6px 18px -12px rgba(24,12,55,.35)!important}
 .fi-modal.fi-no-database .fi-no-notification p{white-space:normal!important;overflow-wrap:anywhere!important}
 @media (max-width:640px){
-  html body .fi-modal.fi-no-database .fi-modal-window-ctn > .fi-modal-window:not(.vx-a):not(.vx-b){max-height:88dvh!important}
+  html body .fi-modal.fi-no-database .fi-modal-window-ctn > .fi-modal-window:not(.vx-a):not(.vx-b){max-height:88dvh!important;min-height:min(420px,70dvh)!important}
+  .fi-modal.fi-no-database .fi-modal-header{padding:18px 18px 12px!important}
+  html body .fi-modal.fi-no-database .fi-modal-window .fi-modal-content{padding:12px 14px 16px!important}
 }

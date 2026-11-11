@@ -625,4 +625,16 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->expectException(HttpException::class);
         app(FulfillmentRunService::class)->assign($show, [$this->helper->id], $this->packer);
     }
+
+    public function test_the_shipping_desk_lists_buyers_with_their_printable_labels(): void
+    {
+        $show = $this->show(['zoe_cards' => 1, 'bigpullz' => 1]);
+        Shipment::query()->where('show_id', $show->id)->where('buyer_username', 'zoe_cards')
+            ->update(['raw_payload' => json_encode(['documents' => ['label_url' => 'https://labels.example.com/zoe.pdf']]), 'tracking_number' => '9400111']);
+        $this->actingAs($this->manager);
+
+        $this->get(\App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $show->id]))->assertOk()
+            ->assertSee('zoe_cards')->assertSee('bigpullz')->assertSee('Include this shipment in label batch')
+            ->assertSee('https://labels.example.com/zoe.pdf', false)->assertSee('9400111');
+    }
 }

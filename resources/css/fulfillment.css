@@ -1034,3 +1034,28 @@ html.dark .vxf-full{background:#0b1020}
   .vxf:has(.vxf-home-tabs) .vxf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vxf-home-tabs{max-width:100%}
 }
+
+/* ---- Fulfillment Center on a phone ------------------------------------ */
+@media (max-width:767px){
+  /* Packing screen: the buyer being packed and the buttons come first;
+     the A–Z list follows, in a short scrolling box. */
+  .vxf-sb>section[aria-labelledby="vxf-buyers"]{order:3}
+  .vxf-sb>section[aria-labelledby="vxf-current"]{order:1}
+  .vxf-sb>.vxf-big-actions{order:2}
+  .vxf-sb .vxf-buyers{max-height:min(46vh,380px)}
+  .vxf-current{gap:12px;padding:14px;flex-wrap:nowrap;align-items:center}
+  .vxf-current>div:not(.vxf-bigletter){min-width:0}
+  .vxf-bigletter,.vxf-bigletter--sm{min-width:76px;height:76px;padding:0 10px;font-size:48px;border-radius:18px;box-shadow:0 0 0 4px rgba(124,58,237,.18),0 10px 22px -12px rgba(124,58,237,.7)}
+  .vxf-current h2{font-size:22px;overflow-wrap:anywhere}
+  .vxf-big-actions .vxf-btn{min-height:52px}
+
+  /* A show's page: header buttons two to a row instead of one per line. */
+  .fi-resource-fulfillment-center .fi-header-actions-ctn{width:100%}
+  .fi-resource-fulfillment-center .fi-header-actions-ctn .fi-ac{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  .fi-resource-fulfillment-center .fi-header-actions-ctn .fi-ac-btn-action{width:100%;justify-content:center;white-space:normal;text-align:center;min-height:44px;padding-inline:8px;font-size:13px}
+
+  /* TV whiteboard on a phone: the tools wrap under the title. */
+  .vxtv__tools{width:100%;min-width:0;justify-content:flex-start}
+  .vxtv__tools .vxtv__station-switch{min-width:0;flex:1 1 100%}
+  .vxtv__clock{margin-right:auto}
+}

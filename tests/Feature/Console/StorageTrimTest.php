@@ -28,8 +28,9 @@ class StorageTrimTest extends TestCase
     public function test_it_trims_old_copies_and_keeps_what_the_app_reads(): void
     {
         $oldOrders = $this->snapshot('orders', 'a', 20);
-        $newestOrders = $this->snapshot('orders', 'b', 10);   // old, but the newest of its feed
-        $recent = $this->snapshot('ledger', 'c', 2);
+        $kept = [];
+        foreach (range(1, 20) as $i) $kept[] = $this->snapshot('orders', 'b' . $i, 5); // old, but the newest 20 of the feed
+        $recent = $this->snapshot('ledger', 'c', 0);                                // from today
 
         $old = DB::table('whatnot_ledger_entries')->insertGetId(['whatnot_channel_id' => $this->channel, 'amount' => -5, 'transaction_type' => 'Shipping charge',
             'dedup_key' => 'k1', 'created_date' => now()->subDays(40), 'created_at' => now()->subDays(40), 'updated_at' => now(),
@@ -45,12 +46,12 @@ class StorageTrimTest extends TestCase
 
         // Dry run: nothing changes.
         $this->artisan('storage:trim')->assertSuccessful();
-        $this->assertSame(3, DB::table('whatnot_api_snapshots')->count());
+        $this->assertSame(22, DB::table('whatnot_api_snapshots')->count());
         $this->assertSame(2, DB::table('show_change_logs')->count());
 
         $this->artisan('storage:trim', ['--apply' => true])->assertSuccessful();
 
-        $this->assertSame([$newestOrders, $recent], DB::table('whatnot_api_snapshots')->orderBy('id')->pluck('id')->all());
+        $this->assertSame([...$kept, $recent], DB::table('whatnot_api_snapshots')->orderBy('id')->pluck('id')->all());
         $this->assertFalse(DB::table('whatnot_api_snapshots')->where('id', $oldOrders)->exists());
 
         $slim = json_decode(DB::table('whatnot_ledger_entries')->where('id', $old)->value('raw_data'), true);

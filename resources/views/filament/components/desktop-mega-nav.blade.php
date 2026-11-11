@@ -293,6 +293,14 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
   .fi-topbar .fi-global-search .fi-input-wrp:focus-within {
     border-color:#b78aff!important;box-shadow:0 0 0 3px rgba(169,111,255,.2)!important;
   }
+  /* One ring only: the pill draws the focus state. The input's own outline sat
+     inside it, started after the icon and had a different radius. */
+  .fi-topbar .fi-global-search .fi-input-wrp,
+  .fi-topbar .fi-global-search .fi-input-wrp:focus-within {outline:none!important}
+  /* The field around the pill drew a second border 2px off the first. */
+  .fi-topbar .fi-global-search .fi-global-search-field:not(.fi-input-wrp) {border:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}
+  .fi-topbar .fi-global-search input,
+  .fi-topbar .fi-global-search input:is(:focus,:focus-visible) {outline:none!important;box-shadow:none!important;border:0!important;border-radius:0!important}
   .fi-global-search-results-ctn {
     border-radius:16px!important;border:1px solid #e5ddf4!important;
     box-shadow:0 24px 65px rgba(18,10,45,.24)!important;

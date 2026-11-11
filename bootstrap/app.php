@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // A crash nobody sees is a crash nobody fixes: tell the owner (once an hour per error).
+        $exceptions->reportable(function (\Throwable $e): void {
+            \App\Support\ErrorAlert::report($e);
+        });
         $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
             if ($e->getStatusCode() === 403 && $request->is('livewire*')) {
                 \Illuminate\Support\Facades\Log::error('Livewire 403 rendered', [

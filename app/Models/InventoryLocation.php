@@ -244,6 +244,12 @@ class InventoryLocation extends Model
     /** Bust location option caches when a location is saved or deleted. */
     protected static function booted(): void
     {
+        // A name typed or imported with a stray space (" Main Warehouse") looked
+        // the same everywhere but matched nothing when a page filtered by name.
+        static::saving(function (self $location) {
+            if (is_string($location->name)) $location->name = trim($location->name);
+        });
+
         $bust = function () {
             \App\Support\InventoryVisibility::flushMemo();
             cache()->forget('inv_loc:active');

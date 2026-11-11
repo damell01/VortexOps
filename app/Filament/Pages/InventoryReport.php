@@ -223,8 +223,8 @@ class InventoryReport extends Page
         $products = Product::query()
             ->where('is_active', true)
             ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->whereHas('stock', fn ($stock) => $stock->inChannelContext()))
-            ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('stock.location', fn ($l) => $l->where('name', $this->reportLocation)))
-            ->with(['stock' => fn ($q) => $q->inChannelContext()->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->where('name', $this->reportLocation)))->with('location')])
+            ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('stock.location', fn ($l) => $l->whereRaw('TRIM(name) = ?', [trim($this->reportLocation)])))
+            ->with(['stock' => fn ($q) => $q->inChannelContext()->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->whereRaw('TRIM(name) = ?', [trim($this->reportLocation)])))->with('location')])
             ->withMax(['movements' => fn ($q) => $q->inChannelContext()], 'created_at')
             ->get();
 
@@ -346,7 +346,7 @@ class InventoryReport extends Page
             $items = $items->where('category', $this->reportCategory);
         }
         if ($this->reportLocation !== '') {
-            $items = $items->filter(fn ($item) => in_array($this->reportLocation, $item['location_names'], true));
+            $items = $items->filter(fn ($item) => in_array(trim($this->reportLocation), array_map('trim', $item['location_names']), true));
         }
         if ($this->reportStock !== '') {
             $items = match ($this->reportStock) {
@@ -473,8 +473,8 @@ class InventoryReport extends Page
             ->whereIn('inventory_item_id', collect($this->getViewerData()['items'])->pluck('id'));
         if ($this->reportLocation !== '') {
             $query->where(fn ($q) => $q
-                ->whereHas('fromLocation', fn ($l) => $l->where('name', $this->reportLocation))
-                ->orWhereHas('toLocation', fn ($l) => $l->where('name', $this->reportLocation)));
+                ->whereHas('fromLocation', fn ($l) => $l->whereRaw('TRIM(name) = ?', [trim($this->reportLocation)]))
+                ->orWhereHas('toLocation', fn ($l) => $l->whereRaw('TRIM(name) = ?', [trim($this->reportLocation)])));
         }
         return $query;
     }

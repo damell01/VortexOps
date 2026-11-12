@@ -345,7 +345,7 @@ class StreamerLogResource extends Resource
                             ->when($data['until'], fn ($q) => $q->whereHas('show', fn ($s) => $s->where('show_date', '<=', $data['until'])));
                     }),
             ])
-            ->actions([
+            ->actions([ActionGroup::make([
                 // Every action sits on the card as its own button; which ones
                 // show depends on where the report is. The main button is last.
                 // Files a report the streamer never submitted, on their behalf —
@@ -546,6 +546,7 @@ class StreamerLogResource extends Resource
                     ->color('primary')
                     ->extraAttributes(['class' => 'vxi-primary'])
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
+                ])->label('Actions')->icon('heroicon-o-ellipsis-horizontal')->button()->outlined()->size('sm'),
             ])
             // Approving a week of logs one row at a time is the actual job on
             // this screen. There was a "bottom action bar" offering Approve,
@@ -650,8 +651,8 @@ class StreamerLogResource extends Resource
             ->filtersFormColumns(['sm' => 2, 'lg' => 4])
             ->deferFilters(false)
             ->searchPlaceholder('Search show or streamer')
-            ->paginated([6, 12, 24])
-            ->defaultPaginationPageOption(6)
+            ->paginated([10, 15, 25, 50])
+            ->defaultPaginationPageOption(15)
             ->deferLoading()
             ->persistFiltersInSession();
     }

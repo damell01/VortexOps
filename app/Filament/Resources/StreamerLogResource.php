@@ -284,6 +284,17 @@ class StreamerLogResource extends Resource
                     })
                     ->money('USD')->alignEnd(),
                 TextColumn::make('inbox_status')->label('Status')
+                    ->description(fn (StreamerLogEntry $record) =>
+                        $record->hasPendingRevisionRequest() && (auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                            ? 'Reason: '.(trim((string) $record->revision_reason) ?: 'No reason provided')
+                            : null
+                    )
+                    ->tooltip(fn (StreamerLogEntry $record) =>
+                        $record->hasPendingRevisionRequest() && (auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                            ? 'Edit request: '.(trim((string) $record->revision_reason) ?: 'No reason provided')
+                            : null
+                    )
+                    ->wrap()
                     ->state(fn (StreamerLogEntry $record) => match (true) {
                         $record->hasPendingRevisionRequest() => 'Edit requested',
                         $record->status === 'streamer_reviewed' => 'Needs review',

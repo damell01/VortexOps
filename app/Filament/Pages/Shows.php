@@ -427,7 +427,7 @@ class Shows extends Page
             'views' => number_format((int) $s->total_views),
             'cover' => $s->cover_image_url,
             'whatnotId' => $s->whatnot_show_id,
-            'analyticsQueued' => $m['owner'] ? data_get($s->raw_import_payload, '_analytics_queued_at') : null,
+            'analyticsQueued' => $m['owner'] && data_get($s->raw_import_payload, '_analytics_queued_at') && (! data_get($s->raw_import_payload, '_analytics_last_attempt_at') || data_get($s->raw_import_payload, '_analytics_queued_at') > data_get($s->raw_import_payload, '_analytics_last_attempt_at')) ? data_get($s->raw_import_payload, '_analytics_queued_at') : null,
             'analyticsChecked' => $m['owner'] ? (data_get($s->raw_import_payload, '_analytics_last_attempt_at') ?? $s->last_analytics_synced_at?->toIso8601String() ?? $s->analytics_unavailable_at?->toIso8601String()) : null,
             'analyticsNote' => $m['owner'] ? $s->analytics_sync_note : null,
             'analytics' => $m['owner'] ? (['complete' => 'Synced', 'partial' => 'Partial · retry pending', 'unavailable' => 'Waiting for analytics', 'unclassified' => $state === 'upcoming' ? 'After show' : 'Waiting for analytics'][$coverage] ?? 'Waiting for analytics') : null,

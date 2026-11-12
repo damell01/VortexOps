@@ -463,6 +463,24 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->assertSee('1 order with no package')->assertSee('late_buyer')->assertSee('I checked the orders above');
     }
 
+    public function test_each_package_has_a_print_label_button_and_reprints_are_counted(): void
+    {
+        $run = $this->started($this->show(['alpha' => 1]));
+        $buyer = $run->buyers()->firstOrFail();
+        app(FulfillmentRunService::class)->selectBuyer($run->id, $buyer->id, $this->packer);
+        $package = \App\Models\FulfillmentRunPackage::query()->where('buyer_id', $buyer->id)->firstOrFail();
+
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
+            ->assertSee('No label yet')->assertDontSee('Print label');
+
+        Shipment::query()->whereKey($package->shipment_id)->update(['raw_payload' => json_encode(['documents' => ['label_url' => 'https://labels.whatnot.test/abc.pdf']])]);
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
+            ->assertSee('Print label')->assertSee('https://labels.whatnot.test/abc.pdf', false)
+            ->call('labelOpened', $package->id)
+            ->assertSee('Reprint');
+        $this->assertSame(1, \App\Models\FulfillmentEvent::query()->where('type', 'label_printed')->where('package_id', $package->id)->count());
+    }
+
     public function test_the_tv_feed_names_the_show_that_finished(): void
     {
         $run = $this->started();

@@ -14,6 +14,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
@@ -46,6 +47,14 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                 return;
             }
 
+            // Persist the attempt even when Whatnot has not generated analytics yet.
+            // The Shows modal reads this stamp instead of displaying "Not checked yet".
+            $payloadMeta = $show->raw_import_payload ?? [];
+            if (! is_array($payloadMeta)) $payloadMeta = [];
+            $payloadMeta['_analytics_last_attempt_at'] = now()->toIso8601String();
+            $show->raw_import_payload = $payloadMeta;
+            $show->save();
+
             $response = $client->call($connection, 'show_analytics', (string) $show->whatnot_show_id);
             if (! $response->successful()) {
                 throw new RuntimeException('Whatnot show analytics API returned HTTP '.$response->status());
@@ -57,6 +66,13 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
             }
 
             $result = $applier->apply((int) $show->whatnot_channel_id, $payload, ! WhatnotApiOrderApplier::writesAllowed());
+            if (in_array($result['outcome'], ['not_ready', 'not_calculated'], true) && Schema::hasColumn('shows', 'analytics_sync_status')) {
+                $show->refresh();
+                $show->forceFill([
+                    'analytics_sync_status' => $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable',
+                    'analytics_sync_note' => $result['outcome'] === 'not_ready' ? 'Whatnot has not generated show analytics yet.' : 'Whatnot will not calculate analytics for this show.',
+                ])->save();
+            }
             Log::info('Show analytics API retry finished', [
                 'show_id' => $this->showId,
                 'outcome' => $result['outcome'],

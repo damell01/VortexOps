@@ -19,7 +19,7 @@ use Throwable;
  */
 final class WhatnotApiSyncTick extends Command
 {
-    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID} {--mode=all : all, recent, analytics, or finance}';
+    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID} {--mode=all : all, fresh, recent, analytics, or finance}';
     protected $description = 'Safely capture enabled Whatnot API resources when production API mode is active.';
 
     public function handle(WhatnotApiSync $sync): int
@@ -33,13 +33,14 @@ final class WhatnotApiSyncTick extends Command
         }
         $modes = [
             'all' => null,
+            'fresh' => ['shows', 'orders', 'items', 'shipments', 'analytics'],
             'recent' => ['shows', 'orders', 'items'],
             'analytics' => ['analytics', 'shipments'],
             'finance' => ['ledger', 'overview'],
         ];
         $mode = (string) $this->option('mode');
         if (! array_key_exists($mode, $modes)) {
-            $this->error('Invalid mode. Use all, recent, analytics, or finance.');
+            $this->error('Invalid mode. Use all, fresh, recent, analytics, or finance.');
             return self::FAILURE;
         }
         $query = WhatnotApiConnection::query()->where('enabled', true)->where('sync_enabled', true);
@@ -56,11 +57,11 @@ final class WhatnotApiSyncTick extends Command
             try {
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
-                $result = $sync->run($connection, (int) config('services.whatnot_seller.sync_days', 3),
-                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode]);
+                $result = $sync->run($connection, ($mode === 'fresh' ? 1 : (int) config('services.whatnot_seller.sync_days', 3)),
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: $mode === 'fresh' ? 12 : null);
                 // Newly synced orders may supply the missing exact show evidence
                 // for previously imported tips. Retry safely without touching payroll.
-                if (! $result['dry_run'] && in_array($mode, ['recent', 'finance'], true)) {
+                if (! $result['dry_run'] && in_array($mode, ['fresh', 'recent', 'finance'], true)) {
                     $matcher = app(LedgerAutoMatcher::class);
                     $matched = 0;
                     $review = 0;

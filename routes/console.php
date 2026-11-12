@@ -238,6 +238,20 @@ foreach ([1, 2, 3, 4] as $whatnotChannelId) {
             || ! config('services.whatnot_seller.contract_verified', false)
             || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 }
+// Bounded order reconciliation: five pages per run, separate cursor from live
+// and recent modes. Shared channel lock prevents concurrent writes.
+foreach ([1, 2, 3, 4] as $whatnotChannelId) {
+    Schedule::command('whatnot:api-sync-tick --channel='.$whatnotChannelId.' --mode=catchup')
+        ->cron(($whatnotChannelId - 1).'-59/5 * * * *')
+        ->name('whatnot-api-'.$whatnotChannelId.'-catchup')
+        ->withoutOverlapping(10)
+        ->runInBackground()
+        ->skip(fn () => ! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+}
+
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     [$from, $to, $label] = $this->range();
     $t = $this->totals();
@@ -292,4 +293,5 @@
     'countLabel' => 'finalized shows that lost money',
     'amountLabel' => 'lost after COGS and pay',
 ])
+</x-reports.shell>
 </x-filament-panels::page>

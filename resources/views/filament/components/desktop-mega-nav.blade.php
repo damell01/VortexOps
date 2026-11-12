@@ -5,7 +5,7 @@
 // worked out on each page, below.
 $user=auth()->user();
 [$groups,$homeUrl,$homeLabel,$navLogo,$assistantOnly,$streamerOnly,$directGroups,$ownerLinks,$fulfillmentOnly] = \Illuminate\Support\Facades\Cache::remember(
- 'nav:mega:v2:'.($user?->id ?? 0).':'.(\App\Support\ChannelContext::currentId() ?? 'all').':'.md5((string) \App\Models\Setting::get('enabled_admin_modules') . '|' . \App\Models\Setting::get('role_visible_nav') . '|' . \App\Models\Setting::get('role_hidden_nav') . '|' . \App\Models\Setting::get('role_readonly_nav')).':'.md5(json_encode($user?->getRoleNames()?->all() ?? [])).':'.(int) $user?->updated_at?->timestamp,
+ 'nav:mega:v3:'.($user?->id ?? 0).':'.(\App\Support\ChannelContext::currentId() ?? 'all').':'.md5((string) \App\Models\Setting::get('enabled_admin_modules') . '|' . \App\Models\Setting::get('role_visible_nav') . '|' . \App\Models\Setting::get('role_hidden_nav') . '|' . \App\Models\Setting::get('role_readonly_nav')).':'.md5(json_encode($user?->getRoleNames()?->all() ?? [])).':'.(int) $user?->updated_at?->timestamp,
  120,
  function () use ($user) {
  $groups=[]; $directGroups=[]; $fulfillmentOnly=false;
@@ -55,6 +55,8 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  \App\Filament\Pages\StockTransfer::canAccess() ? ['Transfer Stock',\App\Filament\Pages\StockTransfer::getUrl(panel:'admin'),'Stock operations'] : null,
  \App\Filament\Resources\PalletResource::canAccess() ? ['Receive Inventory',\App\Filament\Resources\PalletResource::getUrl('index'),'Receiving'] : null,
  \App\Filament\Pages\ImportInventorySheet::canAccess() ? ['Import a Sheet',\App\Filament\Pages\ImportInventorySheet::getUrl(panel:'admin'),'Receiving'] : null,
+ \App\Filament\Pages\InventoryReport::canAccess() ? ['Inventory Report',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Reports'] : null,
+ \App\Filament\Pages\ProductInsights::canAccess() ? ['Product Insights',\App\Filament\Pages\ProductInsights::getUrl(panel:'admin'),'Reports'] : null,
  \App\Filament\Pages\InventoryActivity::canAccess() ? ['Inventory History',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin'),'History & setup'] : null,
  \App\Filament\Resources\InventoryLocationResource::canAccess() ? ['Locations',\App\Filament\Resources\InventoryLocationResource::getUrl('index'),'History & setup'] : null,
  \App\Filament\Resources\VendorResource::canAccess() ? ['Vendors',\App\Filament\Resources\VendorResource::getUrl('index'),'History & setup'] : null,
@@ -82,6 +84,7 @@ $directGroups = ['Timekeeping', 'My Pay'];
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
  ['Whatnot Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-up'],
+ ...(\App\Filament\Pages\ReportCompare::canAccess() ? [['Compare',\App\Filament\Pages\ReportCompare::getUrl(panel:'admin'),'Reports','heroicon-o-arrows-right-left']] : []),
  ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
  ...($user?->canSeeBusinessFinancials() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar']] : []),
  ...(\App\Filament\Pages\ShowPerformance::canAccess() ? [['Show Performance',\App\Filament\Pages\ShowPerformance::getUrl(panel:'admin'),'Financial','heroicon-o-fire']] : []),

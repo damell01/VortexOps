@@ -13,6 +13,10 @@
     $maxStreamer = max(1, (float) collect($streamers)->max($sortKey));
     $channels = $this->revenueByChannel;
     $channelOptions = $this->channelOptions();
+    $prevWeeks = $this->revenueByWeekPrevious;
+    $pace = in_array($metric, ['gross', 'net', 'shows'], true) ? $this->goalPace() : null;
+    $goalsUrl = \App\Filament\Pages\Goals::canAccess() ? \App\Filament\Pages\Goals::getUrl() : null;
+    $sparkFor = fn ($k) => array_map(fn ($w) => $w[$k], array_slice($allWeeks, -12));
 @endphp
 
 <style>
@@ -63,6 +67,7 @@
     }
 </style>
 
+<x-reports.shell>
 <div class="vxr vxrep">
     <div wire:loading.delay wire:target="setPeriod,applyCustomRange,channel" class="vxr-banner vxr-banner--accent" style="position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:50;box-shadow:var(--vxw-shadow-pop)">
         Updating report…
@@ -114,23 +119,20 @@
     {{-- Headline figures with the change against the period before. --}}
     <div class="vxr-stats">
         @foreach ([
-            ['Shows', number_format($rev['shows']), $rev['trend_shows'], 'heroicon-o-video-camera', 'accent'],
-            ['Units Sold', number_format($rev['units']), $rev['trend_units'] ?? null, 'heroicon-o-cube', 'info'],
-            ['Gross Revenue', $money($rev['gross']), $rev['trend_gross'], 'heroicon-o-currency-dollar', 'ok'],
-            ['Whatnot Est. Earnings', $money($rev['net']), $rev['trend_net'], 'heroicon-o-banknotes', 'accent'],
-        ] as [$label, $value, $trend, $icon, $tone])
-            <x-vxr.stat :label="$label" :value="$value" :icon="$icon" :tone="$tone">
-                <span class="vxrep-delta">
-                    @if ($trend === null)
-                        <span class="vxr-val-muted">No earlier figure to compare</span>
-                    @else
-                        <span class="vxr-delta {{ $trend > 0 ? 'vxr-delta--up' : ($trend < 0 ? 'vxr-delta--down' : '') }}">{{ $trend > 0 ? '▲' : ($trend < 0 ? '▼' : '■') }} {{ number_format(abs($trend), 1) }}%</span>
-                        <span>{{ $vsLabel }}</span>
-                    @endif
-                </span>
+            ['shows', 'Shows', number_format($rev['shows']), $rev['trend_shows'], 'heroicon-o-video-camera', 'accent'],
+            ['units', 'Units Sold', number_format($rev['units']), $rev['trend_units'] ?? null, 'heroicon-o-cube', 'info'],
+            ['gross', 'Gross Revenue', $money($rev['gross']), $rev['trend_gross'], 'heroicon-o-currency-dollar', 'ok'],
+            ['net', 'Whatnot Est. Earnings', $money($rev['net']), $rev['trend_net'], 'heroicon-o-banknotes', 'accent'],
+        ] as [$key, $label, $value, $trend, $icon, $tone])
+            <x-vxr.stat :label="$label" :value="$value" :icon="$icon" :tone="$tone" :delta="$trend" :delta-note="$trend === null ? null : $vsLabel"
+                :spark="$sparkFor($key)" :featured="$metric === $key" role="button" tabindex="0" style="cursor:pointer"
+                wire:click="chartMetric('{{ $key }}')" title="Chart {{ strtolower($label) }} by week">
+                @if ($trend === null)<span class="vxr-val-muted">No earlier figure to compare</span>@endif
             </x-vxr.stat>
         @endforeach
     </div>
+
+    <x-reports.pace :pace="$pace" :goals-url="$goalsUrl" />
 
     {{-- Costs: only what has been recorded, never a guessed zero. --}}
     <div class="vxr-strip vxrep-strip">
@@ -199,7 +201,23 @@
                             'title' => 'Week of '.$w['week'].': '.$w['shows'].' '.Str::plural('show', $w['shows']).', '.$money($w['gross'], 0).' gross, '.$money($w['net'], 0).' est. earnings, '.number_format($w['units']).' units',
                         ], $weekDisplay);
                     @endphp
-                    <x-vxr.chart :points="$points" :type="count($points) > 1 ? 'area' : 'bar'" :money="$metricIsMoney" :height="250" aria-label="{{ $this::WEEK_METRICS[$metric] }} by week" />
+                    @php
+                        $prevVals = array_map(fn ($w) => $w[$metric], $prevWeeks);
+                        $offset = count($allWeeks) - count($prevVals);
+                        $alignedPrev = array_map(fn ($i) => $prevVals[$i - $offset] ?? null, array_keys($allWeeks));
+                        $prevShown = $showAllWeeks ? $alignedPrev : array_slice($alignedPrev, -8);
+                        $hasPrev = count(array_filter($prevShown, fn ($v) => $v !== null)) > 1;
+                        $goalWeek = $pace ? round($pace['per_day'] * 7, 2) : null;
+                    @endphp
+                    <div class="vxr-legend" style="margin-bottom:6px">
+                        <span><i></i>{{ $this::WEEK_METRICS[$metric] }}</span>
+                        @if ($hasPrev)<span><i class="is-cmp"></i>{{ $vsLabel }}</span>@endif
+                        @if ($goalWeek)<span><i class="is-goal"></i>{{ $pace['month'] }} goal pace per week</span>@endif
+                    </div>
+                    <x-vxr.chart :points="$points" :type="count($points) > 1 ? 'area' : 'bar'" :money="$metricIsMoney" :height="250"
+                        :compare="$hasPrev ? $prevShown : null" :compare-label="ucfirst($vsLabel)" series-label="This period"
+                        :goal="$goalWeek" goal-label="Goal / week"
+                        aria-label="{{ $this::WEEK_METRICS[$metric] }} by week" />
                     <p class="vxr-hint">Weeks start on Monday. Hover a point for that week's shows, revenue and units.</p>
                 @endif
             </div>
@@ -221,13 +239,14 @@
                     <div class="vxr-bars">
                         @foreach (array_slice($streamers, 0, 8) as $row)
                             @php $v = (float) $row[$sortKey]; @endphp
-                            <div class="vxr-bar">
+                            <div class="vxr-bar vxrs-hover-add has-add">
                                 <span class="vxr-bar-name" title="{{ $row['streamer'] }}">
                                     {{ $row['streamer'] }}
                                     <span class="vxrep-bar-sub">{{ $row['shows'] }} {{ Str::plural('show', $row['shows']) }} · {{ $money($row['gross'], 0) }} gross · {{ $money($row['net'], 0) }} est.</span>
                                 </span>
                                 <span class="vxr-bar-track"><span class="vxr-bar-fill" style="display:block;width:{{ max(0, round($v / $maxStreamer * 100, 1)) }}%"></span></span>
                                 <span class="vxr-bar-val">{{ $sortKey === 'shows' ? number_format($v).' '.Str::plural('show', (int) $v) : $money($v, 0) }}</span>
+                                @if (! empty($row['streamer_id']))<x-reports.compare-add kind="streamer" :id="$row['streamer_id']" :name="$row['streamer']" :small="true" />@endif
                             </div>
                         @endforeach
                     </div>
@@ -247,7 +266,8 @@
             @else
                 <div class="vxrep-chans">
                     @foreach ($channels as $row)
-                        <div class="vxrep-chan">
+                        <div class="vxrep-chan vxrs-hover-add" style="position:relative">
+                            @if (! empty($row['channel_id']))<span style="position:absolute;top:10px;right:10px"><x-reports.compare-add kind="channel" :id="$row['channel_id']" :name="$row['channel']" /></span>@endif
                             <span class="vxr-stat-icon vxr-tone-accent"><x-filament::icon icon="heroicon-o-signal" /></span>
                             <div style="flex:1;min-width:0">
                                 <b>{{ $row['channel'] }}</b>
@@ -409,4 +429,5 @@
         </section>
     @endif
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

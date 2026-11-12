@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     $data = $this->getViewerData();
     $summary = $data['summary'];
@@ -427,4 +428,5 @@
         </div>
     </div>
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

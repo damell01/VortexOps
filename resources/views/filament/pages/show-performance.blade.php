@@ -1,5 +1,6 @@
 @use('App\Services\ShowPerformanceReport', 'SPR')
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $t = $this->totals();
         $map = $this->heatmap();
@@ -221,4 +222,5 @@
             <div class="vxr-card-foot">{{ $this->basis === 'business' ? 'Business net takes off recorded product cost and pay. Gross is Whatnot sales.' : 'Whatnot net is after Whatnot\'s fees, before product cost and pay — switch to Business net at the top for those. Gross is Whatnot sales.' }}</div>
         </section>
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

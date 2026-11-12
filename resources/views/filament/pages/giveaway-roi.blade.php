@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     $money = fn ($v) => $v === null ? '—' : (((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2));
 @endphp
@@ -58,4 +59,5 @@
         @endif
     </section>
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

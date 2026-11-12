@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $t = $this->totals();
         $links = $this->links();
@@ -76,4 +77,5 @@
 
         @if(auth()->user()?->canSeeBusinessFinancials())<p class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Business profit includes finalized shows only — earnings, approved COGS and final pay all in. Pending shows are excluded.</p>@endif
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

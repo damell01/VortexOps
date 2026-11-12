@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     $rows        = $this->analyticsRows;
     $all         = collect($rows);
@@ -591,4 +592,5 @@
     @endif
 
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

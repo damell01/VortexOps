@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     $stats = $this->stats;
     $entries = $this->entries;
@@ -1033,4 +1034,5 @@
     @endif
 
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

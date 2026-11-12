@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $rows = $this->rows();
         $t = $this->totals();
@@ -93,4 +94,5 @@
         'countLabel' => 'shows with negative earnings',
         'amountLabel' => 'estimated Whatnot earnings',
     ])
+</x-reports.shell>
 </x-filament-panels::page>

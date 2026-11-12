@@ -4,6 +4,7 @@
 @endphp
 
 <x-filament-panels::page>
+<x-reports.shell>
     <div class="space-y-3 sm:space-y-5" data-vx-page="show-formats">
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
@@ -169,4 +170,5 @@
             @endif
         </section>
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php $s = $this->summary; @endphp
 <div class="space-y-6">
 
@@ -182,4 +183,5 @@
 @endif
 
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

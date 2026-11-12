@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @if($this->isSelfService)
         <style>
             .fi-main { width: 100% !important; max-width: none !important; }
@@ -21,7 +22,6 @@
     @endif
 
     <div class="space-y-5">
-        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20 print:hidden"><div class="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Financial statement</div><h2 class="mt-3 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Statement</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Show-by-show earnings, payments and outstanding balance for the selected period.</p></section>
         <div class="sticky top-[64px] z-20 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 print:static print:hidden">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -127,4 +127,5 @@
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-10 text-center text-sm text-gray-500">Select a streamer above to generate a statement.</div>
         @endif
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

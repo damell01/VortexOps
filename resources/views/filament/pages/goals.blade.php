@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 <div class="vxw" data-vx-page="goals">
     <section class="vxw-card">
         <div class="vxw-card-body" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
@@ -46,4 +47,5 @@
         </form>
     </section>
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

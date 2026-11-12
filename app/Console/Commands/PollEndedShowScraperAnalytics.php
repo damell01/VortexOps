@@ -28,6 +28,9 @@ class PollEndedShowScraperAnalytics extends Command
             ->get()
             ->filter(function (Show $show): bool {
                 $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                // The official API is authoritative; do not queue browser work
+                // for shows that already have generated analytics.
+                if (! empty($meta['_analytics_api_generated_at'])) return false;
                 $attempt = $meta['_analytics_browser_last_attempt_at'] ?? null;
                 if (! $attempt) return true;
                 try {

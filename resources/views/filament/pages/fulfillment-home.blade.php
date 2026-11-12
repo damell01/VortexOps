@@ -18,6 +18,7 @@
 
 .vxf-dnd-mobile-hint{display:none}
 @media(max-width:800px){.vxf-dnd-desktop-hint{display:none}.vxf-dnd-mobile-hint{display:inline}.vxf-dnd-team__chips{display:none}.vxf-queue-dock__assign{min-height:36px;padding:7px 12px}.vxf-queue-dock__stations{scroll-snap-type:x proximity}.vxf-queue-dock__target{scroll-snap-align:start}}
+.vxf-queue-search{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.vxf-queue-search input{flex:1;min-width:180px;min-height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;background:var(--vxf-panel,#fff);color:inherit}.vxf-queue-search input:focus{outline:2px solid #7c3aed;outline-offset:1px}
 </style>
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
@@ -207,6 +208,11 @@
                         <button type="button" class="vxf-tab" x-on:click="tab = '{{ $key }}'" wire:click="$set('jobs', '{{ $key }}')" x-bind:aria-pressed="tab === '{{ $key }}' ? 'true' : 'false'" aria-pressed="{{ $jobs === $key ? 'true' : 'false' }}">{{ $label }}</button>
                     @endforeach
                 </div>
+            </div>
+            <div class="vxf-queue-search">
+                <label for="vxf-show-search" class="vxf-sub">Find a show</label>
+                <input id="vxf-show-search" type="search" wire:model.live.debounce.400ms="queueSearch" placeholder="Search show title, streamer, or Whatnot ID" autocomplete="off" aria-label="Search fulfillment shows" />
+                @if ($queueSearch !== '')<button type="button" class="vxf-btn vxf-btn--sm" wire:click="$set('queueSearch', '')">Clear</button>@endif
             </div>
             @if ($manager && count($this->team))
                 <div class="vxf-dnd-team" aria-label="Fulfillment team">

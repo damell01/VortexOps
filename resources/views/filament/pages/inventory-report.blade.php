@@ -188,26 +188,37 @@
 
     {{-- Headline figures --}}
     <div class="vxr-stats">
-        <x-vxr.stat label="Inventory Value" :value="$money($summary['value'])" icon="heroicon-o-cube" tone="accent" note="Current on-hand valuation" wire:click="setTab('top-value')" style="cursor:pointer" />
+        <x-vxr.stat label="Inventory Value" :value="$money($summary['value'])" icon="heroicon-o-cube" tone="accent" featured note="Current on-hand valuation" wire:click="setTab('top-value')" style="cursor:pointer" />
         <x-vxr.stat label="Total Items" :value="number_format($summary['items'])" icon="heroicon-o-archive-box" tone="ok" :note="number_format($summary['in_stock_items']).' in stock'" wire:click="setTab('items')" style="cursor:pointer" />
         <x-vxr.stat label="Units On Hand" :value="number_format($summary['quantity'])" icon="heroicon-o-squares-plus" tone="info" note="Units currently in stock" />
         <x-vxr.stat label="Avg Cost per Unit" :value="$money($summary['avg_cost'])" icon="heroicon-o-banknotes" tone="warn" note="Value ÷ units on hand" />
     </div>
 
-    <div class="vxr-strip invr-strip">
-        <button type="button" wire:click="setTab('low-stock')">
-            <span class="vxr-stat-icon vxr-tone-warn"><x-filament::icon icon="heroicon-o-exclamation-triangle" /></span>
-            <span><small>Low Stock</small><b>{{ number_format($summary['low_stock']) }}</b></span>
-        </button>
-        <button type="button" wire:click="setTab('out-stock')">
-            <span class="vxr-stat-icon vxr-tone-bad"><x-filament::icon icon="heroicon-o-x-circle" /></span>
-            <span><small>Out of Stock</small><b>{{ number_format($summary['out_stock']) }}</b></span>
-        </button>
-        <button type="button" wire:click="showUncategorized">
-            <span class="vxr-stat-icon vxr-tone-info"><x-filament::icon icon="heroicon-o-tag" /></span>
-            <span><small>Uncategorized Items</small><b>{{ number_format($summary['uncategorized'] ?? 0) }}</b></span>
-        </button>
-    </div>
+    @php $healthy = max(0, ($summary['in_stock_items'] ?? 0) - ($summary['low_stock'] ?? 0)); @endphp
+    <section class="vxr-card">
+        <div class="vxr-card-head"><div><h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-heart" /> Stock health</h3><p class="vxr-card-sub">Every item by where its stock stands. Click a status to list those items.</p></div></div>
+        <div class="vxr-card-body" style="display:grid;gap:18px;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);align-items:center">
+            <x-vxr.donut :money="false" center-label="items" :size="150" :segments="[
+                ['label' => 'Healthy', 'value' => $healthy, 'color' => 'var(--vxc-3)'],
+                ['label' => 'Low stock', 'value' => $summary['low_stock'], 'color' => 'var(--vxc-4)'],
+                ['label' => 'Out of stock', 'value' => $summary['out_stock'], 'color' => 'var(--vxc-2)'],
+            ]" />
+            <div class="vxr-strip invr-strip" style="margin:0;grid-template-columns:minmax(0,1fr)">
+                <button type="button" wire:click="setTab('low-stock')">
+                    <span class="vxr-stat-icon vxr-tone-warn"><x-filament::icon icon="heroicon-o-exclamation-triangle" /></span>
+                    <span><small>Low stock</small><b>{{ number_format($summary['low_stock']) }}</b></span>
+                </button>
+                <button type="button" wire:click="setTab('out-stock')">
+                    <span class="vxr-stat-icon vxr-tone-bad"><x-filament::icon icon="heroicon-o-x-circle" /></span>
+                    <span><small>Out of stock</small><b>{{ number_format($summary['out_stock']) }}</b></span>
+                </button>
+                <button type="button" wire:click="showUncategorized">
+                    <span class="vxr-stat-icon vxr-tone-info"><x-filament::icon icon="heroicon-o-tag" /></span>
+                    <span><small>Uncategorized items</small><b>{{ number_format($summary['uncategorized'] ?? 0) }}</b></span>
+                </button>
+            </div>
+        </div>
+    </section>
 
     {{-- Trend + idle --}}
     <div class="invr-main">

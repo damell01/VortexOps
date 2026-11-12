@@ -691,3 +691,4 @@ a.vxd-row:hover { background: var(--vxw-sunken); }
 .vxd { display: flex; flex-wrap: wrap; justify-content: center; }
 .vxd-legend { flex: 1 1 190px; }
 .vxd-legend { max-width: 440px; } .vxr-card-body > .vxd { justify-content: flex-start; gap: 24px; }
+@media (max-width: 760px) { .vxr-card-body[style*="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)"] { grid-template-columns: minmax(0,1fr) !important; } }

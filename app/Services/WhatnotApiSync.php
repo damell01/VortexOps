@@ -40,7 +40,7 @@ final class WhatnotApiSync
      * @param callable(string):void|null $log
      * @return array<string,mixed>
      */
-    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null): array
+    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null, bool $livePriority = false): array
     {
         $log ??= fn () => null;
         $channelId = (int) $connection->whatnot_channel_id;
@@ -61,7 +61,7 @@ final class WhatnotApiSync
                         $showCounts[$outcome] = ($showCounts[$outcome] ?? 0) + 1;
                     }
                     return ! $windowed || ! $this->pageIsOlderThan($page['data'], 'scheduled_start_at', $since);
-                }, ['status' => $status], maxPages: 20);
+                }, ['status' => $status], maxPages: $livePriority ? 3 : 20);
                 if (! $paging['ok']) $summary['errors'][] = 'shows ('.$status.'): HTTP '.$paging['http_status'];
             }
             $summary['shows'] = $showCounts;
@@ -88,7 +88,7 @@ final class WhatnotApiSync
                 array_push($needsItems, ...$result['needs_items']);
 
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
-            }, maxPages: 50, startCursor: $startCursor, allowIncomplete: true);
+            }, maxPages: $livePriority ? 5 : 50, startCursor: $startCursor, allowIncomplete: true);
             if ($paging['ok']) {
                 if (! empty($paging['incomplete']) && is_string($paging['next_cursor'] ?? null)) {
                     Cache::put($cursorKey, $paging['next_cursor'], now()->addHours(12));

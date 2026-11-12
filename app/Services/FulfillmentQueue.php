@@ -181,7 +181,7 @@ final class FulfillmentQueue
             ->where('shows.show_date', '>=', today()->subDays(self::WINDOW_DAYS)->toDateString())
             ->when(ChannelContext::isScoped(), fn (Builder $q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
             ->when(trim($search) !== '', function (Builder $q) use ($search) {
-                $term = '%'.addcslashes(trim($search), '%_\\\\').'%';
+                $term = '%'.substr(trim($search), 0, 120).'%';
                 $q->where(function (Builder $matches) use ($term) {
                     $matches->where('shows.title', 'like', $term)
                         ->orWhere('shows.whatnot_show_id', 'like', $term)

@@ -102,7 +102,7 @@
                                                 class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:border-emerald-500 focus:ring-emerald-500">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Unit Cost ($)</label>
+                                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Target Price ($)</label>
                                             <input type="number"
                                                 value="{{ number_format($item['unit_cost'], 2, '.', '') }}"
                                                 wire:change="updateCost({{ $itemId }}, $event.target.value)"
@@ -151,10 +151,10 @@
                                             {{ $item['quantity_available'] }} in stock
                                         </div>
                                         <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                            @if($item['average_cost'] > 0)
-                                                Cost: ${{ number_format($item['average_cost'], 2) }}
+                                            @if($item['target_price'] > 0)
+                                                Target price: ${{ number_format($item['target_price'], 2) }}
                                             @else
-                                                No cost set
+                                                No target price set
                                             @endif
                                         </div>
                                     </div>

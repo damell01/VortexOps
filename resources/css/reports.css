@@ -451,3 +451,25 @@ a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxr-linkrow:ho
 }
 .vxsp-sm-only { display: none; }
 @media (max-width: 900px) { .vxsp-sm-only { display: inline; } }
+
+/* Notification configuration dialogs are portaled to body so transformed
+   page containers cannot trap the modal or its backdrop. */
+.vx-notification-modal-portal {position:static}
+.vx-notification-modal-portal .vxr-drawer-backdrop {
+  position:fixed;inset:0;z-index:9998;
+  background:rgba(11,8,29,.6);backdrop-filter:blur(3px);
+}
+.vx-notification-modal-portal .vxr-drawer {
+  position:fixed;top:50%;left:50%;z-index:9999;
+  transform:translate(-50%,-50%);
+  width:min(var(--vxr-modal-w,980px),calc(100vw - 32px));
+  max-height:calc(100dvh - 32px);
+  background:var(--vxw-surface,#fff);
+  color:var(--vxw-text,#19152d);
+}
+.vx-notification-modal-portal .vxr-drawer-head,
+.vx-notification-modal-portal .vxr-drawer-foot {flex-shrink:0}
+.vx-notification-modal-portal .vxr-drawer-body {min-height:0;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:640px) {
+  .vx-notification-modal-portal .vxr-drawer {width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+}

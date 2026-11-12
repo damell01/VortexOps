@@ -34,12 +34,16 @@
     @endphp
     <nav class="mb-3 rounded-xl border border-[var(--vx-divider)] p-3" aria-label="Fulfillment workflow">
         <div class="grid grid-cols-4 gap-2 text-center text-xs font-semibold">
-            @foreach (['Ready to Pack', 'Packing', 'Packed', 'Shipped'] as $step => $label)
+            @foreach (['Ready to Pack', 'Packing', 'Packed', 'Carrier Tracking'] as $step => $label)
                 <div class="rounded-lg px-2 py-2 {{ $packingStage >= $step + 1 ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
                     {{ $step + 1 }}. {{ $label }}
-                    @if ($step === 3)<span class="mt-1 block text-[10px] font-normal">See Shipments for carrier status</span>@endif
+                    @if ($step === 3)<span class="mt-1 block text-[10px] font-normal">Carrier status is separate from packing</span>@endif
                 </div>
             @endforeach
+        </div>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:bg-violet-900/20 dark:text-violet-100">
+            <span><strong>Station:</strong> {{ $run->station?->name ?? 'Not selected' }} · <strong>Show:</strong> {{ $show?->title ?? 'Unknown' }}</span>
+            <span><strong>Packers:</strong> {{ $run->packers->pluck('name')->join(', ') ?: 'Awaiting assignment' }}</span>
         </div>
         <p class="mt-2 text-xs text-[var(--vx-muted)]">
             {{ $run->completed_packages ?? 0 }} / {{ $run->expected_packages ?? '—' }} packages packed.
@@ -232,9 +236,14 @@
                         <form wire:submit="scan" class="vxf-scan" aria-label="Scan an item to verify">
                             <x-heroicon-o-qr-code aria-hidden="true" />
                             <label for="vxf-scan-input" class="sr-only">Scan item barcode</label>
-                            <input id="vxf-scan-input" x-ref="scan" type="text" autocomplete="off" placeholder="Scan an item to verify…" wire:model="scanCode" @disabled($paused || ! $canWork || $current->status === 'packed')>
+                            <input id="vxf-scan-input" x-ref="scan" type="text" inputmode="text" enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="off" placeholder="Scan an item to verify…" wire:model="scanCode" aria-describedby="vxf-scan-help vxf-scan-feedback" @disabled($paused || ! $canWork || $current->status === 'packed')>
                             <button type="submit" class="vxf-btn vxf-btn--sm vxf-btn--primary" @disabled($paused || ! $canWork)>Verify</button>
                         </form>
+                        <p id="vxf-scan-help" class="vxf-sub" style="margin:6px 0 0">Scan the item barcode and press Enter. A verified item updates the checklist; a mismatch is rejected.</p>
+                        <div id="vxf-scan-feedback" aria-live="polite" aria-atomic="true">
+                            @error('barcode') <p role="alert" class="vxf-alert" style="margin-top:8px">{{ $message }}</p> @enderror
+                            <p wire:loading wire:target="scan" class="vxf-sub" style="margin-top:6px">Checking barcode…</p>
+                        </div>
                         @php $cov = $this->coverage; @endphp
                         @if ($cov && $cov['supported'])
                             <ul class="vxf-items" style="margin-top:8px">
@@ -324,6 +333,7 @@
                                     </div>
                                 </div>
                             </div>
+                            <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="blockStation" wire:confirm="Mark this station blocked, pause packing, and alert the fulfillment managers?"><x-heroicon-o-no-symbol /><span>Station Blocked</span></button>
                         @endunless
                         <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="openReview"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
                     </div>

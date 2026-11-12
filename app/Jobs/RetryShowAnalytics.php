@@ -6,7 +6,6 @@ use App\Models\WhatnotApiConnection;
 use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiShowAnalyticsApplier;
 use App\Services\WhatnotSellerApiClient;
-use App\Support\WhatnotPipelineLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -14,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
@@ -29,9 +29,6 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
 
     public function handle(WhatnotSellerApiClient $client, WhatnotApiShowAnalyticsApplier $applier): void
     {
-        $lock = WhatnotPipelineLock::acquire('Owner API analytics retry for show #'.$this->showId);
-        if (! $lock) { $this->release(30); return; }
-
         try {
             $show = Show::readyForAnalytics()->find($this->showId);
             if (! $show || ! $show->whatnot_show_id || ! $show->whatnot_channel_id) return;
@@ -42,8 +39,22 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                 ->first();
 
             if (! $connection || ! $connection->access_token) {
+                // Do not silently report a queued retry as successful when no API call was made.
                 Log::warning('Show analytics retry skipped: API connection unavailable', ['show_id' => $this->showId]);
+                if (Schema::hasColumn('shows', 'analytics_sync_note')) {
+                    $show->forceFill(['analytics_sync_note' => 'API retry could not run: channel API connection is disabled or missing a token.'])->save();
+                }
                 return;
+            }
+
+            // Persist the attempt even when Whatnot has not generated analytics yet.
+            // The Shows modal reads this stamp instead of displaying "Not checked yet".
+            if (WhatnotApiOrderApplier::writesAllowed()) {
+                $payloadMeta = $show->raw_import_payload ?? [];
+                if (! is_array($payloadMeta)) $payloadMeta = [];
+                $payloadMeta['_analytics_last_attempt_at'] = now()->toIso8601String();
+                $show->raw_import_payload = $payloadMeta;
+                $show->save();
             }
 
             $response = $client->call($connection, 'show_analytics', (string) $show->whatnot_show_id);
@@ -57,13 +68,21 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
             }
 
             $result = $applier->apply((int) $show->whatnot_channel_id, $payload, ! WhatnotApiOrderApplier::writesAllowed());
+            if (WhatnotApiOrderApplier::writesAllowed() && in_array($result['outcome'], ['not_ready', 'not_calculated'], true) && Schema::hasColumn('shows', 'analytics_sync_status')) {
+                $show->refresh();
+                $show->forceFill([
+                    'analytics_sync_status' => $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable',
+                    'analytics_sync_note' => $result['outcome'] === 'not_ready' ? 'Whatnot has not generated show analytics yet.' : 'Whatnot will not calculate analytics for this show.',
+                ])->save();
+            }
             Log::info('Show analytics API retry finished', [
                 'show_id' => $this->showId,
                 'outcome' => $result['outcome'],
                 'writes_allowed' => WhatnotApiOrderApplier::writesAllowed(),
             ]);
-        } finally {
-            WhatnotPipelineLock::release($lock);
+        } catch (\Throwable $e) {
+            Log::warning('Show analytics API retry failed', ['show_id' => $this->showId, 'error' => $e->getMessage()]);
+            throw $e;
         }
     }
 }

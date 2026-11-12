@@ -24,7 +24,6 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -262,16 +261,45 @@ class StreamerLogResource extends Resource
             ->modifyQueryUsing(fn (Builder $query, $livewire) => static::applyInboxSort($query, $livewire->inboxSort ?? '')
                 ->with(['show.channel', 'show.streamers', 'streamer'])
                 ->withCount(['items', 'items as uncosted_items_count' => fn (Builder $q) => $q->whereNull('inventory_item_id')->whereNull('unit_cost')]))
-            ->contentGrid(['md' => 2, 'xl' => 3])
             ->columns([
-                \Filament\Tables\Columns\Layout\Stack::make([
-                    \Filament\Tables\Columns\ViewColumn::make('report')
-                        ->label('Report')
-                        ->view('filament.tables.report-inbox.card')
-                        ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
-                            ->whereHas('show', fn (Builder $s) => $s->where('title', 'like', "%{$search}%"))
-                            ->orWhereHas('streamer', fn (Builder $s) => $s->where('name', 'like', "%{$search}%")))),
-                ]),
+                TextColumn::make('show.title')
+                    ->label('Show')
+                    ->formatStateUsing(fn ($state, StreamerLogEntry $record) => $state ?: 'Report #'.$record->id)
+                    ->description(fn (StreamerLogEntry $record) => ($record->show?->channel?->name ?: 'No channel').' · '.($record->show?->show_date?->format('M j, Y') ?: 'No date'))
+                    ->wrap()
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
+                        ->whereHas('show', fn (Builder $show) => $show->where('title', 'like', '%'.$search.'%'))
+                        ->orWhereHas('streamer', fn (Builder $streamer) => $streamer->where('name', 'like', '%'.$search.'%')))),
+                TextColumn::make('streamer.name')->label('Streamer')->placeholder('Unassigned')->toggleable(),
+                TextColumn::make('gross_revenue')->label('Sales')
+                    ->state(fn (StreamerLogEntry $record) => $record->gross_revenue ?? $record->show?->gross_revenue)
+                    ->money('USD')->alignEnd(),
+                TextColumn::make('product_cost')->label('Product cost')->money('USD')->alignEnd(),
+                TextColumn::make('estimated_pay_display')->label('Est. pay')
+                    ->state(function (StreamerLogEntry $record) {
+                        $user = auth()->user();
+                        $staff = $user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin();
+                        $mine = $user?->streamer?->id !== null && $user->streamer->id === $record->streamer_id;
+                        return ($staff || $mine) ? (static::payFor($record)['amount'] ?? null) : null;
+                    })
+                    ->money('USD')->alignEnd(),
+                TextColumn::make('inbox_status')->label('Status')
+                    ->state(fn (StreamerLogEntry $record) => match (true) {
+                        $record->hasPendingRevisionRequest() => 'Edit requested',
+                        $record->status === 'streamer_reviewed' => 'Needs review',
+                        $record->status === 'changes_requested' => 'Changes requested',
+                        $record->status === 'admin_approved' => 'Approved',
+                        default => 'In progress',
+                    })
+                    ->badge()
+                    ->color(fn (string $state) => match ($state) {
+                        'Approved' => 'success',
+                        'Edit requested' => 'danger',
+                        'Changes requested' => 'warning',
+                        'Needs review' => 'info',
+                        default => 'gray',
+                    }),
+                TextColumn::make('submitted_at')->label('Submitted')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -317,7 +345,7 @@ class StreamerLogResource extends Resource
                     }),
             ])
             ->actions([
-                // Every action sits on the card as its own button; which ones
+                // Show available actions directly in each table row; which ones
                 // show depends on where the report is. The main button is last.
                 // Files a report the streamer never submitted, on their behalf —
                 // through submitReport() so it is stamped, stock posts and the
@@ -326,9 +354,10 @@ class StreamerLogResource extends Resource
                     ->label('Submit for streamer')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('gray')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Submit for streamer')
+                    ->extraAttributes(['aria-label' => 'Submit for streamer', 'class' => 'vxi-row-icon'])
                     ->visible(fn (StreamerLogEntry $record) => $record->status === 'pending' && ! $record->isSubmitted()
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
@@ -348,9 +377,10 @@ class StreamerLogResource extends Resource
                     ->label('Fulfillment checked')
                     ->icon('heroicon-o-truck')
                     ->color('info')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Fulfillment checked')
+                    ->extraAttributes(['aria-label' => 'Fulfillment checked', 'class' => 'vxi-row-icon'])
                     ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()))
                     ->requiresConfirmation()
@@ -374,9 +404,10 @@ class StreamerLogResource extends Resource
                     ->label('Reopen for edits')
                     ->icon('heroicon-o-lock-open')
                     ->color('warning')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Reopen for edits')
+                    ->extraAttributes(['aria-label' => 'Reopen for edits', 'class' => 'vxi-row-icon'])
                     ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
@@ -398,11 +429,12 @@ class StreamerLogResource extends Resource
 
                 Action::make('decline_edit_request')
                     ->label('Decline request')
-                    ->icon('heroicon-o-hand-raised')
+                    ->icon('heroicon-o-x-mark')
                     ->color('gray')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Decline request')
+                    ->extraAttributes(['aria-label' => 'Decline request', 'class' => 'vxi-row-icon'])
                     ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->form([
@@ -427,9 +459,10 @@ class StreamerLogResource extends Resource
                     ->label('Request changes')
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('warning')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Request changes')
+                    ->extraAttributes(['aria-label' => 'Request changes', 'class' => 'vxi-row-icon'])
                     ->visible(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'])
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->form([
@@ -457,9 +490,10 @@ class StreamerLogResource extends Resource
                     ->label('Reset')
                     ->icon('heroicon-o-arrow-path')
                     ->color('danger')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Reset report')
+                    ->extraAttributes(['aria-label' => 'Reset report', 'class' => 'vxi-row-icon'])
                     ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
                     ->requiresConfirmation()
                     ->modalIcon('heroicon-o-arrow-path')
@@ -479,12 +513,13 @@ class StreamerLogResource extends Resource
                     }),
                 Action::make('admin_approve')
                     ->label('Approve')
-                    ->icon('heroicon-o-check-badge')
+                    ->icon('heroicon-o-check')
                     ->color('success')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
-                    ->extraAttributes(['class' => 'vxi-approve'])
+                    ->tooltip('Approve')
+                    ->extraAttributes(['aria-label' => 'Approve', 'class' => 'vxi-row-icon'])
+                    
                     ->visible(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed'
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
@@ -511,11 +546,12 @@ class StreamerLogResource extends Resource
                         $record->status === 'changes_requested' => 'View changes',
                         default => 'Open report',
                     })
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->size('sm')
+                    ->tooltip('Open report')
+                    ->extraAttributes(['aria-label' => 'Open report', 'class' => 'vxi-row-icon'])
                     ->color('primary')
-                    ->extraAttributes(['class' => 'vxi-primary'])
+                    
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
             ])
             // Approving a week of logs one row at a time is the actual job on
@@ -621,8 +657,8 @@ class StreamerLogResource extends Resource
             ->filtersFormColumns(['sm' => 2, 'lg' => 4])
             ->deferFilters(false)
             ->searchPlaceholder('Search show or streamer')
-            ->paginated([6, 12, 24])
-            ->defaultPaginationPageOption(6)
+            ->paginated([10, 15, 25, 50])
+            ->defaultPaginationPageOption(15)
             ->deferLoading()
             ->persistFiltersInSession();
     }
@@ -714,6 +750,11 @@ class StreamerLogResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['show', 'streamer'])->inChannelContext();
+
+        // The report inbox is for shows that have happened, not future scheduled shows.
+        // Use the business timezone consistently with the rest of the reporting UI.
+        $query->whereHas('show', fn (Builder $q) => $q
+            ->whereDate('show_date', '<=', \App\Support\BusinessTime::local()->toDateString()));
 
         if ($from = static::reportStartDate()) {
             $query->whereHas('show', fn (Builder $q) => $q->whereDate('show_date', '>=', $from));

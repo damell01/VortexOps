@@ -62,6 +62,204 @@ class FulfillmentActivity extends Page
     public array $resolution = [];
 
 
+    /** Flexible shift blocks are independent of historical employee shifts. */
+    public bool $blockOpen = false;
+    public string $blockDate = '';
+    public string $blockKind = 'day';
+    public string $blockStart = '06:00';
+    public string $blockEnd = '18:00';
+    public int $blockRequired = 3;
+    public string $blockNotes = '';
+
+    public function chooseBlockKind(string $kind): void
+    {
+        abort_unless($this->isManager(), 403);
+        if (! in_array($kind, ['day', 'night', 'custom'], true)) return;
+        $this->blockKind = $kind;
+        if ($kind === 'day') { $this->blockStart = '06:00'; $this->blockEnd = '18:00'; }
+        if ($kind === 'night') { $this->blockStart = '18:00'; $this->blockEnd = '06:00'; }
+    }
+
+    public function openBlock(): void
+    {
+        abort_unless($this->isManager(), 403);
+        $this->editingBlockId = null;
+        $this->blockDate = $this->weekStart()->toDateString();
+        $this->blockOpen = true;
+    }
+
+    public ?int $editingBlockId = null;
+    public string $staffingView = 'shift';
+
+    public function setStaffingView(string $view): void
+    {
+        if (in_array($view, ['shift', 'employee'], true)) $this->staffingView = $view;
+    }
+
+    public function editBlock(int $id): void
+    {
+        abort_unless($this->isManager(), 403);
+        $block = DB::table('fulfillment_shift_blocks')->where('id', $id)->first();
+        abort_unless($block && $block->status !== 'cancelled', 404);
+        $start = CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(BusinessTime::zone());
+        $end = CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(BusinessTime::zone());
+        $this->editingBlockId = $id;
+        $this->blockDate = $start->format('Y-m-d');
+        $this->blockStart = $start->format('H:i');
+        $this->blockEnd = $end->format('H:i');
+        $this->blockKind = $block->kind;
+        $this->blockRequired = $block->required_staff;
+        $this->blockNotes = $block->notes ?? '';
+        $this->blockOpen = true;
+    }
+
+    public function cancelBlock(int $id): void
+    {
+        abort_unless($this->isManager(), 403);
+        app(\App\Services\FulfillmentShiftBlockService::class)->cancel(auth()->user(), $id);
+        Notification::make()->title('Shift cancelled; historical assignments retained')->success()->send();
+    }
+
+    public function saveBlock(): void
+    {
+        abort_unless($this->isManager(), 403);
+        $this->validate([
+            'blockDate' => ['required', 'date'],
+            'blockKind' => ['required', 'in:day,night,custom'],
+            'blockStart' => ['required', 'date_format:H:i'],
+            'blockEnd' => ['required', 'date_format:H:i'],
+            'blockRequired' => ['required', 'integer', 'between:1,100'],
+            'blockNotes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $tz = BusinessTime::zone();
+        $start = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockStart, $tz);
+        $end = CarbonImmutable::parse($this->blockDate . ' ' . $this->blockEnd, $tz);
+        if ($end->lessThanOrEqualTo($start)) $end = $end->addDay();
+        $payload = [
+            'starts_at' => $start->utc()->toDateTimeString(),
+            'ends_at' => $end->utc()->toDateTimeString(),
+            'kind' => $this->blockKind,
+            'label' => $this->blockKind === 'day' ? 'Day Team' : ($this->blockKind === 'night' ? 'Night Team' : 'Custom Shift'),
+            'required_staff' => $this->blockRequired,
+            'notes' => $this->blockNotes,
+        ];
+        try {
+            if ($this->editingBlockId) {
+                app(\App\Services\FulfillmentShiftBlockService::class)->update(auth()->user(), $this->editingBlockId, $payload);
+            } else {
+                app(\App\Services\FulfillmentShiftBlockService::class)->create(auth()->user(), $payload);
+            }
+        } catch (ValidationException $e) {
+            $this->addError('blockDate', collect($e->errors())->flatten()->first() ?? 'Check shift details.');
+            return;
+        }
+        $this->blockOpen = false;
+        Notification::make()->title($this->editingBlockId ? 'Shift updated' : 'Open shift created')->success()->send();
+        $this->editingBlockId = null;
+    }
+
+    public ?int $assignBlockId = null;
+    public ?int $assignEmployeeId = null;
+    public ?int $assignStationId = null;
+
+    public function openBlockAssignment(int $blockId): void
+    {
+        abort_unless($this->isManager(), 403);
+        abort_unless(\Illuminate\Support\Facades\DB::table('fulfillment_shift_blocks')->where('id', $blockId)->exists(), 404);
+        $this->assignBlockId = $blockId;
+        $this->assignEmployeeId = null;
+        $this->assignStationId = null;
+    }
+
+    public function saveBlockAssignment(): void
+    {
+        abort_unless($this->isManager() && $this->assignBlockId, 403);
+        $this->validate([
+            'assignEmployeeId' => ['required', 'integer', 'exists:users,id'],
+            'assignStationId' => ['nullable', 'integer', 'exists:fulfillment_stations,id'],
+        ]);
+        try {
+            app(\App\Services\FulfillmentShiftBlockService::class)->assign(
+                auth()->user(), $this->assignBlockId, $this->assignEmployeeId, $this->assignStationId,
+            );
+        } catch (ValidationException $e) {
+            $this->addError('assignEmployeeId', collect($e->errors())->flatten()->first() ?? 'Unable to assign employee.');
+            return;
+        }
+        $this->assignBlockId = null;
+        Notification::make()->title('Employee assigned to shift')->success()->send();
+    }
+
+    public function copyStaffingWeek(): void
+    {
+        abort_unless($this->isManager(), 403);
+        try {
+            $count = app(\App\Services\FulfillmentShiftBlockService::class)->copyWeek(
+                auth()->user(), $this->weekStart()->utc(),
+            );
+        } catch (ValidationException $e) {
+            Notification::make()->title('Week was not copied')
+                ->body(collect($e->errors())->flatten()->first() ?? 'Check for duplicate shifts.')
+                ->danger()->send();
+            return;
+        }
+        Notification::make()->title($count . ' shifts copied to next week')
+            ->body('Employees and show assignments were not copied.')->success()->send();
+    }
+
+    public function duplicateBlockNextWeek(int $blockId): void
+    {
+        abort_unless($this->isManager(), 403);
+        try {
+            app(\App\Services\FulfillmentShiftBlockService::class)->duplicate(auth()->user(), $blockId);
+        } catch (ValidationException $e) {
+            Notification::make()->title('Could not copy shift')
+                ->body(collect($e->errors())->flatten()->first() ?? 'Check the destination date.')
+                ->danger()->send();
+            return;
+        }
+        Notification::make()->title('Shift copied to next week without assignments')->success()->send();
+    }
+
+    public function removeBlockAssignment(int $blockId, int $userId): void
+    {
+        abort_unless($this->isManager(), 403);
+        app(\App\Services\FulfillmentShiftBlockService::class)->unassign(auth()->user(), $blockId, $userId);
+        Notification::make()->title('Employee removed; shift remains open')->success()->send();
+    }
+
+    public function blockAssignments(): \Illuminate\Support\Collection
+    {
+        if (! $this->isManager() || ! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_assignments')) return collect();
+        $ids = $this->blockRows()->pluck('id');
+        if ($ids->isEmpty()) return collect();
+        return DB::table('fulfillment_shift_assignments as a')
+            ->join('users as u', 'u.id', '=', 'a.user_id')
+            ->leftJoin('fulfillment_stations as st', 'st.id', '=', 'a.station_id')
+            ->whereIn('a.shift_block_id', $ids)
+            ->select('a.shift_block_id', 'a.user_id', 'u.name', 'st.name as station_name')
+            ->orderBy('u.name')->get()->groupBy('shift_block_id');
+    }
+
+    public function blockRows(): \Illuminate\Support\Collection
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_blocks')) return collect();
+        return app(\App\Services\FulfillmentShiftBlockService::class)->week(auth()->user(), $this->weekStart()->utc());
+    }
+
+    public function blockHistory(): \Illuminate\Support\Collection
+    {
+        if (! $this->isManager() || ! \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_block_events')) return collect();
+        $ids = $this->blockRows()->pluck('id');
+        if ($ids->isEmpty()) return collect();
+        return DB::table('fulfillment_shift_block_events as e')
+            ->leftJoin('users as actor', 'actor.id', '=', 'e.actor_id')
+            ->leftJoin('users as employee', 'employee.id', '=', 'e.employee_id')
+            ->whereIn('e.shift_block_id', $ids)
+            ->select('e.id', 'e.shift_block_id', 'e.action', 'e.created_at', 'actor.name as actor_name', 'employee.name as employee_name')
+            ->orderByDesc('e.id')->limit(30)->get();
+    }
+
     /** Shift drawer. */
     public bool $shiftOpen = false;
     public ?int $shiftId = null;

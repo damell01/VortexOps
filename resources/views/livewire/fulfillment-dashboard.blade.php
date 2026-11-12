@@ -2,12 +2,15 @@
     <style>
         .vx-ful-card{border:1px solid rgb(229 231 235);border-radius:1rem;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)}.dark .vx-ful-card{border-color:rgb(55 65 81);background:rgb(17 24 39)}
         .vx-pack-dock{position:sticky;top:4.25rem;z-index:20;border:1px solid rgb(191 219 254);border-radius:1rem;background:rgba(239,246,255,.96);box-shadow:0 10px 24px rgba(15,23,42,.08);backdrop-filter:blur(10px)}.dark .vx-pack-dock{border-color:rgb(30 64 175);background:rgba(23,37,84,.94)}
+        /* Keep active packing controls visible without obscuring the work list. */
+        .vx-pack-dock:focus-within{outline:2px solid rgb(147 197 253);outline-offset:2px}
+        .vx-ful-show{scroll-margin-top:8rem}
         .vx-ful-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem}.vx-ful-kpi{border-radius:.75rem;padding:.7rem;background:rgb(249 250 251)}.dark .vx-ful-kpi{background:rgb(31 41 55)}
         .vx-ful-item,.vx-box{border:1px solid rgb(229 231 235);border-radius:.9rem;padding:.8rem}.dark .vx-ful-item,.dark .vx-box{border-color:rgb(55 65 81)}
         .vx-ful-item{transition:border-color .15s ease,box-shadow .15s ease}.vx-ful-item:hover{border-color:rgb(147 197 253);box-shadow:0 6px 16px rgba(15,23,42,.05)}
         .vx-ful-filterbar{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.15rem}.vx-ful-filterbar button{white-space:nowrap}.vx-progress{height:.5rem;border-radius:999px;background:rgb(229 231 235);overflow:hidden}.dark .vx-progress{background:rgb(55 65 81)}.vx-progress>span{display:block;height:100%;background:rgb(37 99 235)}
         .vx-box-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.vx-label{border:2px solid #111827;border-radius:.5rem;padding:.75rem;background:white;color:#111827}.vx-label h4{font-size:.85rem;font-weight:900}.vx-label ul{margin:.5rem 0 0;padding-left:1rem;font-size:.72rem}.vx-label-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:900;letter-spacing:.08em}.vx-label-qr{width:76px;height:76px;object-fit:contain;background:#fff}
-        @media(max-width:760px){.vx-pack-dock{top:3.75rem}.vx-ful-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-ful-item,.vx-box{padding:.72rem}.vx-box-grid{grid-template-columns:1fr}}
+        @media(max-width:760px){.vx-pack-dock{top:3.75rem;max-height:48vh;overflow-y:auto;overscroll-behavior:contain}.vx-ful-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-ful-item,.vx-box{padding:.72rem}.vx-box-grid{grid-template-columns:1fr}}
         @media print{body *{visibility:hidden!important}.vx-label-print-target,.vx-label-print-target *{visibility:visible!important}.vx-label-print-target{display:block!important;position:absolute!important;left:0!important;top:0!important;width:4in!important;min-height:2.5in!important;margin:0!important;border:2px solid #000!important;border-radius:0!important;padding:.18in!important;box-sizing:border-box!important}@page{size:4in 6in;margin:.15in}}
     </style>
 
@@ -24,7 +27,7 @@
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Packing Workstation</div>
                 <h2 class="mt-1 text-lg font-bold text-gray-950 dark:text-white sm:text-xl">Pack what the streamer logged</h2>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $assignedUsers->pluck('name')->join(', ') ?: 'Unassigned fulfillment' }} · no buyer grouping or Whatnot shipment counts needed.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $assignedUsers->pluck('name')->join(', ') ?: 'Unassigned fulfillment' }} · Use the packing checklist below to verify each item and record exceptions.</p>
             </div>
             <div class="rounded-xl px-3 py-2 text-xs font-semibold {{ $report?->fulfillment_reviewed_at ? 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300' : ($canCompleteFulfillment ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300') }}">{{ $report?->fulfillment_reviewed_at ? 'Complete' : ($canCompleteFulfillment ? 'Ready to Complete' : 'In Progress') }}</div>
         </div>

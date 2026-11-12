@@ -9,6 +9,7 @@ use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -93,6 +94,7 @@ final class WhatnotApiSyncTick extends Command
                 if (empty($result['errors'])) {
                     Cache::put($healthKey.':last_success', now()->toIso8601String(), now()->addDays(7));
                 }
+                $this->persistHealth($connection->whatnot_channel_id, $mode, empty($result['errors']), round(microtime(true) - $startedAt, 2), $result['orders'] ?? [], $result['errors'] ?? []);
                 if ($result['errors']) {
                     $failures++;
                     $this->warn('Channel '.$connection->whatnot_channel_id.': '.implode(' | ', $result['errors']));
@@ -104,6 +106,7 @@ final class WhatnotApiSyncTick extends Command
                     'ok' => false,
                     'errors' => [get_class($e).': '.$e->getMessage()],
                 ], now()->addDays(7));
+                $this->persistHealth($connection->whatnot_channel_id, $mode, false, round(microtime(true) - $startedAt, 2), [], [get_class($e).': '.$e->getMessage()]);
                 $failures++;
                 report($e);
                 $this->warn('Sync error for channel '.$connection->whatnot_channel_id.' ('.get_class($e).')');
@@ -113,4 +116,35 @@ final class WhatnotApiSyncTick extends Command
         }
         return $failures ? self::FAILURE : self::SUCCESS;
     }
+    private function persistHealth(int $channel, string $mode, bool $ok, float $duration, array $orders, array $errors): void
+    {
+        try {
+            $previous = DB::table('whatnot_sync_health')
+                ->where('whatnot_channel_id', $channel)->where('mode', $mode)->first();
+            $incomplete = (bool) ($orders['incomplete'] ?? false);
+            $values = [
+                'last_run_at' => now(),
+                'last_run_ok' => $ok,
+                'duration_seconds' => $duration,
+                'orders_pages' => $orders['pages'] ?? null,
+                'orders_incomplete' => $orders === [] ? null : $incomplete,
+                'errors' => json_encode(array_slice($errors, 0, 5)),
+                'consecutive_incomplete' => $mode === 'fresh' && $ok && $incomplete
+                    ? (int) ($previous->consecutive_incomplete ?? 0) + 1 : 0,
+                'updated_at' => now(),
+            ];
+            if ($ok) $values['last_success_at'] = now();
+            if ($previous) {
+                DB::table('whatnot_sync_health')->where('id', $previous->id)->update($values);
+            } else {
+                DB::table('whatnot_sync_health')->insert($values + [
+                    'whatnot_channel_id' => $channel, 'mode' => $mode, 'created_at' => now(),
+                ]);
+            }
+        } catch (Throwable $e) {
+            // Health persistence must never stop order ingestion.
+            report($e);
+        }
+    }
+
 }

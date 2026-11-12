@@ -40,7 +40,12 @@ class PollWhatnotShowAnalyticsApi extends Command
                 // Seller Hub is first for newly ended shows; API follows its first scrape.
                 if (empty($meta['_analytics_browser_finished_at']) && empty($meta['_analytics_browser_last_attempt_at'])
                     && $show->show_date && Carbon::parse($show->show_date)->gte(now()->subDays(2))) return false;
-                if (! empty($meta['_analytics_browser_last_attempt_at']) && empty($meta['_analytics_browser_finished_at'])) return false;
+                // A failed or hung browser scrape must never suppress API polling forever.
+                if (! empty($meta['_analytics_browser_last_attempt_at']) && empty($meta['_analytics_browser_finished_at'])) {
+                    try {
+                        if (Carbon::parse($meta['_analytics_browser_last_attempt_at'])->gt(now()->subMinutes(5))) return false;
+                    } catch (\Throwable) {}
+                }
                 $attempt = $meta['_analytics_last_attempt_at'] ?? null;
                 if (! $attempt) return true;
                 try {

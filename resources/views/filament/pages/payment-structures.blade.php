@@ -103,7 +103,8 @@
         <div class="vx-roster-footer"><span>{{ $count ? (($page-1)*10+1).'–'.min($page*10,$count) : '0' }} of {{ $count }} people</span><div class="flex items-center gap-2"><button type="button" wire:click="setMemberPage({{ $page-1 }})" @disabled($page===1)>Previous</button><span>{{ $page }} / {{ $lastPage }}</span><button type="button" wire:click="setMemberPage({{ $page+1 }})" @disabled($page===$lastPage)>Next</button></div></div>
 
         @if($editingMember)
-        <div class="vx-ps-modal" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
+        @teleport('body')
+        <div class="vx-ps-modal vx-rates" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
         <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit {{ $editingMember->name }}'s pay">
             <div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase text-primary-600">Custom override</div><div class="text-lg font-bold">{{$editingMember->name}}</div><div class="text-xs text-gray-500">Regular payouts · {{$editingMember->isFulfillment()?'Fulfillment':'Streamer'}}</div></div><button wire:click="closeMemberEditor" class="text-sm text-gray-500">Close</button></div>
 
@@ -179,6 +180,7 @@
                 <button wire:click="resetMemberOverrides({{$editingMember->id}})" class="rounded-lg border px-4 py-2 text-sm font-bold">Reset to Role Default</button><button wire:click="saveMemberOverrides" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white">Save Override</button></div>
         </div>
         </div>
+        @endteleport
         @endif
     </div>
 

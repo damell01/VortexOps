@@ -56,6 +56,9 @@ final class WhatnotApiSyncTick extends Command
                 $this->warn('Channel '.$connection->whatnot_channel_id.': sync already running or lock still held; skipped.');
                 continue;
             }
+            $healthKey = 'whatnot:sync-health:'.$connection->whatnot_channel_id.':'.$mode;
+            $startedAt = microtime(true);
+            Cache::put($healthKey.':started', now()->toIso8601String(), now()->addDays(7));
             try {
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
@@ -80,11 +83,27 @@ final class WhatnotApiSyncTick extends Command
                         });
                     $this->line('Tip attribution retry: '.json_encode(['matched' => $matched, 'needs_review' => $review]));
                 }
+                Cache::put($healthKey.':last_result', [
+                    'at' => now()->toIso8601String(),
+                    'duration_seconds' => round(microtime(true) - $startedAt, 2),
+                    'ok' => empty($result['errors']),
+                    'errors' => array_slice($result['errors'] ?? [], 0, 5),
+                    'orders' => $result['orders'] ?? null,
+                ], now()->addDays(7));
+                if (empty($result['errors'])) {
+                    Cache::put($healthKey.':last_success', now()->toIso8601String(), now()->addDays(7));
+                }
                 if ($result['errors']) {
                     $failures++;
                     $this->warn('Channel '.$connection->whatnot_channel_id.': '.implode(' | ', $result['errors']));
                 }
             } catch (Throwable $e) {
+                Cache::put($healthKey.':last_result', [
+                    'at' => now()->toIso8601String(),
+                    'duration_seconds' => round(microtime(true) - $startedAt, 2),
+                    'ok' => false,
+                    'errors' => [get_class($e).': '.$e->getMessage()],
+                ], now()->addDays(7));
                 $failures++;
                 report($e);
                 $this->warn('Sync error for channel '.$connection->whatnot_channel_id.' ('.get_class($e).')');

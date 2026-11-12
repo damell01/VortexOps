@@ -7,8 +7,8 @@
     $counts = $this->tabCounts();
     $options = $this->filterOptions();
 @endphp
-<div class="vxi space-y-4" data-vx-page="report-inbox">
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Filter reports by status">
+<div class="vxi space-y-2" data-vx-page="report-inbox">
+    <div class="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Filter reports by status">
         @foreach($this->getStats() as $key => $stat)
             <button type="button" wire:click="selectInboxStatus('{{ $key }}')" aria-pressed="{{ $activeTab === $key ? 'true' : 'false' }}" title="{{ $stat['sub'] }}" class="vxi-stat vxi-{{ $tones[$key] ?? 'gray' }} {{ $activeTab === $key ? 'is-active' : '' }}">
                 <span class="vxi-stat-icon"><x-filament::icon :icon="$stat['icon']" class="h-5 w-5" /></span>
@@ -141,33 +141,38 @@
 </div>
 
 <style>
+    /* Keep the actual inbox visible above the fold on desktop. */
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header { margin-bottom:.6rem; gap:.5rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header-heading { font-size:1.5rem; line-height:1.8rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header-subheading { font-size:.8rem; line-height:1.1rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-breadcrumbs { margin-bottom:.2rem; }
     .vxi { --vxi-line: rgb(229 231 235); --vxi-card: #fff; }
     .dark .vxi { --vxi-line: rgb(55 65 81); --vxi-card: rgb(17 24 39); }
     [x-cloak] { display: none !important; }
     .vxi-btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; min-height:2.5rem; padding:0 .9rem; border:1px solid var(--vxi-line); border-radius:.75rem; font-size:.875rem; font-weight:600; background: var(--vxi-card); transition:border-color .15s; }
     .vxi-btn:hover { border-color: var(--primary-400, #a78bfa); }
     .vxi-panel { border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); overflow:hidden; }
-    .vxi-stat { display:flex; gap:.85rem; align-items:center; text-align:left; padding:1rem 1.1rem; border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); transition:transform .15s ease, border-color .15s, box-shadow .15s; }
+    .vxi-stat { display:flex; gap:.85rem; align-items:center; text-align:left; padding:.55rem .75rem; border:1px solid var(--vxi-line); border-radius:.75rem; background: var(--vxi-card); transition:transform .15s ease, border-color .15s, box-shadow .15s; }
     .vxi-stat:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -10px rgb(76 29 149 / .35); }
     .vxi-stat.is-active { border-color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 5%, var(--vxi-card)); box-shadow: 0 0 0 1px var(--vxi-c); }
-    .vxi-stat-icon { display:grid; place-items:center; flex:none; width:2.6rem; height:2.6rem; border-radius:.8rem; color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 13%, transparent); }
+    .vxi-stat-icon { display:grid; place-items:center; flex:none; width:2rem; height:2rem; border-radius:.6rem; color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 13%, transparent); }
     .vxi-violet { --vxi-c:#7c3aed; } .vxi-blue { --vxi-c:#2563eb; } .vxi-rose { --vxi-c:#e11d48; } .vxi-amber { --vxi-c:#d97706; } .vxi-green { --vxi-c:#059669; } .vxi-gray { --vxi-c:#6b7280; }
     .dark .vxi-violet { --vxi-c:#a78bfa; } .dark .vxi-blue { --vxi-c:#60a5fa; } .dark .vxi-rose { --vxi-c:#fb7185; } .dark .vxi-amber { --vxi-c:#fbbf24; } .dark .vxi-green { --vxi-c:#34d399; } .dark .vxi-gray { --vxi-c:#9ca3af; }
-    .vxi-policy { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; padding:.8rem 1.1rem; border:1px solid color-mix(in srgb, var(--vxi-c) 25%, var(--vxi-line)); border-radius:1rem; font-size:.875rem; background: color-mix(in srgb, var(--vxi-c) 6%, var(--vxi-card)); }
+    .vxi-policy { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; padding:.45rem .75rem; border:1px solid color-mix(in srgb, var(--vxi-c) 25%, var(--vxi-line)); border-radius:1rem; font-size:.875rem; background: color-mix(in srgb, var(--vxi-c) 6%, var(--vxi-card)); }
     .vxi-policy > svg, .vxi-policy > strong { color: var(--vxi-c); }
     .vxi-policy-sep { width:1px; height:1rem; background: var(--vxi-line); }
     .vxi-policy-link { display:inline-flex; align-items:center; gap:.35rem; font-weight:600; color: var(--primary-600, #7c3aed); }
     .dark .vxi-policy-link { color: var(--primary-400, #a78bfa); }
     .vxi-policy-link:hover { text-decoration: underline; }
     .vxi-tabs { display:flex; gap:1.75rem; overflow-x:auto; }
-    .vxi-tabs button { position:relative; padding:1rem 0; font-size:.9rem; font-weight:600; color: rgb(75 85 99); white-space:nowrap; }
+    .vxi-tabs button { position:relative; padding:.6rem 0; font-size:.85rem; font-weight:600; color: rgb(75 85 99); white-space:nowrap; }
     .dark .vxi-tabs button { color: rgb(156 163 175); }
     .vxi-tabs button.is-active { color: var(--primary-600, #7c3aed); }
     .dark .vxi-tabs button.is-active { color: var(--primary-400, #a78bfa); }
     .vxi-tabs button.is-active::after { content:''; position:absolute; left:-.5rem; right:-.5rem; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background: currentColor; }
     .vxi-select { min-height:2.5rem; border-radius:.65rem; border:1px solid var(--vxi-line); background-color: var(--vxi-card); font-size:.875rem; padding:.35rem 2rem .35rem .75rem; }
     .dark .vxi-select { color:#e5e7eb; }
-    .vxi-filterbar { display:grid; gap:.75rem; padding:1rem; grid-template-columns: 1fr; align-items:end; }
+    .vxi-filterbar { display:grid; gap:.5rem; padding:.6rem .75rem; grid-template-columns: 1fr; align-items:end; }
     @media (min-width: 768px) { .vxi-filterbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (min-width: 1280px) { .vxi-filterbar { grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(0, 1.4fr)) auto; } }
     .vxi-field { display:flex; flex-direction:column; gap:.2rem; font-size:.75rem; color: rgb(107 114 128); }
@@ -262,5 +267,9 @@
     .vxi .vxi-report-table .fi-ta-cell { padding-top:.5rem; padding-bottom:.5rem; }
     .vxi .vxi-reopen-compact summary::-webkit-details-marker { display:none; }
     @media(min-width:1280px){.vxi .vxi-filterbar{grid-template-columns:minmax(13rem,2fr) repeat(3,minmax(8rem,1fr)) auto;}}
+    .vxi-stat .text-2xl { font-size:1.2rem; line-height:1.35rem; }
+    .vxi-stat .text-sm { font-size:.78rem; }
+    .vxi-reopen-compact summary { padding-top:.55rem; padding-bottom:.55rem; }
+    @media (min-width:1280px) { .vxi-filterbar { grid-template-columns:minmax(12rem,2fr) repeat(3,minmax(0,1.25fr)) auto; } }
 </style>
 </x-filament-panels::page>

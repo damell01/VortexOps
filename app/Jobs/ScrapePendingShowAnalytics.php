@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotReportingReconciler;
 use App\Services\WhatnotApiOrderApplier;
+use App\Jobs\RetryShowAnalytics;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,7 +44,7 @@ class ScrapePendingShowAnalytics implements ShouldQueue, ShouldBeUnique
 
         $show = Show::query()->readyForAnalytics()->find($this->showId);
         if (! $show || ! $show->whatnot_show_id || ! $show->whatnot_channel_id) return;
-        if (! in_array($show->analytics_sync_status, ['pending', 'unavailable'], true)) return;
+        if ($show->analytics_sync_status === 'unavailable' && $show->analytics_unavailable_at) return;
 
         $channel = WhatnotChannel::find($show->whatnot_channel_id);
         if (! $channel || ! $channel->whatnot_username) return;
@@ -70,6 +71,11 @@ class ScrapePendingShowAnalytics implements ShouldQueue, ShouldBeUnique
             null,
             [$show->id],
         );
+        $show->refresh();
+        $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        $meta['_analytics_browser_finished_at'] = now()->toIso8601String();
+        $show->forceFill(['raw_import_payload' => $meta])->saveQuietly();
+        RetryShowAnalytics::dispatch($show->id)->delay(now()->addMinutes(2));
         Log::info('Finished analytics-only Seller Hub fallback', [
             'show_id' => $show->id,
             'result' => $result,

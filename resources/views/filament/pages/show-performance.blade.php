@@ -57,7 +57,7 @@
 
         <div class="vxr-stats">
             <x-vxr.stat label="Gross sales" :value="$money($t['gross'])" icon="heroicon-o-shopping-cart" tone="accent" :note="$t['shows'].' '.\Illuminate\Support\Str::plural('show', $t['shows'])" />
-            <x-vxr.stat label="{{ $this->netLabel() }}" :value="$money($t['net'])" icon="heroicon-o-banknotes" tone="ok" :value-class="($t['net'] ?? 0) < 0 ? 'vxr-val-bad' : ''" :note="$t['pending'] ? $t['pending'].' pending, not counted' : ($this->basis === 'business' ? 'All shows finalized' : 'Every show has earnings')" />
+            <x-vxr.stat featured label="{{ $this->netLabel() }}" :value="$money($t['net'])" icon="heroicon-o-banknotes" tone="ok" :value-class="($t['net'] ?? 0) < 0 ? 'vxr-val-bad' : ''" :note="$t['pending'] ? $t['pending'].' pending, not counted' : ($this->basis === 'business' ? 'All shows finalized' : 'Every show has earnings')" />
             <x-vxr.stat label="{{ $this->netLabel() }} / hour" :value="$t['net_hour'] === null ? '—' : $money($t['net_hour'])" icon="heroicon-o-arrow-trending-up" tone="info" :note="$t['hours'].' hours streamed'" />
             <x-vxr.stat :label="$this->basis === 'business' ? 'Finalized shows' : 'Shows with earnings'" :value="$t['final']" icon="heroicon-o-check-badge" tone="warn" :note="'of '.$t['shows'].' in range'" />
         </div>

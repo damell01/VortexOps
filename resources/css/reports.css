@@ -692,3 +692,16 @@ a.vxd-row:hover { background: var(--vxw-sunken); }
 .vxd-legend { flex: 1 1 190px; }
 .vxd-legend { max-width: 440px; } .vxr-card-body > .vxd { justify-content: flex-start; gap: 24px; }
 @media (max-width: 760px) { .vxr-card-body[style*="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)"] { grid-template-columns: minmax(0,1fr) !important; } }
+.vxgl { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.vxgl-card { position: relative; display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 14px; align-items: center; padding: 16px; }
+.vxgl-ring { width: 86px; height: 86px; }
+.vxgl-ring text { font-size: 15px; font-weight: 800; fill: var(--vxw-text); }
+.vxgl-arc { animation: ringIn 1s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes ringIn { from { stroke-dasharray: 0 999; } }
+.vxgl-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14.5px; }
+.vxgl-scope { font-size: 12px; color: var(--vxw-muted); margin-top: 2px; }
+.vxgl-num { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.vxgl-num span { font-size: 13px; font-weight: 600; color: var(--vxw-muted); }
+.vxgl-rm { position: absolute; top: 8px; right: 10px; border: 0; background: transparent; color: var(--vxw-muted); font-size: 18px; cursor: pointer; opacity: .5; }
+.vxgl-rm:hover { opacity: 1; color: var(--vxw-bad); }
+@media (prefers-reduced-motion: reduce) { .vxgl-arc { animation: none; } }

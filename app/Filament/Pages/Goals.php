@@ -20,6 +20,8 @@ class Goals extends Page
 
     protected static string $moduleSlug = 'reporting';
     protected static ?string $title = 'Goals';
+
+    public function getHeading(): string { return ''; }
     protected static ?string $slug = 'goals';
     protected static bool $shouldRegisterNavigation = false;
 

@@ -76,6 +76,15 @@ return [
             'after_commit' => false,
         ],
 
+        'redis_analytics' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'whatnot-analytics-browser',
+            'retry_after' => (int) env('REDIS_ANALYTICS_RETRY_AFTER', 7500),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

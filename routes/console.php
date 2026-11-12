@@ -147,6 +147,15 @@ Schedule::command('whatnot:analytics-catchup')
     ->name('whatnot-analytics-catchup')
     ->withoutOverlapping(20);
 
+// Seller Hub is the first analytics source as soon as a show ends.
+// The dedicated browser worker only scrapes targeted analytics, not orders or shipments.
+Schedule::command('whatnot:analytics-show-end-poll --limit=2')
+    ->appendOutputTo($whatnotLog)
+    ->skip($scraperOff)
+    ->everyMinute()
+    ->name('whatnot-show-end-sellerhub-analytics')
+    ->withoutOverlapping(2);
+
 // Poll Whatnot Owner API for recently ended shows without generated analytics.
 Schedule::command('whatnot:analytics-api-poll --limit=30')
     ->appendOutputTo($whatnotLog)

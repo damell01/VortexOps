@@ -598,16 +598,16 @@ class Show extends Model
         // date-time (as this used to) is a text comparison that is always
         // true, so every future show with an end time counted as ended. A
         // show is ready once its date has passed, or today once it ended
-        // half an hour ago or Seller Hub lists it under Past.
+        // at its recorded end time or Seller Hub lists it under Past.
         $local = \App\Support\BusinessTime::local();
         $today = $local->toDateString();
-        $endedBy = $local->copy()->subMinutes(30);
+        $endedBy = $local->copy();
 
         return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) use ($today, $endedBy) {
             $eligible->whereDate('show_date', '<', $today)
                 ->orWhere(fn ($ended) => $ended->whereDate('show_date', $today)->whereNotNull('end_time')
                     ->when($endedBy->toDateString() === $today, fn ($q) => $q->whereTime('end_time', '<=', $endedBy->format('H:i:s')), fn ($q) => $q->whereRaw('1 = 0')))
-                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past')->whereNull('end_time'));
+                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past'));
         });
     }
 

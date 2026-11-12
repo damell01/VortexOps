@@ -126,7 +126,9 @@ final class WhatnotApiShowAnalyticsApplier
 
         if (! $dryRun) {
             if ($changes !== []) WhatnotApiShowImporter::logChanges($show, array_diff_key($changes, ['revision_notes' => true]), 'Seller API show analytics');
-            $show->forceFill($changes + $stamp)->save();
+            $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+            $meta['_analytics_api_generated_at'] = now()->toIso8601String();
+            $show->forceFill($changes + $stamp + ['raw_import_payload' => $meta])->save();
         }
 
         return ['outcome' => $changes === [] ? 'unchanged' : 'updated', 'show_id' => $show->id, 'changes' => $changes];

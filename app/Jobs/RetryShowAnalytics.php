@@ -49,11 +49,13 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
 
             // Persist the attempt even when Whatnot has not generated analytics yet.
             // The Shows modal reads this stamp instead of displaying "Not checked yet".
-            $payloadMeta = $show->raw_import_payload ?? [];
-            if (! is_array($payloadMeta)) $payloadMeta = [];
-            $payloadMeta['_analytics_last_attempt_at'] = now()->toIso8601String();
-            $show->raw_import_payload = $payloadMeta;
-            $show->save();
+            if (WhatnotApiOrderApplier::writesAllowed()) {
+                $payloadMeta = $show->raw_import_payload ?? [];
+                if (! is_array($payloadMeta)) $payloadMeta = [];
+                $payloadMeta['_analytics_last_attempt_at'] = now()->toIso8601String();
+                $show->raw_import_payload = $payloadMeta;
+                $show->save();
+            }
 
             $response = $client->call($connection, 'show_analytics', (string) $show->whatnot_show_id);
             if (! $response->successful()) {

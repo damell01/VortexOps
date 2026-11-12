@@ -1089,3 +1089,10 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-station.is-drop{outline:3px dashed var(--vxf-brand);outline-offset:2px}
 @media (hover:none){.vxf-dnd-team{display:none}}
 .vxf-item-photo{width:44px;height:44px;flex:none;border-radius:8px;object-fit:cover;background:var(--vxf-soft);border:1px solid var(--vxf-line)}
+.vxf-label-backdrop{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.6)}
+.vxf-label-card{display:flex;flex-direction:column;width:min(560px,100%);height:min(86dvh,860px);border-radius:18px;background:var(--vxf-card);border:1px solid var(--vxf-line);box-shadow:0 30px 70px rgba(0,0,0,.35);overflow:hidden}
+.vxf-label-head,.vxf-label-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px}
+.vxf-label-head{border-bottom:1px solid var(--vxf-line)}.vxf-label-foot{border-top:1px solid var(--vxf-line)}
+.vxf-label-head h2{display:flex;align-items:center;gap:8px;margin:0;font-size:16px;font-weight:800}.vxf-label-head h2 svg{width:20px;height:20px}
+.vxf-label-frame{position:relative;flex:1;display:grid;place-items:center;background:#f1f5f9}
+.vxf-label-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}

@@ -22,6 +22,14 @@ class Product extends Model
         static::saved($bust);
         static::deleted($bust);
 
+        // However an item is deleted (the delete button, a bulk action, a merge,
+        // a script), stock it still holds is written off first, with a line in
+        // the inventory log, so a deleted item never keeps hidden units.
+        static::deleting(function (self $product) {
+            if (method_exists($product, 'isForceDeleting') && $product->isForceDeleting()) return;
+            app(\App\Services\InventoryItemDeleter::class)->writeOffRemaining($product, 'Written off — item deleted');
+        });
+
         // is_container is NOT NULL, and "container or not" has no third state
         // — an item is one or the other. A form that submits neither is saying
         // "not a container", which is the safe reading: treating an unanswered

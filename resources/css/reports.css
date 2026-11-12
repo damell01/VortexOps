@@ -331,7 +331,19 @@ a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxr-linkrow:ho
    picker sits inside it borderless, and the control grows to fit it and
    any line under it (the period's dates) instead of overlapping. */
 @media (max-width: 767px) {
-    .vxr-actions { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
+    /* Header buttons: compact and side by side, wrapping, not a stack. */
+    .vxr-head { gap: 8px; }
+    .vxr-title { font-size: 1.2rem; }
+    .vxr-subtitle { margin-top: 2px; font-size: 12.5px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+    .vxr-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+    .vxr-actions > * { flex: 0 0 auto; width: auto !important; }
+    .vxr-actions .vxr-btn { min-height: 38px; padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+    /* Filter cards: two controls to a row, search and dates full width. */
+    .vxr-toolbar--card { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px; }
+    .vxr-toolbar--card > * { min-width: 0; width: 100% !important; flex: none !important; }
+    .vxr-toolbar--card > .vxr-search { grid-column: 1 / -1; order: -1; }
+    .vxr-toolbar--card .vxr-control { min-height: 40px; padding: 2px 10px; }
+    .vxr-toolbar--card .vxr-control .vx-picker-trigger { min-height: 34px !important; font-size: 13.5px !important; }
     .vxr-control { height: auto; min-height: 44px; padding: 4px 12px; width: 100%; }
     .vxr-control > span { flex: 1; min-width: 0; }
     .vxr-control .vx-picker-trigger { border: 0 !important; background: transparent !important; box-shadow: none !important; min-height: 36px !important; padding: 4px 0 !important; font-size: 15px !important; font-weight: 600; }

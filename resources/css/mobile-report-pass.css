@@ -382,3 +382,28 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
         min-height: 44px;
     }
 }
+
+/* Nov 12 compact pass: in a wide table's phone card, a short value sits on
+   its label's line ("Status ........ Reconciled"), halving the card. */
+@media (max-width: 767px) {
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-inline {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 12px !important;
+        padding: 6px 0 !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-inline::before {
+        flex: 0 0 auto !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-inline > * {
+        flex: 0 1 auto !important;
+        width: auto !important;
+        margin-left: auto !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-inline :is(.fi-ta-col-wrp, .fi-ta-text, .fi-ta-text-item) {
+        text-align: right !important;
+        justify-content: flex-end !important;
+    }
+}

@@ -266,9 +266,6 @@
 </style>
 
 <div class="vxr vxled">
-    <div class="mb-3" style="display:flex;justify-content:flex-end">
-        <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="vxr-btn vxr-btn--outline">Streamer tip totals &amp; show breakdown</a>
-    </div>
     @if($review === 'tips_needs_business')
         <section class="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-gray-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-gray-100" aria-label="Tip business attribution review">
             <h2 class="font-bold">Tips awaiting business verification</h2>
@@ -283,7 +280,7 @@
             <p class="vxr-subtitle">Reconcile credits, debits and transaction status by channel.</p>
         </div>
         <div class="vxr-actions">
-            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
+            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" title="Streamer tip totals and show breakdown">Tip totals</a>
             <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('charges') }}">Charges</a>
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"

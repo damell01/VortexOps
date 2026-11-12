@@ -1645,3 +1645,98 @@ html body .fi-modal.fi-no-database .fi-modal-window .fi-no-notification{margin:0
 .vx-report-toolbar__list button{text-align:left;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:500;background:none;border:0;cursor:pointer;color:inherit}
 .vx-report-toolbar__list button:hover{background:rgba(124,58,237,.08)}
 @media print{.vx-report-toolbar{display:none!important}}
+
+/* ── Nov 12 compact pass: pages start with their content, not their header ── */
+.fi-page-header-main-ctn{row-gap:14px!important}
+.fi-page-main,.fi-page-content{row-gap:14px!important}
+.fi-header{gap:10px 16px!important}
+.fi-header .fi-header-heading{font-size:1.45rem!important;letter-spacing:-.025em}
+.fi-header .fi-header-subheading{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:90ch;margin-top:2px!important}
+.vx-page-back-row{min-height:0!important;margin-block:0!important;padding-block:0!important}
+.vx-page-back-row .vx-page-back{min-height:30px;padding-block:4px}
+/* Headline tiles: one compact row, icon beside the number. */
+.vx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.vx-stat-tile{display:flex;align-items:center;gap:12px;min-width:0;padding:12px 14px;background:var(--vx-surface,#fff);border:1px solid var(--vx-border,#e5e7eb);border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.vx-stat-icon{flex:0 0 auto;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#ede9fe;color:#6d28d9}
+.vx-stat-glyph{width:18px;height:18px}
+.vx-stat-body{display:flex;flex-direction:column;min-width:0}
+.vx-stat-label{font-size:12px;font-weight:600;color:var(--vx-muted,#64748b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-stat-value{font-size:1.3rem;font-weight:750;line-height:1.15;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--vx-text,#0f172a)}
+.vx-stat-sub{font-size:11.5px;color:var(--vx-faint,#94a3b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-tone-blue{background:#dbeafe;color:#1d4ed8}.vx-tone-green{background:#dcfce7;color:#15803d}.vx-tone-amber{background:#fef3c7;color:#b45309}
+.vx-tone-purple{background:#ede9fe;color:#6d28d9}.vx-tone-red{background:#fee2e2;color:#b91c1c}.vx-tone-orange{background:#ffedd5;color:#c2410c}
+.dark .vx-stat-tile{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.08)}
+.dark .vx-stat-value{color:#f1f5f9}
+.dark .vx-stat-icon{background:rgba(124,58,237,.18);color:#c4b5fd}
+/* Section cards and stat tiles: less air. */
+.fi-section-header{padding-block:12px!important}
+.fi-wi-stats-overview-stat{padding:14px 16px!important}
+
+@media(max-width:767px){
+  .fi-page-header-main-ctn{row-gap:10px!important}
+  .fi-page-main,.fi-page-content{row-gap:10px!important}
+  .fi-header{gap:8px!important}
+  .fi-header .fi-header-heading{font-size:1.2rem!important}
+  /* The ? next to the title explains the page; the paragraph is one line here. */
+  .fi-header .fi-header-subheading{-webkit-line-clamp:1;font-size:12.5px!important}
+  /* Header buttons: compact and side by side, wrapping, not a full-width stack. */
+  .fi-header-actions-ctn{width:100%;margin:0!important}
+  .fi-header-actions-ctn>.fi-ac{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+  .fi-header-actions-ctn .fi-ac>*,.fi-header-actions-ctn>.fi-btn,.fi-header-actions-ctn .fi-ac .fi-btn{flex:0 0 auto!important;width:auto!important}
+  .fi-header-actions-ctn .fi-btn{min-height:38px!important;padding:7px 12px!important;font-size:13px!important;white-space:nowrap}
+  .vx-season,.vx-season-peek,.vx-bday,.vx-fall{display:none!important}
+  .vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .vx-stat-tile{padding:10px 11px;gap:9px;border-radius:12px}
+  .vx-stat-icon{width:30px;height:30px;border-radius:9px}
+  .vx-stat-glyph{width:16px;height:16px}
+  .vx-stat-value{font-size:1.05rem}
+  .vx-stat-sub{display:none}
+  .fi-wi-stats-overview-stats-ctn{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .fi-wi-stats-overview-stat{padding:11px 12px!important}
+  .fi-wi-stats-overview-stat-value{font-size:1.15rem!important}
+  .fi-wi-stats-overview-stat-description{display:none!important}
+  .fi-section-header{padding-block:10px!important}
+}
+@media(min-width:768px){.vx-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important}}
+.fi-page-header-main-ctn{padding-top:14px!important}
+@media(max-width:767px){
+  .fi-page-header-main-ctn{padding-top:6px!important}
+  .fi-tabs{padding:5px!important}
+  .fi-tabs-item{flex:0 0 auto!important;min-height:34px!important;padding:5px 12px!important}
+  .fi-ta-header{padding:8px 12px!important}
+  .fi-ta-header-toolbar{padding:8px 12px!important;gap:8px!important}
+  .fi-ta-header-toolbar .fi-input-wrp{min-height:40px!important}
+  .fi-ta-header-toolbar .fi-input{padding-block:8px!important}
+  .fi-ta-filter-indicators{padding:6px 12px!important}
+}
+@media(max-width:767px){
+  html body :is(.vxled-chips,.vxled-quick,.vxled-review-tabs){display:flex!important;flex-wrap:wrap!important;overflow-x:visible!important;gap:6px!important}
+  :is(.vxled-chips,.vxled-quick,.vxled-review-tabs)>*{flex:0 0 auto!important;white-space:nowrap}
+  :is(.vxled-chip,.vxled-review-tab,.vxled-quick__chip){height:auto!important;min-height:34px!important;padding:5px 12px!important;font-size:13px!important}
+}
+/* Inventory list on phones: shortcuts in one sideways row, figures in one
+   row of four, and each product a short horizontal card. */
+@media(max-width:640px){
+  html body .vx-inventory-list .vx-inventory-actions{display:flex!important;flex-wrap:wrap!important;gap:6px!important;padding:6px!important}
+  html body .vx-inventory-list .vx-inventory-actions :is(.vx-inventory-desktop-tools,.vx-inventory-desktop-tools>div,.vx-inv-shortcuts,.vx-inventory-actions>div){display:contents!important}
+  html body .vx-inventory-list .vx-inventory-actions :is(a,button){flex:0 0 auto!important;white-space:nowrap!important;min-height:36px!important;padding:6px 11px!important;font-size:12.5px!important;display:inline-flex!important;align-items:center;gap:6px;flex-direction:row!important}
+  html body .vx-inventory-list .vx-inventory-actions :is(a,button) svg{margin:0!important;width:16px!important;height:16px!important}
+  html body .vx-inventory-list .vx-inventory-summary .vx-health-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}
+  html body .vx-inventory-list .vx-inventory-summary .vx-health{min-height:0!important;padding:7px 6px!important}
+  html body .vx-inventory-list .vx-inventory-summary .vx-health strong{font-size:1rem!important}
+  html body .vx-inventory-list .vx-inventory-summary .vx-health :is(span,small,p){font-size:10.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html body .vx-inventory-list .vx-product-card{display:grid!important;grid-template-columns:76px minmax(0,1fr)!important;align-items:start;position:relative}
+  html body .vx-inventory-list .vx-product-card>:is(a.vx-product-link,.vx-product-image){grid-column:1;grid-row:1;padding:10px 0 0 10px}
+  html body .vx-inventory-list .vx-product-card .vx-product-image{height:66px!important;width:66px!important;border-radius:12px;overflow:hidden}
+  html body .vx-inventory-list .vx-product-card .vx-product-image img{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover}
+  html body .vx-inventory-list .vx-product-card .vx-product-image:not(.has-photo) img{object-fit:contain;padding:14px;opacity:.6}
+  html body .vx-inventory-list .vx-product-card .vx-product-body{grid-column:2;grid-row:1;padding:10px 12px 6px 10px!important;min-width:0}
+  html body .vx-inventory-list .vx-product-card .vx-card-actions{grid-column:1/-1;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:4px!important;padding:6px 8px 8px!important}
+  html body .vx-inventory-list .vx-product-card .vx-card-action{min-height:44px!important;padding:4px 2px!important;flex-direction:column!important;gap:2px!important;font-size:.62rem!important;line-height:1.1}
+  html body .vx-inventory-list .vx-product-card .vx-card-action span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  html body .vx-inventory-list .vx-product-card .vx-card-action svg{width:17px!important;height:17px!important}
+  /* The card itself opens the item; its View button only repeats that. */
+  html body .vx-inventory-list .vx-product-card .vx-card-action[title="View item"]{display:none!important}
+  html body .vx-inventory-list .vx-product-card .vx-select-check{top:6px;left:6px;width:28px;height:28px}
+}
+@media(max-width:640px){html body .vx-inventory-list .vx-product-card .vx-card-figs{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}html body .vx-inventory-list .vx-product-card .vx-card-fig{grid-column:auto!important;padding:4px 6px!important}}

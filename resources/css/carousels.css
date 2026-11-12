@@ -4,7 +4,7 @@
         display: grid !important;
         grid-auto-flow: column !important;
         grid-template-columns: none !important;
-        grid-auto-columns: 78% !important;
+        grid-auto-columns: 46% !important;
         gap: 10px !important;
         overflow-x: auto !important;
         overscroll-behavior-x: contain;
@@ -15,8 +15,19 @@
         -webkit-overflow-scrolling: touch;
     }
     .vx-carousel::-webkit-scrollbar { display: none; }
+    /* Two tiles to a screen with a third peeking: compact insides. */
+    html body .vx-carousel > * { padding: 10px 12px !important; min-height: 0 !important; }
+    html body .vx-carousel :is(.vxr-stat-value, .fi-wi-stats-overview-stat-value, .ivx-kpi-value, .vx-kpi-value) { font-size: 1.1rem !important; }
+    html body .vx-carousel > * { gap: 9px !important; }
+    html body .vx-carousel .vxr-stat-icon { width: 30px !important; height: 30px !important; }
+    html body .vx-carousel :is(.vxr-stat-icon, .vx-payroll-icon) svg { width: 16px !important; height: 16px !important; }
+    html body .vx-carousel .vx-payroll-kpi { flex-direction: row !important; align-items: center !important; }
+    html body .vx-carousel .vx-payroll-icon { padding: 7px !important; border-radius: 10px !important; }
+    html body .vx-carousel .vx-payroll-kpi strong { font-size: 1.1rem !important; }
+    html body .vx-carousel .vx-payroll-kpi div > p:last-child:not(:first-child),
+    html body .vx-carousel :is(.vxr-stat-sub, .vxr-stat-hint, .vxr-stat-note, .fi-wi-stats-overview-stat-description) { display: none !important; }
     html body .vx-carousel > * { scroll-snap-align: start; grid-column: auto !important; grid-row: auto !important; min-width: 0; }
-    .vx-carousel-dots { display: flex; justify-content: center; gap: 6px; margin: 8px 0 14px; }
+    .vx-carousel-dots { display: flex; justify-content: center; gap: 6px; margin: 6px 0 8px; }
     .vx-carousel-dots i { width: 6px; height: 6px; border-radius: 999px; background: rgb(124 58 237 / .25); transition: width .2s, background .2s; }
     .vx-carousel-dots i.is-on { width: 18px; background: #7c3aed; }
 }

@@ -38,7 +38,7 @@ const hits = (label, terms) => terms.some((term) => label.includes(term));
 const CLASSES = [
     'vx-mobile-title', 'vx-mobile-tile', 'vx-mobile-stat', 'vx-mobile-detail',
     'vx-mobile-foot', 'vx-mobile-highlight', 'vx-mobile-actions', 'vx-mobile-selection',
-    'vx-mobile-omit',
+    'vx-mobile-omit', 'vx-mobile-inline',
 ];
 
 function decorateTable(table) {
@@ -114,6 +114,10 @@ function decorateTable(table) {
             }
 
             cell.classList.add('vx-mobile-detail');
+            // A short value sits beside its label instead of under it, so a
+            // wide table's card stays a glance tall on a phone.
+            const text = (cell.innerText || '').replace(/\s+/g, ' ').trim();
+            cell.classList.toggle('vx-mobile-inline', text.length > 0 && text.length <= 32 && !cell.querySelector('img, textarea, input:not([type=checkbox])'));
         });
 
         // An odd number of stats would leave a ragged half-width cell.

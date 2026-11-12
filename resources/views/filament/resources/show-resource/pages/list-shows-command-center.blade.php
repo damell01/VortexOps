@@ -12,9 +12,7 @@ $statusClass=fn(string $label)=>match(true){str_contains(strtolower($label),'clo
   <a class="mt-3 inline-block text-sm underline" href="{{ \App\Filament\Resources\ShowResource::getUrl('index', ['tab' => 'all']) }}">Back to all shows</a>
  </x-filament::section>
  @else
- <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-  @foreach(array_slice($stats,0,4) as $stat)<x-filament::section><div class="flex items-start justify-between gap-3"><div><div class="text-sm text-[var(--vx-muted)]">{{ $stat['label'] }}</div><div class="vx-kpi-value mt-2">{{ $stat['value'] }}</div><div class="mt-1 text-xs text-[var(--vx-faint)]">{{ $stat['sub'] }}</div></div><x-filament::icon :icon="$stat['icon']" class="h-5 w-5 text-[var(--vx-faint)]"/></div></x-filament::section>@endforeach
- </div>
+ <x-kpi-row :stats="array_slice($stats, 0, 4)" />
  @endif
  <div class="vx-card overflow-hidden">
   <div>{{ $this->table }}</div>

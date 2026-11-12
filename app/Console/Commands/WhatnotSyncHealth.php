@@ -32,7 +32,7 @@ class WhatnotSyncHealth extends Command
             $isStale = $age === null || $age > $maxAge;
             if ($isStale) $stale++;
             $orders = $result['orders'] ?? [];
-            if ($this->option('alert') && ($isStale || ($catchup && ! $catchup->last_complete_at && $catchup->last_run_at && \Carbon\Carbon::parse($catchup->last_run_at)->lt(now()->subMinutes(30))) || ($result['ok'] ?? true) === false)) {
+            if ($this->option('alert') && ($isStale || ($catchup && ($catchup->last_run_ok === 0 || ($catchup->last_run_at && \Carbon\Carbon::parse($catchup->last_run_at)->lt(now()->subMinutes(20))) || (! $catchup->last_complete_at && $catchup->last_run_at && \Carbon\Carbon::parse($catchup->last_run_at)->lt(now()->subMinutes(30))))) || ($result['ok'] ?? true) === false)) {
                 $reason = $isStale ? 'stale' : (($result['ok'] ?? true) === false ? 'failed' : 'catchup_not_completed');
                 $alertKey = 'whatnot:sync-alert:'.$channel.':'.$reason;
                 if (Cache::add($alertKey, true, now()->addHour())) {

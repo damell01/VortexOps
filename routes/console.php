@@ -151,7 +151,7 @@ Schedule::command('whatnot:analytics-catchup')
 Schedule::command('whatnot:analytics-api-poll --limit=30')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->name('whatnot-analytics-api-poll')
     ->withoutOverlapping(4);
 

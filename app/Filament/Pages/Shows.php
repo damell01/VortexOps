@@ -782,32 +782,55 @@ class Shows extends Page
         if (! app()->environment('production')
             || ! config('services.whatnot_seller.live_requests_enabled', false)
             || ! config('services.whatnot_seller.contract_verified', false)
-            || ! config('services.whatnot_seller.sync_scheduler_enabled', false)) {
-            Notification::make()->title('Whatnot API sync is not enabled')
-                ->body('Enable and verify the production Whatnot Seller API connection before running a manual sync.')
+            || ! \App\Services\WhatnotApiOrderApplier::writesAllowed()) {
+            Notification::make()->title('Whatnot API sync is not ready')
+                ->body('Live API access, contract verification and write permission are required.')
                 ->warning()->send();
             return;
         }
 
-        $channels = \App\Models\WhatnotApiConnection::query()
-            ->where('enabled', true)->where('sync_enabled', true)
-            ->pluck('whatnot_channel_id');
-
-        if ($channels->isEmpty()) {
+        $connections = \App\Models\WhatnotApiConnection::query()
+            ->where('enabled', true)->where('sync_enabled', true)->get();
+        if ($connections->isEmpty()) {
             Notification::make()->title('No enabled Whatnot channels')->warning()->send();
             return;
         }
 
-        foreach ($channels as $channelId) {
-            \Illuminate\Support\Facades\Artisan::queue('whatnot:api-sync-tick', [
-                '--channel' => (int) $channelId,
-                '--mode' => 'all',
-            ])->onQueue('default');
+        $sync = app(\App\Services\WhatnotApiSync::class);
+        $completed = 0;
+        $failures = [];
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Starting live Whatnot API sync for {$connections->count()} channels…\n", replace: true);
+        foreach ($connections as $connection) {
+            $channelId = (int) $connection->whatnot_channel_id;
+            $lock = \Illuminate\Support\Facades\Cache::lock('whatnot-api-sync:'.$channelId, 1800);
+            if (! $lock->get()) {
+                $failures[] = "Channel {$channelId} is already syncing";
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: another sync is running.\n");
+                continue;
+            }
+            try {
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: requesting shows, orders, analytics and finance…\n");
+                $result = $sync->run($connection, 1, dryRun: false,
+                    log: function (string $line) use ($channelId): void {
+                        $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: {$line}\n");
+                    });
+                if (! empty($result['errors'])) {
+                    $failures[] = "Channel {$channelId}: ".implode('; ', $result['errors']);
+                } else {
+                    $completed++;
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $failures[] = "Channel {$channelId}: sync failed";
+            } finally {
+                $lock->release();
+            }
         }
-
-        Notification::make()->title('Whatnot sync queued')
-            ->body('Requested shows, orders, items, analytics, shipments and finance for '.$channels->count().' channel(s). Data arrives as the queue processes requests and Whatnot makes it available.')
-            ->success()->send();
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Finished: {$completed}/{$connections->count()} channels successful.\n");
+        $this->resetData();
+        Notification::make()->title($failures ? 'Whatnot sync completed with issues' : 'Whatnot sync complete')
+            ->body($failures ? implode(' | ', $failures) : 'Fresh API data has been imported. Analytics not yet published by Whatnot will remain pending.')
+            ->color($failures ? 'warning' : 'success')->send();
     }
 
     public function retryShowAnalytics(int $showId): void

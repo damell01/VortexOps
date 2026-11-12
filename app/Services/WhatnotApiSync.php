@@ -40,7 +40,7 @@ final class WhatnotApiSync
      * @param callable(string):void|null $log
      * @return array<string,mixed>
      */
-    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null, bool $livePriority = false): array
+    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null, bool $livePriority = false, bool $orderCatchup = false): array
     {
         $log ??= fn () => null;
         $channelId = (int) $connection->whatnot_channel_id;
@@ -79,8 +79,8 @@ final class WhatnotApiSync
         $orderCounts = [];
         // Fresh and historical runs must not share pagination state. A fresh
         // pass always starts at the head to discover newly arriving orders.
-        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId.($livePriority ? ':fresh' : ':history');
-        $startCursor = $livePriority ? null : Cache::get($cursorKey);
+        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId.($orderCatchup ? ':catchup' : ($livePriority ? ':fresh' : ':history'));
+        $startCursor = ($livePriority || ($orderCatchup && ! Cache::has($cursorKey))) ? null : Cache::get($cursorKey);
         if (! is_string($startCursor)) $startCursor = null;
         try {
             $paging = $this->client->eachPage($connection, 'orders', function (array $page) use ($channelId, $dryRun, $since, &$orderCounts, &$needsItems) {
@@ -90,7 +90,7 @@ final class WhatnotApiSync
                 array_push($needsItems, ...$result['needs_items']);
 
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
-            }, maxPages: $livePriority ? 5 : 50, startCursor: $startCursor, allowIncomplete: true);
+            }, maxPages: ($livePriority || $orderCatchup) ? 5 : 50, startCursor: $startCursor, allowIncomplete: true);
             if ($paging['ok']) {
                 if (! empty($paging['incomplete']) && is_string($paging['next_cursor'] ?? null)) {
                     Cache::put($cursorKey, $paging['next_cursor'], now()->addHours(12));
@@ -99,7 +99,7 @@ final class WhatnotApiSync
                 }
             }
             if (! $paging['ok']) $summary['errors'][] = 'orders: HTTP '.$paging['http_status'];
-            $summary['orders'] = $orderCounts + ['pages' => $paging['pages'], 'incomplete' => (bool) ($paging['incomplete'] ?? false)];
+            $summary['orders'] = $orderCounts + ['pages' => $paging['pages'], 'incomplete' => (bool) ($paging['incomplete'] ?? false), 'cursor_resumed' => $startCursor !== null, 'catchup' => $orderCatchup];
             $log('Orders: '.json_encode($summary['orders']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'orders: '.$e->getMessage();

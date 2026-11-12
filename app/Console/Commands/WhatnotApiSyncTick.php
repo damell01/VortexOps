@@ -20,7 +20,7 @@ use Throwable;
  */
 final class WhatnotApiSyncTick extends Command
 {
-    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID} {--mode=all : all, fresh, recent, analytics, or finance}';
+    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID} {--mode=all : all, fresh, catchup, recent, analytics, or finance}';
     protected $description = 'Safely capture enabled Whatnot API resources when production API mode is active.';
 
     public function handle(WhatnotApiSync $sync): int
@@ -37,13 +37,14 @@ final class WhatnotApiSyncTick extends Command
             // Keep the minute-level hot path short: slow analytics, shipments and
             // tip reconciliation must not block live order updates.
             'fresh' => ['shows', 'orders'],
+            'catchup' => ['orders'],
             'recent' => ['shows', 'orders', 'items'],
             'analytics' => ['analytics', 'shipments'],
             'finance' => ['ledger', 'overview'],
         ];
         $mode = (string) $this->option('mode');
         if (! array_key_exists($mode, $modes)) {
-            $this->error('Invalid mode. Use all, fresh, recent, analytics, or finance.');
+            $this->error('Invalid mode. Use all, fresh, catchup, recent, analytics, or finance.');
             return self::FAILURE;
         }
         $query = WhatnotApiConnection::query()->where('enabled', true)->where('sync_enabled', true);
@@ -64,7 +65,7 @@ final class WhatnotApiSyncTick extends Command
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
                 $result = $sync->run($connection, ($mode === 'fresh' ? 1 : (int) config('services.whatnot_seller.sync_days', 3)),
-                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: null, livePriority: $mode === 'fresh');
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: null, livePriority: $mode === 'fresh', orderCatchup: $mode === 'catchup');
                 // Newly synced orders may supply the missing exact show evidence
                 // for previously imported tips. Retry safely without touching payroll.
                 if (! $result['dry_run'] && in_array($mode, ['recent', 'finance'], true)) {
@@ -134,6 +135,7 @@ final class WhatnotApiSyncTick extends Command
                 'updated_at' => now(),
             ];
             if ($ok) $values['last_success_at'] = now();
+            if ($mode === 'catchup' && $ok && $orders !== [] && ! $incomplete) $values['last_complete_at'] = now();
             if ($previous) {
                 DB::table('whatnot_sync_health')->where('id', $previous->id)->update($values);
             } else {

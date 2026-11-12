@@ -102,17 +102,22 @@
                 <div class="vx-chatify-new-overlay vx-chat-compose" x-show="showNew && !selected" x-cloak>
                     <div class="vx-chatify-conversation-head"><strong>New conversation</strong><button type="button" x-on:click="showNew=false" aria-label="Cancel new conversation">✕</button></div>
                     <div class="vx-chat-compose-body">
-                        <label class="vx-chat-compose-label" for="vx-chat-recipient-search">To: <span x-text="recipients.length ? recipients.length + ' selected' : 'Choose teammates'"></span></label>
-                        <input id="vx-chat-recipient-search" type="search" x-model="userSearch" x-on:focus="loadUsers()" placeholder="Search teammates by name…" aria-label="Search teammates by name" autocomplete="off">
+                        <div class="vx-chat-compose-mode" role="group" aria-label="Conversation type">
+                            <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="creatingGroup=false">Direct message</button>
+                            <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="creatingGroup=true">Group conversation</button>
+                        </div>
+                        <input type="text" x-show="creatingGroup" x-model="groupName" maxlength="120" placeholder="Group name (optional)" aria-label="Group name">
+                        <label class="vx-chat-compose-label" for="vx-chat-recipient-search">Add people <span x-text="recipients.length ? recipients.length + ' selected' : 'Choose teammates'"></span></label>
+                        <input id="vx-chat-recipient-search" type="search" x-model="userSearch" x-on:focus="loadUsers()" placeholder="Search by name or role…" aria-label="Search teammates by name or role" autocomplete="off">
                         <div class="vx-chat-compose-selection" x-show="recipients.length" aria-live="polite">
                             <template x-for="user in users.filter(u => recipients.includes(String(u.id)))" :key="'selected-'+user.id">
                                 <button type="button" class="vx-chat-compose-chip" x-on:click="recipients=recipients.filter(id=>id!==String(user.id))" :aria-label="'Remove '+userName(user)"><span x-text="userName(user)"></span><span aria-hidden="true">×</span></button>
                             </template>
                         </div>
-                        <div class="vx-chat-compose-list-head"><strong>Teammates</strong><span x-text="users.length + ' available'"></span><button type="button" x-on:click="loadUsers()" :disabled="usersLoading" aria-label="Refresh teammates">Refresh</button></div>
+                        <div class="vx-chat-compose-filters" role="group" aria-label="Filter teammates"><template x-for="role in [{name:'All',value:''},{name:'Fulfillment',value:'fulfillment'},{name:'Streaming',value:'stream'},{name:'Admin',value:'admin'}]" :key="role.name"><button type="button" x-on:click="peopleRoleFilter=role.value" :class="{'is-active':peopleRoleFilter===role.value}" x-text="role.name" :aria-pressed="String(peopleRoleFilter===role.value)"></button></template></div><div class="vx-chat-compose-list-head"><strong>Teammates</strong><span x-text="users.length + ' available'"></span><button type="button" x-on:click="loadUsers()" :disabled="usersLoading" aria-label="Refresh teammates">Refresh</button></div>
                         <div class="vx-chatify-user-list vx-chat-compose-users" role="group" aria-label="Choose message recipients">
                             <p x-show="usersLoading" class="vx-chat-compose-empty" role="status">Loading teammates…</p>
-                            <template x-for="user in users.filter(u=>userName(u).toLowerCase().includes(userSearch.trim().toLowerCase()))" :key="user.id">
+                            <template x-for="user in users.filter(u=>(userName(u)+' '+(u.attributes?.role || '')).toLowerCase().includes(userSearch.trim().toLowerCase()) && (!peopleRoleFilter || String(u.attributes?.role || '').toLowerCase().includes(peopleRoleFilter)))" :key="user.id">
                                 <label class="vx-chat-compose-person">
                                     <span class="vx-chat-compose-avatar" x-text="userName(user).trim().charAt(0).toUpperCase()"></span>
                                     <span class="vx-chat-compose-person-name"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Team member'"></small></span>
@@ -120,15 +125,15 @@
                                 </label>
                             </template>
                             <p x-show="!usersLoading && !users.length" class="vx-chat-compose-empty">No teammates available. Try Refresh, or ask an administrator to check messaging access.</p>
-                            <p x-show="!usersLoading && users.length && !users.some(u=>userName(u).toLowerCase().includes(userSearch.trim().toLowerCase()))" class="vx-chat-compose-empty">No matching teammates. Try a different name.</p>
+                            <p x-show="!usersLoading && users.length && !users.some(u=>(userName(u)+' '+(u.attributes?.role || '')).toLowerCase().includes(userSearch.trim().toLowerCase()) && (!peopleRoleFilter || String(u.attributes?.role || '').toLowerCase().includes(peopleRoleFilter)))" class="vx-chat-compose-empty">No matching teammates. Try a different name.</p>
                         </div>
-                        <label class="vx-chat-compose-group"><input type="checkbox" x-model="creatingGroup"> Create a group conversation</label>
+
                         <div x-show="canCreateGroups && creatingGroup" class="vx-chat-compose-role">
                             <label for="vx-chat-role">Add by role</label>
                             <select id="vx-chat-role" x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select>
                             <button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Add role members</button>
                         </div>
-                        <input type="text" x-show="creatingGroup || recipients.length>1" x-model="groupName" maxlength="120" placeholder="Group name (optional)" aria-label="Group name">
+
                         <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
                     </div>
                     <div class="vx-chat-compose-footer">
@@ -143,6 +148,12 @@
                 .vx-chat-compose{display:flex!important;flex-direction:column;min-height:0;overflow:hidden}
                 .vx-chat-compose[x-cloak],.vx-chat-compose[style*="display: none"]{display:none!important}
                 .vx-chat-compose-body{display:flex;flex-direction:column;gap:10px;padding:16px;min-height:0;flex:1;overflow:hidden}
+                .vx-chat-compose-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+                .vx-chat-compose-mode button{padding:10px 8px;border:1px solid #ddd4ef;border-radius:10px;font-size:12px;font-weight:700;color:#493765;background:#fff}
+                .vx-chat-compose-mode button.is-active{background:#f2eaff;border-color:#7c3aed;color:#6426bd}
+                .vx-chat-compose-filters{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px}
+                .vx-chat-compose-filters button{white-space:nowrap;padding:5px 10px;border-radius:999px;border:1px solid #e2d9f0;font-size:11px;font-weight:600;color:#5d4d72}
+                .vx-chat-compose-filters button.is-active{background:#6d28d9;color:#fff;border-color:#6d28d9}
                 .vx-chat-compose-label{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:13px}
                 .vx-chat-compose-label span{font-weight:500;color:#776a8b}
                 .vx-chat-compose-body>input[type="search"],.vx-chat-compose-body>input[type="text"]{width:100%;min-height:42px;border:1px solid #d9d0e9;border-radius:10px;padding:9px 12px;background:#fff;color:#231538}
@@ -173,7 +184,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;

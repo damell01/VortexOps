@@ -39,7 +39,6 @@
             <svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#7c3aed"/><path d="M8 9h16l-8 15z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><path d="M12.5 12.5h7l-3.5 6.5z" fill="#fff"/></svg>
             <span>VORTEX OPS <small>{{ $station ? 'Station whiteboard' : 'Fulfillment whiteboard' }}</small></span>
             <span class="vxtv__live" id="vxtv-live"><i aria-hidden="true"></i> Live</span>
-            <span class="vxtv__dev">In development</span>
         </div>
         @unless ($station)
             <dl class="vxtv__summary" aria-label="Today">
@@ -85,7 +84,7 @@
         <span class="vxtv__ticker-label">Recent</span>
         <div class="vxtv__ticker-window"><div class="vxtv__ticker-track" id="vxtv-track"></div></div>
     </footer>
-    <div class="vxtv__offline" id="vxf-offline" hidden role="status">Reconnecting…</div>
+    <div class="vxtv__offline" id="vxf-offline" hidden role="status">Live updates unavailable. Reconnecting… Displayed packing information may be out of date.</div>
 </main>
 
 <script>
@@ -318,8 +317,10 @@
     }
 
     // ── Feed polling with backoff ─────────────────────────────────────────
-    let delay = 5000, timer;
+    let delay = 5000, timer, polling = false;
     async function poll() {
+        if (polling) return;
+        polling = true;
         clearTimeout(timer);
         try {
             const r = await fetch(feed, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
@@ -332,6 +333,7 @@
             offline.hidden = false; document.getElementById('vxtv-live').classList.add('is-off');
             delay = Math.min(delay * 2, 60000);
         }
+        polling = false;
         timer = setTimeout(poll, delay);
     }
 

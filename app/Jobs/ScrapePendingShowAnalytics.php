@@ -46,6 +46,8 @@ class ScrapePendingShowAnalytics implements ShouldQueue, ShouldBeUnique
         $show = Show::query()->readyForAnalytics()->find($this->showId);
         if (! $show || ! $show->whatnot_show_id || ! $show->whatnot_channel_id) return;
         if ($show->analytics_sync_status === 'unavailable' && $show->analytics_unavailable_at) return;
+        $initialMeta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        if (! empty($initialMeta['_analytics_api_generated_at'])) return;
 
         $channel = WhatnotChannel::find($show->whatnot_channel_id);
         if (! $channel || ! $channel->whatnot_username) return;
@@ -74,9 +76,12 @@ class ScrapePendingShowAnalytics implements ShouldQueue, ShouldBeUnique
         );
         $show->refresh();
         $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
-        $meta['_analytics_browser_finished_at'] = now()->toIso8601String();
-        $show->forceFill(['raw_import_payload' => $meta])->saveQuietly();
-        RetryShowAnalytics::dispatch($show->id)->delay(now()->addMinutes(2));
+        if (($result['updated'] ?? 0) > 0 && ($result['failed'] ?? 0) === 0) {
+            $meta['_analytics_browser_finished_at'] = now()->toIso8601String();
+            $show->forceFill(['raw_import_payload' => $meta])->saveQuietly();
+        }
+        // The API poll scheduler handles follow-up checks with its own cooldown.
+        // Do not dispatch an immediate duplicate API request here.
         Log::info('Finished analytics-only Seller Hub fallback', [
             'show_id' => $show->id,
             'result' => $result,

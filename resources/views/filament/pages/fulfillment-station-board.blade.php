@@ -236,9 +236,14 @@
                         <form wire:submit="scan" class="vxf-scan" aria-label="Scan an item to verify">
                             <x-heroicon-o-qr-code aria-hidden="true" />
                             <label for="vxf-scan-input" class="sr-only">Scan item barcode</label>
-                            <input id="vxf-scan-input" x-ref="scan" type="text" autocomplete="off" placeholder="Scan an item to verify…" wire:model="scanCode" @disabled($paused || ! $canWork || $current->status === 'packed')>
+                            <input id="vxf-scan-input" x-ref="scan" type="text" inputmode="text" enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="off" placeholder="Scan an item to verify…" wire:model="scanCode" aria-describedby="vxf-scan-help vxf-scan-feedback" @disabled($paused || ! $canWork || $current->status === 'packed')>
                             <button type="submit" class="vxf-btn vxf-btn--sm vxf-btn--primary" @disabled($paused || ! $canWork)>Verify</button>
                         </form>
+                        <p id="vxf-scan-help" class="vxf-sub" style="margin:6px 0 0">Scan the item barcode and press Enter. A verified item updates the checklist; a mismatch is rejected.</p>
+                        <div id="vxf-scan-feedback" aria-live="polite" aria-atomic="true">
+                            @error('barcode') <p role="alert" class="vxf-alert" style="margin-top:8px">{{ $message }}</p> @enderror
+                            <p wire:loading wire:target="scan" class="vxf-sub" style="margin-top:6px">Checking barcode…</p>
+                        </div>
                         @php $cov = $this->coverage; @endphp
                         @if ($cov && $cov['supported'])
                             <ul class="vxf-items" style="margin-top:8px">

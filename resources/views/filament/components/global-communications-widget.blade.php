@@ -1,7 +1,7 @@
 @if(config('chatify-preview.available', false))
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if((config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false)) && (\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false)))
-        <div class="vx-chatify-shell" :class="{'is-open': open}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="close()">
+        <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="showNew ? showNew=false : close()">
             <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
                 <span>Messages</span><span class="vx-chatify-launch-unread" x-show="totalUnread()>0" x-text="totalUnread()" aria-label="Unread messages"></span>
@@ -149,6 +149,11 @@
         @once
             <style>
                 /* Dedicated centered composer; floating chat remains unchanged behind it. */
+                .vx-chatify-shell.is-composing{z-index:2147482999!important}
+                .vx-chatify-compose-backdrop .vx-chatify-conversation-head button{margin-left:auto;flex:0 0 auto}
+                .vx-chatify-compose-backdrop .vx-chat-compose-body>input,.vx-chatify-compose-backdrop .vx-chat-compose-filters,.vx-chatify-compose-backdrop .vx-chat-compose-selection{flex:0 0 auto}
+                .vx-chatify-compose-backdrop .vx-chat-compose-footer{flex-shrink:0}
+
                 .vx-chatify-compose-backdrop{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(20,12,40,.58);backdrop-filter:blur(4px)}
                 .vx-chatify-compose-backdrop[x-cloak],.vx-chatify-compose-backdrop[style*="display: none"]{display:none!important}
                 .vx-chatify-compose-backdrop .vx-chat-compose{position:relative!important;inset:auto!important;display:flex!important;width:min(1040px,calc(100vw - 48px))!important;height:min(760px,calc(100dvh - 48px))!important;max-height:calc(100dvh - 48px)!important;border-radius:22px;box-shadow:0 24px 85px rgba(13,8,28,.3);background:#fff;overflow:hidden}

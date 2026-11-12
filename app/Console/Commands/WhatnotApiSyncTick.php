@@ -33,7 +33,9 @@ final class WhatnotApiSyncTick extends Command
         }
         $modes = [
             'all' => null,
-            'fresh' => ['shows', 'orders', 'items', 'shipments', 'analytics'],
+            // Keep the minute-level hot path short: slow analytics, shipments and
+            // tip reconciliation must not block live order updates.
+            'fresh' => ['shows', 'orders'],
             'recent' => ['shows', 'orders', 'items'],
             'analytics' => ['analytics', 'shipments'],
             'finance' => ['ledger', 'overview'],
@@ -58,10 +60,10 @@ final class WhatnotApiSyncTick extends Command
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
                 $result = $sync->run($connection, ($mode === 'fresh' ? 1 : (int) config('services.whatnot_seller.sync_days', 3)),
-                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: $mode === 'fresh' ? 12 : null);
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: null);
                 // Newly synced orders may supply the missing exact show evidence
                 // for previously imported tips. Retry safely without touching payroll.
-                if (! $result['dry_run'] && in_array($mode, ['fresh', 'recent', 'finance'], true)) {
+                if (! $result['dry_run'] && in_array($mode, ['recent', 'finance'], true)) {
                     $matcher = app(LedgerAutoMatcher::class);
                     $matched = 0;
                     $review = 0;

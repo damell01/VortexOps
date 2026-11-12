@@ -254,7 +254,7 @@
                                         @if ($needsReport)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" title="Packing starts once the streamer report is approved" style="opacity:.55;cursor:not-allowed">Start</span>
                                         @else
-                                            <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open' : 'Start' }}</a>
+                                            <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open packing' : 'Open to start' }}</a>
                                         @endif
                                     </td>
                                 </tr>

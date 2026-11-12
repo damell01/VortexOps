@@ -3,28 +3,48 @@
 @php
     $money = fn ($v) => $v === null ? '—' : (((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2));
 @endphp
-<div class="vxw" data-vx-page="giveaway-roi">
-    <section class="vxw-card">
-        <div class="vxw-card-body" style="display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;justify-content:space-between">
-            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-                <label class="vxw-meta" for="gr-range" style="display:grid;gap:4px">Period
-                    <select id="gr-range" class="vxw-input" wire:model.live="range">@foreach($ranges as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach</select>
-                </label>
-                <label class="vxw-meta" for="gr-channel" style="display:grid;gap:4px">Channel
-                    <select id="gr-channel" class="vxw-input" wire:model.live="channel"><option value="">All channels</option>@foreach($channels as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
-                </label>
-            </div>
+<div class="vxr" data-vx-page="giveaway-roi">
+    <div class="vxr-head">
+        <div><h1 class="vxr-title">Giveaway ROI</h1><p class="vxr-subtitle">What giveaways cost, the new buyers they bring and how those shows earn against shows without them.</p></div>
+        <div class="vxr-actions">
+            <label class="vxr-control"><x-filament::icon icon="heroicon-o-calendar" /><select id="gr-range" wire:model.live="range" aria-label="Period">@foreach($ranges as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach</select></label>
+            <label class="vxr-control"><x-filament::icon icon="heroicon-o-signal" /><select id="gr-channel" wire:model.live="channel" aria-label="Channel"><option value="">All channels</option>@foreach($channels as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
             <x-report-toolbar :exports="['export' => 'Export CSV']" />
         </div>
-        <div class="vxw-stats">
-            <div class="vxw-stat"><div class="vxw-stat-label">Spent on giveaways</div><div class="vxw-stat-value">{{ $money($totals['cost']) }}</div><div class="vxw-meta">{{ $money($totals['product_cost']) }} product · {{ $money($totals['whatnot_spend']) }} Whatnot</div></div>
-            <div class="vxw-stat"><div class="vxw-stat-label">New buyers on those shows</div><div class="vxw-stat-value">{{ number_format($totals['new_buyers']) }}</div></div>
-            <div class="vxw-stat"><div class="vxw-stat-label">Cost per new buyer</div><div class="vxw-stat-value">{{ $money($totals['cost_per_new_buyer']) }}</div></div>
-            <div class="vxw-stat"><div class="vxw-stat-label">Avg net, with vs without</div><div class="vxw-stat-value">{{ $money($with['avg_net']) }} <span class="vxw-meta">vs {{ $money($without['avg_net']) }}</span></div><div class="vxw-meta">{{ $with['shows'] }} with · {{ $without['shows'] }} without · new buyers {{ $with['avg_new_buyers'] }} vs {{ $without['avg_new_buyers'] }}</div></div>
+    </div>
+
+    @php
+        $lift = $with['shows'] > 0 && $without['avg_net'] > 0 ? round(($with['avg_net'] - $without['avg_net']) / $without['avg_net'] * 100, 1) : null;
+        $pairs = [
+            ['Avg Whatnot net per show', $with['avg_net'], $without['avg_net'], true],
+            ['Avg new buyers per show', $with['avg_new_buyers'], $without['avg_new_buyers'], false],
+        ];
+    @endphp
+    <div class="vxr-stats" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <x-vxr.stat label="Spent on giveaways" :value="$money($totals['cost'])" icon="heroicon-o-gift" tone="bad" :note="$money($totals['product_cost']).' product · '.$money($totals['whatnot_spend']).' Whatnot'" />
+        <x-vxr.stat label="New buyers on those shows" :value="number_format($totals['new_buyers'])" icon="heroicon-o-user-plus" :note="number_format($totals['giveaways']).' giveaways run'" />
+        <x-vxr.stat label="Cost per new buyer" :value="$money($totals['cost_per_new_buyer'])" icon="heroicon-o-calculator" featured note="Giveaway spend ÷ first-time buyers" />
+        <x-vxr.stat label="Net lift with giveaways" :value="$lift === null ? '—' : (($lift >= 0 ? '+' : '').number_format($lift, 1).'%')" icon="heroicon-o-arrow-trending-up" :tone="$lift !== null && $lift < 0 ? 'bad' : 'ok'" :note="$with['shows'].' with · '.$without['shows'].' without'" />
+    </div>
+
+    <section class="vxr-card">
+        <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-scale" /> With vs without giveaways</h2><p class="vxr-card-sub">The average show of each kind in this period.</p></div>
+            <div class="vxr-legend"><span><i style="height:8px;width:8px;border-radius:2px;background:var(--vxw-accent)"></i>With giveaways</span><span><i style="height:8px;width:8px;border-radius:2px;background:var(--vxw-border-strong,#c4c0d0)"></i>Without</span></div></div>
+        <div class="vxr-card-body" style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+            @foreach ($pairs as [$label, $a, $b, $isMoney])
+                @php $mx = max(0.01, $a, $b); $f = fn ($v) => $isMoney ? $money($v) : number_format($v, 1); @endphp
+                <div>
+                    <div style="font-size:13px;font-weight:650;margin-bottom:8px">{{ $label }}</div>
+                    <div class="vxr-lead">
+                        <div class="vxr-lead-row" style="grid-template-columns:70px minmax(0,1fr) auto"><span class="nm" style="font-weight:600">With</span><span class="vxr-mini-bar" style="height:12px;margin:0"><i style="width:{{ $a / $mx * 100 }}%"></i></span><span class="v">{{ $f($a) }}</span></div>
+                        <div class="vxr-lead-row" style="grid-template-columns:70px minmax(0,1fr) auto"><span class="nm" style="font-weight:600">Without</span><span class="vxr-mini-bar" style="height:12px;margin:0"><i style="width:{{ $b / $mx * 100 }}%;background:var(--vxw-border-strong,#c4c0d0)"></i></span><span class="v">{{ $f($b) }}</span></div>
+                    </div>
+                </div>
+            @endforeach
         </div>
     </section>
 
-    <section class="vxw-card" style="margin-top:16px">
+    <section class="vxr-card">
         @if ($shows->isEmpty())
             <div style="padding:24px;text-align:center">
                 <p style="margin:0 0 6px;font-weight:600">No shows in this period</p>
@@ -33,7 +53,7 @@
             </div>
         @else
             <div style="overflow-x:auto">
-                <table class="vxw-table" style="width:100%">
+                <table class="vxr-table2">
                     <thead><tr>
                         <th scope="col" style="text-align:left">Show</th>
                         <th scope="col" style="text-align:right">Giveaways</th><th scope="col" style="text-align:right">Cost</th>

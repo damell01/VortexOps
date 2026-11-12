@@ -30,6 +30,7 @@ class ScrapePendingShowAnalytics implements ShouldQueue, ShouldBeUnique
 
     public function __construct(public int $showId)
     {
+        $this->onConnection('redis_analytics');
         $this->onQueue('whatnot-analytics-browser');
     }
 

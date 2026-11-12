@@ -66,7 +66,7 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
             }
 
             $result = $applier->apply((int) $show->whatnot_channel_id, $payload, ! WhatnotApiOrderApplier::writesAllowed());
-            if (in_array($result['outcome'], ['not_ready', 'not_calculated'], true) && Schema::hasColumn('shows', 'analytics_sync_status')) {
+            if (WhatnotApiOrderApplier::writesAllowed() && in_array($result['outcome'], ['not_ready', 'not_calculated'], true) && Schema::hasColumn('shows', 'analytics_sync_status')) {
                 $show->refresh();
                 $show->forceFill([
                     'analytics_sync_status' => $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable',

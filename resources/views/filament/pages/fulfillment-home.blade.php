@@ -2,23 +2,46 @@
 @php
     $manager = $this->isManager();
 @endphp
-@include('fulfillment.dev-banner')
 @include('fulfillment.motion')
 
 <style>
 /* Compact sticky station targets stay in view while the manager scrolls the show queue. */
-.vxf-queue-dock{position:sticky;top:7.25rem;z-index:18;display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border:1px solid #ddd6fe;border-radius:14px;background:rgba(250,248,255,.97);box-shadow:0 6px 18px rgba(30,18,65,.08);backdrop-filter:blur(10px)}
+.vxf-queue-dock{position:relative;top:auto;z-index:2;display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border:1px solid #ddd6fe;border-radius:14px;background:rgba(250,248,255,.97);box-shadow:0 6px 18px rgba(30,18,65,.08);backdrop-filter:blur(10px)}
 .vxf-queue-dock__label{display:flex;flex-direction:column;gap:2px;min-width:135px;font-size:12px}.vxf-queue-dock__label span{color:#64748b;font-size:10px}
 .vxf-queue-dock__stations{display:flex;gap:7px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
 .vxf-queue-dock__target{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:42px;padding:6px 9px;border:1px dashed #a78bfa;border-radius:10px;background:#fff;font-size:12px}
 .vxf-queue-dock__target.is-over{background:#ede9fe;border:2px solid #7c3aed}.vxf-queue-dock__target.is-busy{border-style:solid;border-color:#e2e8f0;opacity:.65}
 .vxf-queue-dock__name{font-weight:700;white-space:nowrap}.vxf-queue-dock__state{color:#64748b;font-size:10px}.vxf-queue-dock__assign{border-radius:7px;background:#6d28d9;color:white;padding:5px 8px;font-weight:700;font-size:11px}
 .dark .vxf-queue-dock{background:rgba(30,20,50,.97);border-color:#6d28d9}.dark .vxf-queue-dock__target{background:#241c35;color:#f8fafc}
-@media(max-width:800px){.vxf-queue-dock{top:4rem;display:block;padding:8px}.vxf-queue-dock__label{margin-bottom:6px}.vxf-queue-dock__label span{display:none}.vxf-queue-dock__target{min-height:44px}}
+@media(max-width:800px){.vxf-queue-dock{top:auto;display:block;padding:8px}.vxf-queue-dock__label{margin-bottom:6px}.vxf-queue-dock__label span{display:none}.vxf-queue-dock__target{min-height:44px}}
 
 .vxf-dnd-mobile-hint{display:none}
 @media(max-width:800px){.vxf-dnd-desktop-hint{display:none}.vxf-dnd-mobile-hint{display:inline}.vxf-dnd-team__chips{display:none}.vxf-queue-dock__assign{min-height:36px;padding:7px 12px}.vxf-queue-dock__stations{scroll-snap-type:x proximity}.vxf-queue-dock__target{scroll-snap-align:start}}
 .vxf-queue-search{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.vxf-queue-search input{flex:1;min-width:180px;min-height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;background:var(--vxf-panel,#fff);color:inherit}.vxf-queue-search input:focus{outline:2px solid #7c3aed;outline-offset:1px}
+
+/* Dashboard hierarchy: compact stats, uncluttered stations, full-width queue. */
+.vxf .vxf-stats{gap:9px}
+.vxf .vxf-stat{min-height:68px;padding:10px 12px;gap:10px}
+.vxf .vxf-stat__icon{width:34px;height:34px;flex:0 0 34px}
+.vxf .vxf-stat__value{font-size:1.45rem;line-height:1.15}
+.vxf .vxf-stat__label{font-size:12px}
+.vxf .vxf-floor .vxf-card__head{gap:12px;flex-wrap:wrap}
+.vxf .vxf-status-filters{display:flex;flex-wrap:wrap;gap:5px}
+.vxf .vxf-status-filters .vxf-tab{min-height:32px;padding:5px 9px}
+.vxf .vxf-stations--track{scroll-snap-type:x proximity}
+.vxf .vxf-station{scroll-snap-align:start}
+.vxf .vxf-queue-dock{box-shadow:none}
+@media(min-width:1440px){
+  .vxf .vxf-stations--track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;gap:10px}
+  .vxf .vxf-stations--track>.vxf-station{width:auto;min-width:0;max-width:none}
+  .vxf .vxf-carousel__arrow{display:none!important}
+}
+@media(max-width:800px){
+  .vxf .vxf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vxf .vxf-queue-dock__stations{max-width:100%}
+  .vxf .vxf-status-filters{overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding-bottom:3px}
+  .vxf .vxf-status-filters .vxf-tab{flex:0 0 auto}
+}
 </style>
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">

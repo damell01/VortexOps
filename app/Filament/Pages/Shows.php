@@ -799,20 +799,20 @@ class Shows extends Page
         $sync = app(\App\Services\WhatnotApiSync::class);
         $completed = 0;
         $failures = [];
-        $this->stream(to: 'today-whatnot-sync-progress', content: "Starting live Whatnot API sync for {$connections->count()} channels…\\n", replace: true);
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Starting live Whatnot API sync for {$connections->count()} channels…\n", replace: true);
         foreach ($connections as $connection) {
             $channelId = (int) $connection->whatnot_channel_id;
             $lock = \Illuminate\Support\Facades\Cache::lock('whatnot-api-sync:'.$channelId, 1800);
             if (! $lock->get()) {
                 $failures[] = "Channel {$channelId} is already syncing";
-                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: another sync is running.\\n");
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: another sync is running.\n");
                 continue;
             }
             try {
-                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: requesting shows, orders, analytics and finance…\\n");
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: requesting shows, orders, analytics and finance…\n");
                 $result = $sync->run($connection, 1, dryRun: false,
                     log: function (string $line) use ($channelId): void {
-                        $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: {$line}\\n");
+                        $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: {$line}\n");
                     });
                 if (! empty($result['errors'])) {
                     $failures[] = "Channel {$channelId}: ".implode('; ', $result['errors']);
@@ -826,7 +826,7 @@ class Shows extends Page
                 $lock->release();
             }
         }
-        $this->stream(to: 'today-whatnot-sync-progress', content: "Finished: {$completed}/{$connections->count()} channels successful.\\n");
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Finished: {$completed}/{$connections->count()} channels successful.\n");
         $this->resetData();
         Notification::make()->title($failures ? 'Whatnot sync completed with issues' : 'Whatnot sync complete')
             ->body($failures ? implode(' | ', $failures) : 'Fresh API data has been imported. Analytics not yet published by Whatnot will remain pending.')

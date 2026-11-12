@@ -39,7 +39,11 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                 ->first();
 
             if (! $connection || ! $connection->access_token) {
+                // Do not silently report a queued retry as successful when no API call was made.
                 Log::warning('Show analytics retry skipped: API connection unavailable', ['show_id' => $this->showId]);
+                if (Schema::hasColumn('shows', 'analytics_sync_note')) {
+                    $show->forceFill(['analytics_sync_note' => 'API retry could not run: channel API connection is disabled or missing a token.'])->save();
+                }
                 return;
             }
 

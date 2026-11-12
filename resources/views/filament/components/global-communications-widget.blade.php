@@ -103,7 +103,7 @@
                     <div class="vx-chatify-conversation-head"><strong>New conversation</strong><button type="button" x-on:click="showNew=false" aria-label="Cancel new conversation">✕</button></div>
                     <div class="vx-chat-compose-body">
                         <div class="vx-chat-compose-mode" role="group" aria-label="Conversation type">
-                            <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="creatingGroup=false">Direct message</button>
+                            <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="creatingGroup=false;recipients=recipients.slice(0,1)">Direct message</button>
                             <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="creatingGroup=true">Group conversation</button>
                         </div>
                         <input type="text" x-show="creatingGroup" x-model="groupName" maxlength="120" placeholder="Group name (optional)" aria-label="Group name">
@@ -121,7 +121,7 @@
                                 <label class="vx-chat-compose-person">
                                     <span class="vx-chat-compose-avatar" x-text="userName(user).trim().charAt(0).toUpperCase()"></span>
                                     <span class="vx-chat-compose-person-name"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Team member'"></small></span>
-                                    <input type="checkbox" :value="String(user.id)" x-model="recipients" :disabled="!recipients.includes(String(user.id)) && recipients.length>=49" :aria-label="'Select '+userName(user)">
+                                    <input type="checkbox" :value="String(user.id)" x-model="recipients" :disabled="!recipients.includes(String(user.id)) && (recipients.length >= (creatingGroup ? 49 : 1))" :aria-label="'Select '+userName(user)">
                                 </label>
                             </template>
                             <p x-show="!usersLoading && !users.length" class="vx-chat-compose-empty">No teammates available. Try Refresh, or ask an administrator to check messaging access.</p>
@@ -137,8 +137,8 @@
                         <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
                     </div>
                     <div class="vx-chat-compose-footer">
-                        <span x-text="recipients.length + ' of 49 selected'"></span>
-                        <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : (recipients.length>1 || creatingGroup ? 'Create group chat' : 'Start conversation')"></button>
+                        <span x-text="creatingGroup ? recipients.length + ' of 49 selected' : recipients.length + ' of 1 selected'"></span>
+                        <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : (creatingGroup ? 'Create group chat' : 'Start conversation')"></button>
                     </div>
                 </div>
             </section>
@@ -148,6 +148,10 @@
                 .vx-chat-compose{display:flex!important;flex-direction:column;min-height:0;overflow:hidden}
                 .vx-chat-compose[x-cloak],.vx-chat-compose[style*="display: none"]{display:none!important}
                 .vx-chat-compose-body{display:flex;flex-direction:column;gap:10px;padding:16px;min-height:0;flex:1;overflow:hidden}
+                .vx-chat-compose-users{scrollbar-width:thin;scrollbar-color:#b7a3d8 transparent}
+                .vx-chat-compose-person:has(input:checked){background:#f1e9ff}
+                .vx-chat-compose-person:focus-within{outline:2px solid #8b5cf6;outline-offset:-2px}
+                .vx-chat-compose-footer .vx-chatify-new-create:disabled{opacity:.5;cursor:not-allowed}
                 .vx-chat-compose-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px}
                 .vx-chat-compose-mode button{padding:10px 8px;border:1px solid #ddd4ef;border-radius:10px;font-size:12px;font-weight:700;color:#493765;background:#fff}
                 .vx-chat-compose-mode button.is-active{background:#f2eaff;border-color:#7c3aed;color:#6426bd}

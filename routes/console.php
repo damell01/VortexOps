@@ -147,6 +147,14 @@ Schedule::command('whatnot:analytics-catchup')
     ->name('whatnot-analytics-catchup')
     ->withoutOverlapping(20);
 
+// Poll Whatnot Owner API for recently ended shows without generated analytics.
+Schedule::command('whatnot:analytics-api-poll --limit=30')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->everyFiveMinutes()
+    ->name('whatnot-analytics-api-poll')
+    ->withoutOverlapping(4);
+
 // Alias cleanup is database-only and does not use the Whatnot browser.
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)

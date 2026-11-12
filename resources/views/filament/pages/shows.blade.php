@@ -343,6 +343,11 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 }
 
 /* Show details are a centered dialog at every screen size. */
+.vx-show-dialog-portal{position:relative;z-index:9999}
+.vx-show-dialog-portal .vx-backdrop{z-index:9998}
+.vx-show-dialog-portal .vx-drawer{position:fixed!important;z-index:9999!important;margin:0!important;inset:auto!important;top:50dvh!important;left:50vw!important;transform:translate(-50%,-50%)!important}
+.vx-show-dialog-portal .vx-drawer.vx-drawer-off{transform:translate(-50%,-48%)!important;opacity:0}
+
 .vx-backdrop{display:block;position:fixed;inset:0;z-index:109;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
 .vx-drawer,.vx-drawer.full{z-index:110;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 48px);border:1px solid var(--vx-line);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,.3)}
 .vx-drawer>div{max-height:calc(100dvh - 48px)}
@@ -705,6 +710,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     </div>
 </section>
 
+{{-- Teleport the dialog out of Filament's scroll/transform containers so fixed positioning is viewport-relative. --}}
+<template x-teleport="body">
+<div class="vx-cal vx-show-dialog-portal">
 {{-- ── Show drawer / bottom sheet ────────────────────────────────── --}}
 <div class="vx-backdrop" x-show="show" x-cloak x-transition.opacity @click="close()"></div>
 <aside data-vx-dialog class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="true" x-trap.inert.noscroll="show !== null" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
@@ -763,5 +771,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
         </div>
     </template>
 </aside>
+</div>
+</template>
 </div>
 </x-filament-panels::page>

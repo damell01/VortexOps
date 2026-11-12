@@ -78,7 +78,7 @@ final class WhatnotApiOrderApplier
         $counts = [
             'received' => count($items), 'created' => 0, 'updated' => 0, 'unchanged' => 0,
             'invalid' => 0, 'no_show_id' => 0, 'show_not_found' => 0, 'show_ambiguous' => 0,
-            'other_show' => 0, 'not_a_sale' => 0, 'id_format_mismatch' => 0, 'duplicate_in_payload' => 0,
+            'other_show' => 0, 'not_a_sale' => 0, 'id_format_mismatch' => 0, 'duplicate_in_payload' => 0, 'future_show' => 0,
             'needs_items' => [],
         ];
 
@@ -118,6 +118,14 @@ final class WhatnotApiOrderApplier
                     continue;
                 }
                 $show = $shows->first();
+                // Do not let a malformed/future show association abort the
+                // entire snapshot transaction. Keep the source snapshot for
+                // review and never create sales on a future show.
+                if ($show->show_date?->isAfter(today())) {
+                    $counts['future_show'] += count($orders);
+                    $skippedShows[$show->id] = 'Future show #'.$show->id.' ('.$show->show_date->toDateString().'): '.count($orders).' API order(s) withheld for investigation.';
+                    continue;
+                }
 
                 if ($this->idFormatsDiffer($show, $orders)) {
                     $counts['id_format_mismatch'] += count($orders);
@@ -156,7 +164,7 @@ final class WhatnotApiOrderApplier
             'status' => $dryRun ? 'dry_run' : 'applied',
             'received_count' => $counts['received'],
             'matched_count' => $counts['created'] + $counts['updated'] + $counts['unchanged'],
-            'unmatched_count' => $counts['show_not_found'] + $counts['show_ambiguous'] + $counts['id_format_mismatch'],
+            'unmatched_count' => $counts['show_not_found'] + $counts['show_ambiguous'] + $counts['id_format_mismatch'] + $counts['future_show'],
             'summary' => ['snapshot_id' => $snapshotId, 'counts' => array_diff_key($counts, ['needs_items' => true]), 'skipped_shows' => $skippedShows],
             'started_at' => now(),
             'finished_at' => now(),

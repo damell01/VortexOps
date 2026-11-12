@@ -27,6 +27,124 @@
     {{-- ── Schedule ─────────────────────────────────────────────────── --}}
     @if ($tab === 'schedule')
         @php $start = $this->weekStart(); $days = collect(range(0, 6))->map(fn ($i) => $start->addDays($i)); $shifts = $this->weekShifts; @endphp
+        @if ($manager)
+            @php $flexibleShiftsReady = \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_blocks') && \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_assignments') && \Illuminate\Support\Facades\Schema::hasTable('fulfillment_shift_block_events'); @endphp
+            @unless ($flexibleShiftsReady)
+                <div class="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" role="status">
+                    Flexible scheduling is awaiting Dev database migrations. Existing employee schedules remain available; new shift actions are temporarily disabled.
+                </div>
+            @endunless
+            @if ($flexibleShiftsReady)
+            <section class="mb-3 rounded-xl border border-[var(--vx-divider)] bg-white p-3 dark:bg-gray-900" aria-label="Open staffing shifts">
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div><h2 class="text-sm font-bold">Open staffing shifts</h2><p class="text-xs text-gray-500">Create Day or Night shifts before assigning employees. Existing employee shifts remain unchanged.</p></div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex rounded-lg border border-[var(--vx-divider)] p-1" role="group" aria-label="Schedule layout">
+                            <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $staffingView === 'shift' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-white' : '' }}" wire:click="setStaffingView('shift')">Shift view</button>
+                            <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold {{ $staffingView === 'employee' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-white' : '' }}" wire:click="setStaffingView('employee')">Employee view</button>
+                        </div>
+                        <button type="button" class="vxf-btn" wire:click="copyStaffingWeek" wire:confirm="Copy every active shift from this week to next week? Employee and show assignments will be left empty; any duplicate will stop the entire copy.">Copy week forward</button>
+                        <button type="button" class="vxf-btn vxf-btn--primary" wire:click="openBlock">+ New open shift</button>
+                    </div>
+                </div>
+                @php $staffByBlock = $this->blockAssignments(); @endphp
+                @if ($staffingView === 'employee')
+                    <div class="overflow-x-auto rounded-xl border border-[var(--vx-divider)]">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 text-xs dark:bg-gray-800"><tr><th class="p-3">Employee</th><th class="p-3">Scheduled shift</th><th class="p-3">Station</th></tr></thead>
+                            <tbody class="divide-y divide-[var(--vx-divider)]">
+                                @forelse ($staffByBlock->flatten(1)->sortBy('name') as $assigned)
+                                    @php $shift = $this->blockRows()->firstWhere('id', $assigned->shift_block_id); @endphp
+                                    <tr><td class="p-3 font-semibold">{{ $assigned->name }}</td><td class="p-3">{{ $shift?->label ?? 'Shift' }} · {{ $shift ? \Carbon\CarbonImmutable::parse($shift->starts_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D M j, g:i A') : '' }}</td><td class="p-3">{{ $assigned->station_name ?? 'Not assigned' }}</td></tr>
+                                @empty
+                                    <tr><td colspan="3" class="p-3 text-gray-500">No employees assigned to flexible shifts this week.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    @forelse ($this->blockRows() as $block)
+                        <div class="rounded-lg border border-[var(--vx-divider)] p-3">
+                            <div class="flex items-center justify-between gap-2"><strong class="text-sm">{{ $block->label }}</strong><span class="text-xs font-semibold">{{ $block->assigned_staff == 0 ? 'Unassigned' : ($block->assigned_staff < $block->required_staff ? 'Partially staffed' : 'Fully staffed') }}</span></div>
+                            <div class="mt-1 text-xs text-gray-500">{{ \Carbon\CarbonImmutable::parse($block->starts_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D M j, g:i A') }} – {{ \Carbon\CarbonImmutable::parse($block->ends_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('D g:i A') }}</div>
+                            <div class="mt-2 text-xs font-semibold">{{ $block->assigned_staff }} / {{ $block->required_staff }} employees · {{ max(0, $block->required_staff - $block->assigned_staff) }} open slots</div>
+                            <div class="mt-2 flex flex-wrap gap-1.5" aria-label="Assigned employees">
+                                @foreach ($staffByBlock->get($block->id, collect()) as $assigned)
+                                    <span class="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-900 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-100">
+                                        {{ $assigned->name }}@if($assigned->station_name) · {{ $assigned->station_name }}@endif
+                                        <button type="button" class="ml-1 rounded-full px-1 hover:bg-violet-200 dark:hover:bg-violet-800" wire:click="removeBlockAssignment({{ $block->id }}, {{ $assigned->user_id }})" wire:confirm="Remove {{ $assigned->name }} from this shift? The shift will remain scheduled." aria-label="Remove {{ $assigned->name }}">×</button>
+                                    </span>
+                                @endforeach
+                                @if($block->assigned_staff < $block->required_staff)
+                                    <span class="rounded-full border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500">{{ $block->required_staff - $block->assigned_staff }} open {{ ($block->required_staff - $block->assigned_staff) === 1 ? 'slot' : 'slots' }}</span>
+                                @endif
+                            </div>
+                            @if($block->status !== 'cancelled')
+                                <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="editBlock({{ $block->id }})">Edit</button>
+                                <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="cancelBlock({{ $block->id }})" wire:confirm="Cancel this shift? Existing assignments will be retained for history.">Cancel shift</button>
+                            @endif
+                            <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="duplicateBlockNextWeek({{ $block->id }})" wire:confirm="Copy this shift to next week? Employees and the linked show will not be copied.">Copy to next week</button>
+                            @if ($block->status !== 'cancelled' && $block->assigned_staff < $block->required_staff)
+                                <button type="button" class="vxf-btn vxf-btn--sm mt-2" wire:click="openBlockAssignment({{ $block->id }})">Assign employee</button>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="text-sm text-gray-500">No flexible shifts created this week.</p>
+                    @endforelse
+                </div>
+                @endif
+            </section>
+            <section class="mb-3 rounded-xl border border-[var(--vx-divider)] bg-white p-3 dark:bg-gray-900" aria-label="Recent shift changes">
+                <h2 class="mb-2 text-sm font-bold">Recent shift changes</h2>
+                <div class="max-h-64 overflow-y-auto">
+                    @forelse ($this->blockHistory() as $event)
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--vx-divider)] py-2 text-xs last:border-0">
+                            <div><strong>{{ ucfirst(str_replace('_', ' ', $event->action)) }}</strong> · Shift #{{ $event->shift_block_id }}
+                                @if ($event->employee_name) · {{ $event->employee_name }} @endif
+                                <span class="text-gray-500">by {{ $event->actor_name ?? 'System' }}</span>
+                            </div>
+                            <time class="text-gray-500">{{ \Carbon\CarbonImmutable::parse($event->created_at, 'UTC')->setTimezone(\App\Support\BusinessTime::zone())->format('M j, g:i A') }}</time>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-500">No changes recorded for this week's shifts.</p>
+                    @endforelse
+                </div>
+            </section>
+            @endif
+            @if ($assignBlockId)
+                <div class="vxf-shift-modal-backdrop" wire:click="$set('assignBlockId', null)"></div>
+                <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-assign-block-title" @keydown.escape.window="$wire.set('assignBlockId', null)">
+                    <header class="vxf-shift-modal__header"><div><h2 id="vx-assign-block-title">Assign employee</h2><p class="vxf-sub">Choose a team member and optional station.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('assignBlockId', null)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+                    <form wire:submit.prevent="saveBlockAssignment" class="vxf-shift-modal__form">
+                        <div class="vxf-shift-modal__body">
+                            <label class="vxf-field">Team member <select class="vxf-select" wire:model="assignEmployeeId" required><option value="">Choose employee…</option>@foreach ($this->team as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select></label>
+                            <label class="vxf-field">Station (optional) <select class="vxf-select" wire:model="assignStationId"><option value="">Unassigned station</option>@foreach ($this->stationList->where('active', true) as $station)<option value="{{ $station->id }}">{{ $station->name }}</option>@endforeach</select></label>
+                            @error('assignEmployeeId')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <footer class="flex justify-end gap-2 p-3"><button type="button" class="vxf-btn" wire:click="$set('assignBlockId', null)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary">Assign Employee</button></footer>
+                    </form>
+                </section>
+            @endif
+            @if ($blockOpen)
+                <div class="vxf-shift-modal-backdrop" wire:click="$set('blockOpen', false)"></div>
+                <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vx-open-shift-title" @keydown.escape.window="$wire.set('blockOpen', false)">
+                    <header class="vxf-shift-modal__header"><div><h2 id="vx-open-shift-title">{{ $editingBlockId ? 'Edit shift' : 'Create open shift' }}</h2><p class="vxf-sub">Assign employees later.</p></div><button type="button" class="vxf-icon-btn" wire:click="$set('blockOpen', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></header>
+                    <form wire:submit.prevent="saveBlock" class="vxf-shift-modal__form">
+                        <div class="vxf-shift-modal__body">
+                            <label class="vxf-field">Shift type <select class="vxf-select" wire:model="blockKind" wire:change="chooseBlockKind($event.target.value)"><option value="day">Day Team · 6 AM–6 PM</option><option value="night">Night Team · 6 PM–6 AM</option><option value="custom">Custom</option></select></label>
+                            <label class="vxf-field">Date <input class="vxf-input" type="date" wire:model="blockDate" required></label>
+                            <div class="grid grid-cols-2 gap-2"><label class="vxf-field">Start <input class="vxf-input" type="time" wire:model="blockStart" required></label><label class="vxf-field">End <input class="vxf-input" type="time" wire:model="blockEnd" required></label></div>
+                            <label class="vxf-field">Required employees <input class="vxf-input" type="number" min="1" max="100" wire:model="blockRequired" required></label>
+                            <label class="vxf-field">Notes <textarea class="vxf-input" wire:model="blockNotes" rows="2"></textarea></label>
+                            @error('blockDate')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('blockRequired')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <footer class="flex justify-end gap-2 p-3"><button type="button" class="vxf-btn" wire:click="$set('blockOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary">{{ $editingBlockId ? 'Save Changes' : 'Save Shift' }}</button></footer>
+                    </form>
+                </section>
+            @endif
+        @endif
         <section class="vxf-card" aria-labelledby="vxf-week">
             <div class="vxf-card__head" style="flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
@@ -124,7 +242,9 @@
             </section>
         @endif
 
-        {{-- Keep the modal in the Livewire DOM: teleporting conditional siblings can leave Alpine with a null teleport anchor. --}}
+        {{-- Stable Livewire teleport root keeps the shift modal outside page layout and stacking contexts. --}}
+            @teleport('body')
+            <div class="vxf-shift-portal" wire:key="fulfillment-legacy-shift-portal">
             @if ($shiftOpen)
             <div class="vxf-shift-modal-backdrop" wire:click="$set('shiftOpen', false)"></div>
             <section class="vxf-shift-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-shift-title" @keydown.escape.window="$wire.set('shiftOpen', false)">
@@ -161,10 +281,12 @@
                         @error('repeatDays')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                         @error('repeatUntil')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
                     </div>
-                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)" @click="visible = false">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
+                    <footer class="vxf-shift-modal__footer">@if ($shiftId)<button type="button" class="vxf-btn" style="margin-right:auto;color:#b91c1c" wire:click="deleteShift" wire:confirm="Remove this shift?">Delete</button>@endif<button type="button" class="vxf-btn" wire:click="$set('shiftOpen', false)">Cancel</button><button type="submit" class="vxf-btn vxf-btn--primary" wire:loading.attr="disabled" wire:target="saveShift">{{ $shiftId ? 'Save Shift' : 'Add Shift' }}</button></footer>
                 </form>
             </section>
         @endif
+            </div>
+            @endteleport
     @endif
 
     {{-- ── Show logs ────────────────────────────────────────────────── --}}

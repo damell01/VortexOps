@@ -50,7 +50,7 @@ class ShowItemsModal extends Component
                 'name' => $stock->item->name,
                 'sku' => $stock->item->sku,
                 'quantity_available' => $stock->quantity,
-                'average_cost' => $stock->item->average_cost ?? $stock->item->unit_cost ?? 0,
+                'target_price' => $stock->item->sale_price ?? 0,
             ];
         })->values()->toArray();
     }
@@ -67,7 +67,7 @@ class ShowItemsModal extends Component
                     'name' => $item->name,
                     'sku' => $item->sku,
                     'quantity' => 1,
-                    'unit_cost' => $item->average_cost ?? $item->unit_cost ?? 0,
+                    'unit_cost' => $item->sale_price ?? 0,
                 ];
             }
         }

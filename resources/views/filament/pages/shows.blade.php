@@ -343,6 +343,11 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 }
 
 /* Show details are a centered dialog at every screen size. */
+.vx-show-dialog-portal{position:relative;z-index:9999}
+.vx-show-dialog-portal .vx-backdrop{z-index:9998}
+.vx-show-dialog-portal .vx-drawer{position:fixed!important;z-index:9999!important;margin:0!important;inset:auto!important;top:50dvh!important;left:50vw!important;transform:translate(-50%,-50%)!important}
+.vx-show-dialog-portal .vx-drawer.vx-drawer-off{transform:translate(-50%,-48%)!important;opacity:0}
+
 .vx-backdrop{display:block;position:fixed;inset:0;z-index:109;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
 .vx-drawer,.vx-drawer.full{z-index:110;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 48px);border:1px solid var(--vx-line);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,.3)}
 .vx-drawer>div{max-height:calc(100dvh - 48px)}
@@ -384,6 +389,11 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     <div class="vx-bar">
         <button type="button" class="vx-btn ic" wire:click="goPrevious" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" /></button>
         <button type="button" class="vx-btn" wire:click="goToToday">Today</button>
+        @if(auth()->user()?->isOwner())
+        <button type="button" class="vx-btn" x-on:click="window.dispatchEvent(new CustomEvent('vx-open-whatnot-sync'))" wire:click="syncTodaysWhatnotShows" wire:loading.attr="disabled" wire:target="syncTodaysWhatnotShows" title="Request fresh Whatnot shows, orders, items, analytics, shipments and finance across enabled channels">
+            <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> <span wire:loading.remove wire:target="syncTodaysWhatnotShows">Sync today's shows</span><span wire:loading wire:target="syncTodaysWhatnotShows">Syncing…</span>
+        </button>
+        @endif
         <button type="button" class="vx-btn ic" wire:click="goNext" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4" /></button>
         <h2 class="vx-title">{{ $this->calendarTitle() }}</h2>
         <div wire:loading.delay class="text-xs" style="color:var(--vx-faint)">Loading…</div>
@@ -705,6 +715,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     </div>
 </section>
 
+{{-- Teleport the dialog out of Filament's scroll/transform containers so fixed positioning is viewport-relative. --}}
+<template x-teleport="body">
+<div class="vx-cal vx-show-dialog-portal">
 {{-- ── Show drawer / bottom sheet ────────────────────────────────── --}}
 <div class="vx-backdrop" x-show="show" x-cloak x-transition.opacity @click="close()"></div>
 <aside data-vx-dialog class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="true" x-trap.inert.noscroll="show !== null" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
@@ -746,7 +759,8 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                         @if(auth()->user()?->isOwner())
                         <div class="vx-kv"><span>Analytics</span><span :class="show.analyticsOk ? 'vx-ok' : 'vx-wait'" x-text="show.analytics + (show.analyticsOk ? ' ✓' : '')"></span></div>
                         <div class="vx-kv"><span>Orders</span><span :class="show.ordersOk ? 'vx-ok' : 'vx-wait'" x-text="show.orders + (show.ordersOk ? ' ✓' : '')"></span></div>
-                        <div class="vx-kv"><span>Last checked</span><span x-text="show.analyticsChecked ? new Date(show.analyticsChecked).toLocaleString() : 'Not checked yet'"></span></div>
+                        <div class="vx-kv" x-show="show.analyticsQueued"><span>Retry queued</span><span x-text="show.analyticsQueued ? new Date(show.analyticsQueued).toLocaleString() : ''"></span></div>
+                        <div class="vx-kv"><span>Last API check</span><span x-text="show.analyticsChecked ? new Date(show.analyticsChecked).toLocaleString() : 'Not checked yet'"></span></div>
                         <p class="mt-2 break-words text-xs text-gray-500" x-show="show.analyticsNote" x-text="show.analyticsNote"></p>
                         <button type="button" x-show="show.whatnotId && show.state === 'done'" @click="$wire.retryShowAnalytics(show.id)" wire:loading.attr="disabled" wire:target="retryShowAnalytics" class="vx-btn mt-2 w-full">Retry analytics</button>
                         @endif
@@ -763,4 +777,38 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     </template>
 </aside>
 </div>
+</template>
+</div>
+
+@if(auth()->user()?->isOwner())
+<div wire:stream="today-whatnot-sync-progress" x-data x-init="window.addEventListener('vx-open-whatnot-sync', () => { $store.vxSyncProgress.text = 'Connecting to Whatnot…' }); const observer = new MutationObserver(() => { $store.vxSyncProgress.text = $el.textContent }); observer.observe($el, { childList: true, characterData: true, subtree: true });" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)" aria-hidden="true"></div>
+<div x-data="{ open:false, started:false }" x-init="if (!Alpine.store('vxSyncProgress')) Alpine.store('vxSyncProgress', { text: 'Waiting for API response…' })"
+     x-on:vx-open-whatnot-sync.window="open=true; started=true"
+     x-on:keydown.escape.window="if (!started) open=false"
+     x-on:livewire:navigating.window="open=false"
+     x-cloak>
+    <template x-teleport="body">
+        <div x-show="open" x-transition.opacity class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="vx-sync-title">
+            <div class="absolute inset-0 bg-slate-950/70"></div>
+            <section class="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" style="max-height:min(85dvh,850px)">
+                <header class="flex items-center justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                    <div>
+                        <h2 id="vx-sync-title" class="text-xl font-bold text-gray-950 dark:text-white">Whatnot live sync</h2>
+                        <p class="text-sm text-gray-500">Live results by channel: shows, orders, items, analytics, shipments and finance.</p>
+                    </div>
+                    <button type="button" class="vx-btn" x-on:click="open=false" aria-label="Close sync progress">Close</button>
+                </header>
+                <div class="min-h-0 flex-1 overflow-y-auto p-5">
+                    <div wire:loading wire:target="syncTodaysWhatnotShows" class="mb-3 flex items-center gap-2 text-sm font-semibold text-indigo-600">
+                        <x-filament::loading-indicator class="h-5 w-5" /> Syncing directly with Whatnot API…
+                    </div>
+                    <p class="mb-3 text-xs text-gray-500">Results appear as the API responds. A channel can take time; closing this window does not guarantee the request continues.</p>
+                    <pre class="whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-sm leading-6 text-emerald-300" style="min-height:180px"><span x-text="$store.vxSyncProgress?.text || 'Connecting to Whatnot…'"></span></pre>
+                </div>
+                <footer class="border-t border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700">Counts reflect imported API responses. Missing analytics may still be pending at Whatnot.</footer>
+            </section>
+        </div>
+    </template>
+</div>
+@endif
 </x-filament-panels::page>

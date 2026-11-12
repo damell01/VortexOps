@@ -36,12 +36,12 @@
         .vx-roster-person{display:flex;align-items:center;gap:10px}.vx-roster-avatar{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;border-radius:50%;background:rgb(124 58 237 / .12);color:#6d28d9;font-weight:700}.vx-roster-badge{display:inline-block;padding:4px 9px;border-radius:999px;background:rgb(124 58 237 / .08);color:#7c3aed;font-size:11px;font-weight:650}.vx-roster-edit{padding:7px 12px;border:1px solid var(--vx-border,#ddd);border-radius:9px;font-weight:650;color:#6d28d9}.vx-roster-mobile{display:none}.vx-roster-card{padding:16px;border:1px solid var(--vx-border,#ddd);border-radius:14px;margin-top:12px}.vx-roster-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;font-size:12px;color:var(--vxw-muted,#64748b)}.vx-roster-footer button{padding:7px 12px;border:1px solid var(--vx-border,#ddd);border-radius:8px}.vx-roster-footer button:disabled{opacity:.35}
         @media(max-width:900px){.vx-rates-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-roster-table{display:none}.vx-roster-mobile{display:block}.vx-roster-filters{grid-template-columns:1fr}.vx-rates-stat{padding:14px;gap:10px}.vx-rates-stat strong{font-size:20px}.vx-rates-stat-icon{width:38px;height:38px}}
         @media(min-width:768px){.vx-rates select.vx-native-picker{display:block!important}.vx-rates .vx-picker-trigger{display:none!important}}@media(max-width:767px){.vx-rates select.vx-native-picker{display:none!important}.vx-rates .vx-picker-trigger{display:flex!important}}.vx-rates .vx-type-title button{color:#dc2626!important;background:transparent!important}
-        .vx-ps-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px 16px;background:rgb(3 7 18 / .5);overflow-y:auto}
-        .vx-ps-modal-panel{width:100%;max-width:min(1440px,96vw);border-radius:18px;padding:24px;background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);box-shadow:0 24px 60px rgb(0 0 0 / .3)}
+        .vx-ps-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgb(3 7 18 / .5);overflow:hidden}
+        .vx-ps-modal-panel{width:100%;max-width:min(1040px,96vw);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;border-radius:18px;padding:24px;background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);box-shadow:0 24px 60px rgb(0 0 0 / .3)}
         .vx-ps-modal-panel .vx-card{padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
         .vx-ps-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
         .vx-ps-modal-foot{position:sticky;bottom:-24px;display:flex;justify-content:flex-end;gap:10px;margin:20px -24px -24px;padding:14px 24px;border-top:1px solid var(--vx-border,#e5e7eb);background:var(--vxw-surface,#fff);border-radius:0 0 18px 18px}
-        @media(max-width:640px){.vx-ps-modal{padding:0}.vx-ps-modal-panel{border-radius:0;min-height:100%;padding:16px}}
+        @media(max-width:640px){.vx-ps-modal{padding:0}.vx-ps-modal-panel{max-width:100%;max-height:100dvh;border-radius:0;min-height:100dvh;padding:16px}}
         @media(max-width:640px){.vx-rates-stat{flex-direction:column;align-items:flex-start;min-width:0}.vx-rates-stat strong{font-size:20px}.vx-rates-stat p{font-size:11px}}
     </style>
     @php $summary = $this->payrollSummary; @endphp
@@ -103,7 +103,8 @@
         <div class="vx-roster-footer"><span>{{ $count ? (($page-1)*10+1).'–'.min($page*10,$count) : '0' }} of {{ $count }} people</span><div class="flex items-center gap-2"><button type="button" wire:click="setMemberPage({{ $page-1 }})" @disabled($page===1)>Previous</button><span>{{ $page }} / {{ $lastPage }}</span><button type="button" wire:click="setMemberPage({{ $page+1 }})" @disabled($page===$lastPage)>Next</button></div></div>
 
         @if($editingMember)
-        <div class="vx-ps-modal" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
+        @teleport('body')
+        <div class="vx-ps-modal vx-rates" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
         <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit {{ $editingMember->name }}'s pay">
             <div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase text-primary-600">Custom override</div><div class="text-lg font-bold">{{$editingMember->name}}</div><div class="text-xs text-gray-500">Regular payouts · {{$editingMember->isFulfillment()?'Fulfillment':'Streamer'}}</div></div><button wire:click="closeMemberEditor" class="text-sm text-gray-500">Close</button></div>
 
@@ -179,6 +180,7 @@
                 <button wire:click="resetMemberOverrides({{$editingMember->id}})" class="rounded-lg border px-4 py-2 text-sm font-bold">Reset to Role Default</button><button wire:click="saveMemberOverrides" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white">Save Override</button></div>
         </div>
         </div>
+        @endteleport
         @endif
     </div>
 

@@ -7,8 +7,8 @@
     $counts = $this->tabCounts();
     $options = $this->filterOptions();
 @endphp
-<div class="vxi space-y-4" data-vx-page="report-inbox">
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Filter reports by status">
+<div class="vxi space-y-2" data-vx-page="report-inbox">
+    <div class="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Filter reports by status">
         @foreach($this->getStats() as $key => $stat)
             <button type="button" wire:click="selectInboxStatus('{{ $key }}')" aria-pressed="{{ $activeTab === $key ? 'true' : 'false' }}" title="{{ $stat['sub'] }}" class="vxi-stat vxi-{{ $tones[$key] ?? 'gray' }} {{ $activeTab === $key ? 'is-active' : '' }}">
                 <span class="vxi-stat-icon"><x-filament::icon :icon="$stat['icon']" class="h-5 w-5" /></span>
@@ -44,18 +44,27 @@
     @endif
 
     @if ($isStaff && $this->reopenRequests()->isNotEmpty())
-        <section class="vxi-panel border-rose-200 dark:border-rose-900/60" aria-labelledby="reopen-heading">
-            <div class="flex flex-wrap items-center justify-between gap-2 px-4 pt-4"><h3 id="reopen-heading" class="font-bold">Requests to reopen</h3><button type="button" wire:click="selectInboxStatus('edit_requested')" class="text-sm font-semibold text-primary-600 dark:text-primary-400">View all requests →</button></div>
-            <div class="grid gap-3 p-4 lg:grid-cols-2">
-                @foreach($this->reopenRequests() as $report)
-                    <article class="rounded-xl border border-gray-200 p-4 dark:border-gray-700" wire:key="reopen-request-{{ $report->id }}">
-                        <h4 class="font-semibold">{{ $report->show?->title ?: 'Report #' . $report->id }}</h4><p class="mt-1 text-xs text-gray-500">{{ $report->streamer?->name ?: 'No streamer linked' }} · {{ $report->show?->show_date?->format('M j, Y') ?: 'No show date' }} · Requested {{ $report->revision_requested_at?->diffForHumans() }}</p>
-                        <p class="mt-3 whitespace-pre-line text-sm">{{ $report->revision_reason ?: 'The streamer did not include a reason.' }}</p>
-                        <div class="mt-4 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $report]) }}" class="vxi-btn">Review report</a><button type="button" wire:click="reopenRequestedReport({{ $report->id }})" wire:confirm="Reopen this report for the streamer? Existing inventory postings remain in place." wire:loading.attr="disabled" wire:target="reopenRequestedReport" class="vxi-btn border-amber-500 bg-amber-500 text-gray-950 dark:text-white">Approve & reopen</button></div>
-                    </article>
+        <details class="vxi-panel vxi-reopen-compact">
+            <summary class="flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer">
+                <x-filament::icon icon="heroicon-o-lock-open" class="h-5 w-5 text-rose-600" />
+                <strong>Requests to reopen</strong>
+                <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">{{ $this->reopenRequests()->count() }}</span>
+                <span class="ml-auto text-xs text-gray-500">Expand to review</span>
+            </summary>
+            <div class="divide-y border-t border-gray-200 dark:border-gray-700">
+                @foreach ($this->reopenRequests() as $report)
+                    <div class="flex flex-wrap items-center gap-3 px-4 py-3" wire:key="reopen-request-{{ $report->id }}">
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate font-semibold">{{ $report->show?->title ?: 'Report #'.$report->id }}</div>
+                            <div class="text-xs text-gray-500">{{ $report->streamer?->name ?: 'No streamer' }} · {{ $report->revision_requested_at?->diffForHumans() }}</div>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $report->revision_reason ?: 'No reason provided' }}</p>
+                        </div>
+                        <a class="vxi-btn" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $report]) }}">Review</a>
+                        <button type="button" class="vxi-btn" wire:click="reopenRequestedReport({{ $report->id }})" wire:confirm="Reopen this report for the streamer? Existing inventory postings remain in place." wire:loading.attr="disabled" wire:target="reopenRequestedReport">Approve &amp; reopen</button>
+                    </div>
                 @endforeach
             </div>
-        </section>
+        </details>
     @endif
 
     <section class="vxi-panel" x-data="{ more: false, selecting: false }" :class="selecting && 'is-selecting'">
@@ -76,7 +85,7 @@
                     </select>
                 </label>
                 <select wire:model.live="tableRecordsPerPage" class="vxi-select" aria-label="Reports per page">
-                    @foreach ([6, 12, 24] as $n)<option value="{{ $n }}">{{ $n }} per page</option>@endforeach
+                    @foreach ([10, 15, 25, 50] as $n)<option value="{{ $n }}">{{ $n }} per page</option>@endforeach
                 </select>
                 @if ($isStaff)
                     <button type="button" class="vxi-btn" @click="selecting = !selecting" :aria-pressed="selecting" x-text="selecting ? 'Done selecting' : 'Select'" title="Pick several reports to approve or send back together">Select</button>
@@ -112,7 +121,7 @@
             <button type="button" class="vxi-btn self-end" wire:click="resetTableFiltersForm">Clear filters</button>
         </div>
 
-        <div class="vxi-grid min-w-0">{{ $this->table }}</div>
+        <div class="vxi-grid vxi-report-table min-w-0">{{ $this->table }}</div>
     </section>
 
     <details class="vxi-howto">
@@ -132,33 +141,38 @@
 </div>
 
 <style>
+    /* Keep the actual inbox visible above the fold on desktop. */
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header { margin-bottom:.6rem; gap:.5rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header-heading { font-size:1.5rem; line-height:1.8rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-header-subheading { font-size:.8rem; line-height:1.1rem; }
+    .fi-page:has([data-vx-page="report-inbox"]) .fi-breadcrumbs { margin-bottom:.2rem; }
     .vxi { --vxi-line: rgb(229 231 235); --vxi-card: #fff; }
     .dark .vxi { --vxi-line: rgb(55 65 81); --vxi-card: rgb(17 24 39); }
     [x-cloak] { display: none !important; }
     .vxi-btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; min-height:2.5rem; padding:0 .9rem; border:1px solid var(--vxi-line); border-radius:.75rem; font-size:.875rem; font-weight:600; background: var(--vxi-card); transition:border-color .15s; }
     .vxi-btn:hover { border-color: var(--primary-400, #a78bfa); }
     .vxi-panel { border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); overflow:hidden; }
-    .vxi-stat { display:flex; gap:.85rem; align-items:center; text-align:left; padding:1rem 1.1rem; border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); transition:transform .15s ease, border-color .15s, box-shadow .15s; }
+    .vxi-stat { display:flex; gap:.85rem; align-items:center; text-align:left; padding:.55rem .75rem; border:1px solid var(--vxi-line); border-radius:.75rem; background: var(--vxi-card); transition:transform .15s ease, border-color .15s, box-shadow .15s; }
     .vxi-stat:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -10px rgb(76 29 149 / .35); }
     .vxi-stat.is-active { border-color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 5%, var(--vxi-card)); box-shadow: 0 0 0 1px var(--vxi-c); }
-    .vxi-stat-icon { display:grid; place-items:center; flex:none; width:2.6rem; height:2.6rem; border-radius:.8rem; color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 13%, transparent); }
+    .vxi-stat-icon { display:grid; place-items:center; flex:none; width:2rem; height:2rem; border-radius:.6rem; color: var(--vxi-c); background: color-mix(in srgb, var(--vxi-c) 13%, transparent); }
     .vxi-violet { --vxi-c:#7c3aed; } .vxi-blue { --vxi-c:#2563eb; } .vxi-rose { --vxi-c:#e11d48; } .vxi-amber { --vxi-c:#d97706; } .vxi-green { --vxi-c:#059669; } .vxi-gray { --vxi-c:#6b7280; }
     .dark .vxi-violet { --vxi-c:#a78bfa; } .dark .vxi-blue { --vxi-c:#60a5fa; } .dark .vxi-rose { --vxi-c:#fb7185; } .dark .vxi-amber { --vxi-c:#fbbf24; } .dark .vxi-green { --vxi-c:#34d399; } .dark .vxi-gray { --vxi-c:#9ca3af; }
-    .vxi-policy { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; padding:.8rem 1.1rem; border:1px solid color-mix(in srgb, var(--vxi-c) 25%, var(--vxi-line)); border-radius:1rem; font-size:.875rem; background: color-mix(in srgb, var(--vxi-c) 6%, var(--vxi-card)); }
+    .vxi-policy { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; padding:.45rem .75rem; border:1px solid color-mix(in srgb, var(--vxi-c) 25%, var(--vxi-line)); border-radius:1rem; font-size:.875rem; background: color-mix(in srgb, var(--vxi-c) 6%, var(--vxi-card)); }
     .vxi-policy > svg, .vxi-policy > strong { color: var(--vxi-c); }
     .vxi-policy-sep { width:1px; height:1rem; background: var(--vxi-line); }
     .vxi-policy-link { display:inline-flex; align-items:center; gap:.35rem; font-weight:600; color: var(--primary-600, #7c3aed); }
     .dark .vxi-policy-link { color: var(--primary-400, #a78bfa); }
     .vxi-policy-link:hover { text-decoration: underline; }
     .vxi-tabs { display:flex; gap:1.75rem; overflow-x:auto; }
-    .vxi-tabs button { position:relative; padding:1rem 0; font-size:.9rem; font-weight:600; color: rgb(75 85 99); white-space:nowrap; }
+    .vxi-tabs button { position:relative; padding:.6rem 0; font-size:.85rem; font-weight:600; color: rgb(75 85 99); white-space:nowrap; }
     .dark .vxi-tabs button { color: rgb(156 163 175); }
     .vxi-tabs button.is-active { color: var(--primary-600, #7c3aed); }
     .dark .vxi-tabs button.is-active { color: var(--primary-400, #a78bfa); }
     .vxi-tabs button.is-active::after { content:''; position:absolute; left:-.5rem; right:-.5rem; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background: currentColor; }
     .vxi-select { min-height:2.5rem; border-radius:.65rem; border:1px solid var(--vxi-line); background-color: var(--vxi-card); font-size:.875rem; padding:.35rem 2rem .35rem .75rem; }
     .dark .vxi-select { color:#e5e7eb; }
-    .vxi-filterbar { display:grid; gap:.75rem; padding:1rem; grid-template-columns: 1fr; align-items:end; }
+    .vxi-filterbar { display:grid; gap:.5rem; padding:.6rem .75rem; grid-template-columns: 1fr; align-items:end; }
     @media (min-width: 768px) { .vxi-filterbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (min-width: 1280px) { .vxi-filterbar { grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(0, 1.4fr)) auto; } }
     .vxi-field { display:flex; flex-direction:column; gap:.2rem; font-size:.75rem; color: rgb(107 114 128); }
@@ -242,5 +256,20 @@
         .vxi-tabs { gap: 1.1rem; }
     }
     @media (prefers-reduced-motion: reduce) { .vxi-stat, .vxi-stat:hover, .vxi-grid .fi-ta-record, .vxi-grid .fi-ta-record:hover { transition:none; transform:none; } }
+    /* Compact inbox: visible table rows, not multi-column report cards. */
+    .vxi .vxi-stat { padding:.55rem .75rem; gap:.6rem; border-radius:.7rem; }
+    .vxi .vxi-stat-icon { width:2rem; height:2rem; border-radius:.55rem; }
+    .vxi .vxi-stat .text-2xl { font-size:1.3rem; line-height:1.3; }
+    .vxi .vxi-policy { padding:.5rem .75rem; border-radius:.7rem; }
+    .vxi .vxi-filterbar { padding:.65rem .8rem; gap:.55rem; }
+    .vxi .vxi-tabs { gap:1rem; }
+    .vxi .vxi-tabs button { padding:.65rem 0; }
+    .vxi .vxi-report-table .fi-ta-cell { padding-top:.5rem; padding-bottom:.5rem; }
+    .vxi .vxi-reopen-compact summary::-webkit-details-marker { display:none; }
+    @media(min-width:1280px){.vxi .vxi-filterbar{grid-template-columns:minmax(13rem,2fr) repeat(3,minmax(8rem,1fr)) auto;}}
+    .vxi-stat .text-2xl { font-size:1.2rem; line-height:1.35rem; }
+    .vxi-stat .text-sm { font-size:.78rem; }
+    .vxi-reopen-compact summary { padding-top:.55rem; padding-bottom:.55rem; }
+    @media (min-width:1280px) { .vxi-filterbar { grid-template-columns:minmax(12rem,2fr) repeat(3,minmax(0,1.25fr)) auto; } }
 </style>
 </x-filament-panels::page>

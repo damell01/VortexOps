@@ -40,7 +40,7 @@ final class WhatnotApiSync
      * @param callable(string):void|null $log
      * @return array<string,mixed>
      */
-    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null): array
+    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null, bool $livePriority = false, bool $orderCatchup = false): array
     {
         $log ??= fn () => null;
         $channelId = (int) $connection->whatnot_channel_id;
@@ -48,6 +48,7 @@ final class WhatnotApiSync
         $summary = ['channel_id' => $channelId, 'days' => $days, 'dry_run' => $dryRun, 'errors' => []];
 
         if ($only === null || in_array('shows', $only, true)) {
+        $log('Starting shows for channel '.$channelId.'…');
         // 0. Shows: every scheduled show (created ahead of time; reschedules
         // and title changes logged), and shows that ended in the window.
         $showCounts = [];
@@ -60,7 +61,7 @@ final class WhatnotApiSync
                         $showCounts[$outcome] = ($showCounts[$outcome] ?? 0) + 1;
                     }
                     return ! $windowed || ! $this->pageIsOlderThan($page['data'], 'scheduled_start_at', $since);
-                }, ['status' => $status], maxPages: 20);
+                }, ['status' => $status], maxPages: $livePriority ? 3 : 20);
                 if (! $paging['ok']) $summary['errors'][] = 'shows ('.$status.'): HTTP '.$paging['http_status'];
             }
             $summary['shows'] = $showCounts;
@@ -73,10 +74,13 @@ final class WhatnotApiSync
 
         $needsItems = [];
         if ($only === null || in_array('orders', $only, true)) {
+        $log('Starting orders for channel '.$channelId.'…');
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
-        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId;
-        $startCursor = Cache::get($cursorKey);
+        // Fresh and historical runs must not share pagination state. A fresh
+        // pass always starts at the head to discover newly arriving orders.
+        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId.($orderCatchup ? ':catchup' : ($livePriority ? ':fresh' : ':history'));
+        $startCursor = ($livePriority || ($orderCatchup && ! Cache::has($cursorKey))) ? null : Cache::get($cursorKey);
         if (! is_string($startCursor)) $startCursor = null;
         try {
             $paging = $this->client->eachPage($connection, 'orders', function (array $page) use ($channelId, $dryRun, $since, &$orderCounts, &$needsItems) {
@@ -86,7 +90,7 @@ final class WhatnotApiSync
                 array_push($needsItems, ...$result['needs_items']);
 
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
-            }, maxPages: 50, startCursor: $startCursor, allowIncomplete: true);
+            }, maxPages: ($livePriority || $orderCatchup) ? 5 : 50, startCursor: $startCursor, allowIncomplete: true);
             if ($paging['ok']) {
                 if (! empty($paging['incomplete']) && is_string($paging['next_cursor'] ?? null)) {
                     Cache::put($cursorKey, $paging['next_cursor'], now()->addHours(12));
@@ -95,7 +99,7 @@ final class WhatnotApiSync
                 }
             }
             if (! $paging['ok']) $summary['errors'][] = 'orders: HTTP '.$paging['http_status'];
-            $summary['orders'] = $orderCounts + ['pages' => $paging['pages'], 'incomplete' => (bool) ($paging['incomplete'] ?? false)];
+            $summary['orders'] = $orderCounts + ['pages' => $paging['pages'], 'incomplete' => (bool) ($paging['incomplete'] ?? false), 'cursor_resumed' => $startCursor !== null, 'catchup' => $orderCatchup];
             $log('Orders: '.json_encode($summary['orders']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'orders: '.$e->getMessage();
@@ -104,6 +108,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('items', $only, true)) {
+        $log('Starting items for channel '.$channelId.'…');
         // 2. Line items for orders still missing an item name.
         $items = ['filled' => 0, 'unchanged' => 0, 'no_row' => 0, 'no_items' => 0, 'failed' => 0];
         foreach (array_slice(array_values(array_unique($needsItems)), 0, self::MAX_ITEM_LOOKUPS) as $orderId) {
@@ -123,6 +128,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('shipments', $only, true)) {
+        $log('Starting shipments for channel '.$channelId.'…');
         // 2b. Shipments created in the window → tracking/status on orders.
         $shipCounts = [];
         try {
@@ -148,6 +154,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('analytics', $only, true)) {
+        $log('Starting analytics for channel '.$channelId.'…');
         // 3. Ended shows in the window that exist here → their analytics.
         $analyticsCounts = [];
         try {
@@ -160,17 +167,27 @@ final class WhatnotApiSync
             }, ['status' => 'ended']);
             if (! $paging['ok']) $summary['errors'][] = 'shows: HTTP '.$paging['http_status'];
 
+            // Prioritize recently ended shows without complete analytics. The API's
+            // returned order is not a reliable priority for our per-run lookup cap.
             $known = Show::query()->where('whatnot_channel_id', $channelId)
                 ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(whatnot_show_id)'), $showIds ?: ['-'])
+                ->orderByRaw("CASE WHEN analytics_sync_status = 'complete' THEN 1 ELSE 0 END")
+                ->orderByDesc('show_date')
+                ->orderByDesc('start_time')
                 ->pluck('whatnot_show_id')->map(fn ($id) => strtolower($id))->unique()->values();
             $analyticsCounts['not_in_vortexops'] = count(array_unique($showIds)) - $known->count();
-            foreach ($known->take(self::MAX_ANALYTICS_LOOKUPS) as $id) {
+            foreach ($known->take($analyticsLimit ?? self::MAX_ANALYTICS_LOOKUPS) as $id) {
+                $showLabel = Show::query()->where('whatnot_channel_id', $channelId)
+                    ->whereRaw('LOWER(whatnot_show_id) = ?', [$id])->value('title') ?: $id;
+                $log('Analytics: '.$showLabel.' — fetching');
                 $response = $this->client->call($connection, 'show_analytics', $id);
                 if (! $response->successful()) {
                     $analyticsCounts['failed'] = ($analyticsCounts['failed'] ?? 0) + 1;
+                    $log('Analytics: '.$showLabel.' — HTTP '.$response->status());
                     continue;
                 }
                 $outcome = $this->analytics->apply($channelId, (array) $response->json(), $dryRun)['outcome'];
+                $log('Analytics: '.$showLabel.' — '.$outcome);
                 $analyticsCounts[$outcome] = ($analyticsCounts[$outcome] ?? 0) + 1;
             }
             if (($analyticsCounts['failed'] ?? 0) > 0) $summary['errors'][] = 'show analytics: '.$analyticsCounts['failed'].' requests failed';
@@ -184,6 +201,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('ledger', $only, true)) {
+        $log('Starting ledger for channel '.$channelId.'…');
         // 4. Financial report → ledger (tips, earnings, refunds).
         try {
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
@@ -199,6 +217,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('overview', $only, true)) {
+        $log('Starting overview for channel '.$channelId.'…');
         // 5. Daily business overview for the window.
         try {
             $report = $this->reports->fetch($connection, WhatnotApiReports::overview($since->copy()->startOfDay(), now()->startOfHour()));

@@ -147,6 +147,23 @@ Schedule::command('whatnot:analytics-catchup')
     ->name('whatnot-analytics-catchup')
     ->withoutOverlapping(20);
 
+// Seller Hub is the first analytics source as soon as a show ends.
+// The dedicated browser worker only scrapes targeted analytics, not orders or shipments.
+Schedule::command('whatnot:analytics-show-end-poll --limit=2')
+    ->appendOutputTo($whatnotLog)
+    ->skip($scraperOff)
+    ->everyMinute()
+    ->name('whatnot-show-end-sellerhub-analytics')
+    ->withoutOverlapping(2);
+
+// Poll Whatnot Owner API for recently ended shows without generated analytics.
+Schedule::command('whatnot:analytics-api-poll --limit=30')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->everyMinute()
+    ->name('whatnot-analytics-api-poll')
+    ->withoutOverlapping(4);
+
 // Alias cleanup is database-only and does not use the Whatnot browser.
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)
@@ -202,17 +219,50 @@ Schedule::command('ledger:match-shows --all --limit=100000')->weeklyOn(0, '03:10
 // Shows whose earnings changed after their pay was locked (badge + admin alert).
 Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);
 Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('America/Chicago')->name('ledger-unassigned-alert')->withoutOverlapping(30);
+// Alert only for enabled channels; log warnings are deduplicated hourly.
+Schedule::command('whatnot:sync-health --alert --max-age=10')
+    ->everyFiveMinutes()->name('whatnot-api-sync-health-alerts')->withoutOverlapping(5)
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+// Fast lane: check newly ended shows and their orders/analytics each minute.
+// Each channel has its own lock; skip overlapping runs rather than duplicate imports.
+// Historical reconciliation remains on the existing slower schedules.
+foreach ([1, 2, 3, 4] as $whatnotChannelId) {
+    Schedule::command('whatnot:api-sync-tick --channel='.$whatnotChannelId.' --mode=fresh')
+        ->everyMinute()
+        ->name('whatnot-api-'.$whatnotChannelId.'-fresh')
+        ->withoutOverlapping(5)
+        ->runInBackground()
+        ->skip(fn () => ! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+}
+// Bounded order reconciliation: five pages per run, separate cursor from live
+// and recent modes. Shared channel lock prevents concurrent writes.
+foreach ([1, 2, 3, 4] as $whatnotChannelId) {
+    Schedule::command('whatnot:api-sync-tick --channel='.$whatnotChannelId.' --mode=catchup')
+        ->cron(($whatnotChannelId - 1).'-59/5 * * * *')
+        ->name('whatnot-api-'.$whatnotChannelId.'-catchup')
+        ->withoutOverlapping(10)
+        ->runInBackground()
+        ->skip(fn () => ! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+}
+
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('0-59/5 * * * *')
     ->name('whatnot-api-1-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('5-59/10 * * * *')
     ->name('whatnot-api-1-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -226,14 +276,14 @@ Schedule::command('whatnot:api-sync-tick --channel=1 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=2 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('1-59/5 * * * *')
     ->name('whatnot-api-2-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=2 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('6-59/10 * * * *')
     ->name('whatnot-api-2-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -247,14 +297,14 @@ Schedule::command('whatnot:api-sync-tick --channel=2 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=3 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('2-59/5 * * * *')
     ->name('whatnot-api-3-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=3 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('7-59/10 * * * *')
     ->name('whatnot-api-3-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -268,14 +318,14 @@ Schedule::command('whatnot:api-sync-tick --channel=3 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=4 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('3-59/5 * * * *')
     ->name('whatnot-api-4-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=4 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('8-59/10 * * * *')
     ->name('whatnot-api-4-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()

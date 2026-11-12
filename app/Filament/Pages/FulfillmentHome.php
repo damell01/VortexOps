@@ -37,6 +37,13 @@ class FulfillmentHome extends Page
     /** Ready queue: all shows, long jobs (slow-pack) or the quick ones. */
     #[\Livewire\Attributes\Url(as: 'length')]
     public string $jobs = 'all';
+    public string $queueSearch = '';
+
+    public function updatedQueueSearch(): void
+    {
+        $this->queuePage = 1;
+        unset($this->queue, $this->queueTotal, $this->queueApproved);
+    }
 
     public function updatedJobs(): void
     {
@@ -59,7 +66,7 @@ class FulfillmentHome extends Page
     #[Computed]
     public function queueTotal(): int
     {
-        return app(FulfillmentQueue::class)->queueQuery(auth()->user(), $this->jobs)->count();
+        return app(FulfillmentQueue::class)->queueQuery(auth()->user(), $this->jobs, $this->queueSearch)->count();
     }
 
     /** @deprecated the page is already sliced in the database */
@@ -164,7 +171,7 @@ class FulfillmentHome extends Page
     {
         $this->queuePage = max(1, min($this->queuePage, $this->queuePageCount()));
 
-        return app(FulfillmentQueue::class)->queuePage(auth()->user(), $this->jobs, $this->queuePage, self::QUEUE_PER_PAGE);
+        return app(FulfillmentQueue::class)->queuePage(auth()->user(), $this->jobs, $this->queuePage, self::QUEUE_PER_PAGE, $this->queueSearch);
     }
 
     /** Shows on this page whose streamer report is approved (one query, not one per row). */

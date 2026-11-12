@@ -49,11 +49,11 @@
     <template x-if="open">
         <div class="vxf-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-assign-title">
             <div class="vxf-modal__backdrop" x-on:click="open = false"></div>
-            <div class="vxf-modal__card" x-trap.noscroll="open">
+            <div class="vxf-modal__card vxf-assign-modal" :class="{'vxf-assign-modal--shows': step === 'show'}" x-trap.noscroll="open">
                 <header class="vxf-modal__head">
                     <div style="min-width:0">
                         <p class="vxf-eyebrow" x-text="step === 'show' ? 'Assign a show' : 'Assign'"></p>
-                        <h2 id="vxf-assign-title" x-text="step === 'show' ? 'Which show?' : title"></h2>
+                        <h2 id="vxf-assign-title" x-text="step === 'show' ? 'Select a show ready for packing' : title"></h2><p class="vxf-sub" x-show="step === 'show'">Most recent shows first · Select a show to assign packers and a station.</p>
                     </div>
                     <button type="button" class="vxf-icon-btn" x-on:click="open = false" aria-label="Close"><x-heroicon-o-x-mark /></button>
                 </header>
@@ -65,11 +65,11 @@
                         <span class="sr-only">Search shows</span>
                         <input type="search" x-ref="showSearch" placeholder="Search shows ready to pack" x-model="search" x-on:input.debounce.250ms="find()" autocomplete="off">
                     </label>
-                    <ul class="vxf-pickshow" x-bind:class="loading && 'vxf-dim'">
+                    <div class="vxf-assign-results-head"><strong>Ready to pack</strong><span class="vxf-sub" x-text="loading ? 'Loading shows…' : shows.length + ' shows'"></span></div><ul class="vxf-pickshow vxf-assign-show-grid" x-bind:class="loading && 'vxf-dim'">
                         <template x-for="s in shows" :key="s.id">
                             <li><button type="button" x-on:click="pickShow(s)">
                                 <strong x-text="s.title"></strong>
-                                <span class="vxf-sub" x-text="[s.date, s.packages !== null ? s.packages + ' packages' : 'packages pending', s.users.length ? s.users.length + ' assigned' : 'unassigned'].filter(Boolean).join(' · ')"></span>
+                                <span class="vxf-sub" x-text="[s.date, s.packages !== null ? s.packages + ' packages' : 'packages pending', s.users.length ? s.users.length + ' packer(s)' : 'No packer assigned'].filter(Boolean).join(' · ')"></span>
                                 <x-heroicon-o-chevron-right />
                             </button></li>
                         </template>

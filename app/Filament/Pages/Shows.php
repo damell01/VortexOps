@@ -427,6 +427,7 @@ class Shows extends Page
             'views' => number_format((int) $s->total_views),
             'cover' => $s->cover_image_url,
             'whatnotId' => $s->whatnot_show_id,
+            'analyticsQueued' => $m['owner'] && data_get($s->raw_import_payload, '_analytics_queued_at') && (! data_get($s->raw_import_payload, '_analytics_last_attempt_at') || data_get($s->raw_import_payload, '_analytics_queued_at') > data_get($s->raw_import_payload, '_analytics_last_attempt_at')) ? data_get($s->raw_import_payload, '_analytics_queued_at') : null,
             'analyticsChecked' => $m['owner'] ? (data_get($s->raw_import_payload, '_analytics_last_attempt_at') ?? $s->last_analytics_synced_at?->toIso8601String() ?? $s->analytics_unavailable_at?->toIso8601String()) : null,
             'analyticsNote' => $m['owner'] ? $s->analytics_sync_note : null,
             'analytics' => $m['owner'] ? (['complete' => 'Synced', 'partial' => 'Partial · retry pending', 'unavailable' => 'Waiting for analytics', 'unclassified' => $state === 'upcoming' ? 'After show' : 'Waiting for analytics'][$coverage] ?? 'Waiting for analytics') : null,
@@ -774,6 +775,64 @@ class Shows extends Page
         Notification::make()->title($count.' shows assigned')->body('Assigned to '.$streamer->name)->success()->send();
     }
 
+    public function syncTodaysWhatnotShows(): void
+    {
+        abort_unless(auth()->user()?->isOwner(), 403);
+
+        if (! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! \App\Services\WhatnotApiOrderApplier::writesAllowed()) {
+            Notification::make()->title('Whatnot API sync is not ready')
+                ->body('Live API access, contract verification and write permission are required.')
+                ->warning()->send();
+            return;
+        }
+
+        $connections = \App\Models\WhatnotApiConnection::query()
+            ->where('enabled', true)->where('sync_enabled', true)->get();
+        if ($connections->isEmpty()) {
+            Notification::make()->title('No enabled Whatnot channels')->warning()->send();
+            return;
+        }
+
+        $sync = app(\App\Services\WhatnotApiSync::class);
+        $completed = 0;
+        $failures = [];
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Starting live Whatnot API sync for {$connections->count()} channels…\n", replace: true);
+        foreach ($connections as $connection) {
+            $channelId = (int) $connection->whatnot_channel_id;
+            $lock = \Illuminate\Support\Facades\Cache::lock('whatnot-api-sync:'.$channelId, 1800);
+            if (! $lock->get()) {
+                $failures[] = "Channel {$channelId} is already syncing";
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: another sync is running.\n");
+                continue;
+            }
+            try {
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: quick sync: recent shows, orders, items, shipments and analytics…\n");
+                $result = $sync->run($connection, 1, dryRun: false,
+                    log: function (string $line) use ($channelId): void {
+                        $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: {$line}\n");
+                    }, only: ['shows', 'orders', 'items', 'shipments', 'analytics'], analyticsLimit: 12);
+                if (! empty($result['errors'])) {
+                    $failures[] = "Channel {$channelId}: ".implode('; ', $result['errors']);
+                } else {
+                    $completed++;
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $failures[] = "Channel {$channelId}: sync failed";
+            } finally {
+                $lock->release();
+            }
+        }
+        $this->stream(to: 'today-whatnot-sync-progress', content: "Finished: {$completed}/{$connections->count()} channels successful.\n");
+        $this->resetData();
+        Notification::make()->title($failures ? 'Whatnot sync completed with issues' : 'Whatnot sync complete')
+            ->body($failures ? implode(' | ', $failures) : 'Fresh API data has been imported. Analytics not yet published by Whatnot will remain pending.')
+            ->color($failures ? 'warning' : 'success')->send();
+    }
+
     public function retryShowAnalytics(int $showId): void
     {
         abort_unless(auth()->user()?->isOwner(), 403);
@@ -782,8 +841,13 @@ class Shows extends Page
             Notification::make()->title('This show needs its Whatnot ID and channel before retrying')->warning()->send();
             return;
         }
+        // Expose queue state immediately; the worker will replace it with the actual API attempt time.
+        $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        $meta['_analytics_queued_at'] = now()->toIso8601String();
+        $show->raw_import_payload = $meta;
+        $show->save();
         \App\Jobs\RetryShowAnalytics::dispatch($show->id);
-        Notification::make()->title('Analytics retry queued')->body('It will wait for the active scraper. This does not mean the metrics have synced yet.')->success()->send();
+        Notification::make()->title('Analytics retry queued')->body('The Whatnot API check has been queued. Analytics will appear once Whatnot generates them and the queue worker processes the job.')->success()->send();
     }
 
     public function assignStreamer(int $showId, int $streamerId): void

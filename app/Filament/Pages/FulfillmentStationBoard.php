@@ -379,6 +379,21 @@ class FulfillmentStationBoard extends Page
         });
     }
 
+    /** Block the current station and notify managers through the existing issue alert. */
+    public function blockStation(): void
+    {
+        $this->act(function () {
+            $run = FulfillmentRun::query()->with('station:id,name')->findOrFail($this->runId);
+            app(FulfillmentFlagService::class)->report(
+                auth()->user(), (int) $run->show_id, 'other',
+                'Packing station blocked: ' . ($run->station?->name ?? 'Station') . '. Manager assistance requested.',
+                $run->id, null, null, null, true,
+            );
+            app(FulfillmentRunService::class)->pause($run->id, auth()->user(), 'issue', 'Station blocked; manager assistance requested');
+            $this->say('Station blocked — manager notified', true);
+        });
+    }
+
     public function resume(): void
     {
         $this->act(function () {

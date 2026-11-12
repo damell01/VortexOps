@@ -163,16 +163,26 @@ class Show extends Model
             : (float) ($estimated ?? 0);
         $tips  = (float) $this->tips;
 
-        // Approved COGS from the latest deduction request's lines.
+        // A processed/approved deduction is the authoritative COGS source.
+        // If none exists, use the admin-approved streamer's recorded product
+        // cost. Never add the two: they represent the same inventory expense.
         $dr = $this->relationLoaded('latestDeductionRequest')
             ? $this->getRelation('latestDeductionRequest')
             : $this->latestDeductionRequest()->with('lines')->first();
 
         $cogs = 0.0;
-        if ($dr) {
+        if ($dr && in_array($dr->status, ['approved', 'processed'], true)) {
             $cogs = (float) ($dr->relationLoaded('lines')
                 ? $dr->lines->sum('line_total')
                 : $dr->lines()->sum('line_total'));
+        } else {
+            $entry = $this->relationLoaded('streamerLogEntry')
+                ? $this->getRelation('streamerLogEntry')
+                : $this->streamerLogEntry()->first();
+
+            if ($entry?->status === 'admin_approved') {
+                $cogs = (float) ($entry->product_cost ?? 0);
+            }
         }
 
         // withSum() leaves NULL for a show with no payouts. That is still a loaded
@@ -588,16 +598,16 @@ class Show extends Model
         // date-time (as this used to) is a text comparison that is always
         // true, so every future show with an end time counted as ended. A
         // show is ready once its date has passed, or today once it ended
-        // half an hour ago or Seller Hub lists it under Past.
+        // at its recorded end time or Seller Hub lists it under Past.
         $local = \App\Support\BusinessTime::local();
         $today = $local->toDateString();
-        $endedBy = $local->copy()->subMinutes(30);
+        $endedBy = $local->copy();
 
         return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) use ($today, $endedBy) {
             $eligible->whereDate('show_date', '<', $today)
                 ->orWhere(fn ($ended) => $ended->whereDate('show_date', $today)->whereNotNull('end_time')
                     ->when($endedBy->toDateString() === $today, fn ($q) => $q->whereTime('end_time', '<=', $endedBy->format('H:i:s')), fn ($q) => $q->whereRaw('1 = 0')))
-                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past')->whereNull('end_time'));
+                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past'));
         });
     }
 

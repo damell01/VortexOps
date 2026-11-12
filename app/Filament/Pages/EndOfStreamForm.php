@@ -161,7 +161,7 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $staged = array_filter($this->stagedQuantities, fn ($qty) => $qty > 0);
         if (empty($staged)) return ['items' => 0, 'units' => 0, 'cost' => 0.0];
-        $costs = $this->inventoryScopeQuery()->whereKey(array_keys($staged))->pluck('average_cost', 'id');
+        $costs = $this->inventoryScopeQuery()->whereKey(array_keys($staged))->pluck('sale_price', 'id');
         $staged = array_intersect_key($staged, $costs->all());
         $cost = 0.0;
         foreach ($staged as $itemId => $quantity) $cost += (float) ($costs[$itemId] ?? 0) * $quantity;

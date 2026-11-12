@@ -262,16 +262,45 @@ class StreamerLogResource extends Resource
             ->modifyQueryUsing(fn (Builder $query, $livewire) => static::applyInboxSort($query, $livewire->inboxSort ?? '')
                 ->with(['show.channel', 'show.streamers', 'streamer'])
                 ->withCount(['items', 'items as uncosted_items_count' => fn (Builder $q) => $q->whereNull('inventory_item_id')->whereNull('unit_cost')]))
-            ->contentGrid(['md' => 2, 'xl' => 3])
             ->columns([
-                \Filament\Tables\Columns\Layout\Stack::make([
-                    \Filament\Tables\Columns\ViewColumn::make('report')
-                        ->label('Report')
-                        ->view('filament.tables.report-inbox.card')
-                        ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
-                            ->whereHas('show', fn (Builder $s) => $s->where('title', 'like', "%{$search}%"))
-                            ->orWhereHas('streamer', fn (Builder $s) => $s->where('name', 'like', "%{$search}%")))),
-                ]),
+                TextColumn::make('show.title')
+                    ->label('Show')
+                    ->formatStateUsing(fn ($state, StreamerLogEntry $record) => $state ?: 'Report #'.$record->id)
+                    ->description(fn (StreamerLogEntry $record) => ($record->show?->channel?->name ?: 'No channel').' · '.($record->show?->show_date?->format('M j, Y') ?: 'No date'))
+                    ->wrap()
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
+                        ->whereHas('show', fn (Builder $show) => $show->where('title', 'like', '%'.$search.'%'))
+                        ->orWhereHas('streamer', fn (Builder $streamer) => $streamer->where('name', 'like', '%'.$search.'%')))),
+                TextColumn::make('streamer.name')->label('Streamer')->placeholder('Unassigned')->toggleable(),
+                TextColumn::make('gross_revenue')->label('Sales')
+                    ->state(fn (StreamerLogEntry $record) => $record->gross_revenue ?? $record->show?->gross_revenue)
+                    ->money('USD')->alignEnd(),
+                TextColumn::make('product_cost')->label('Product cost')->money('USD')->alignEnd(),
+                TextColumn::make('estimated_pay_display')->label('Est. pay')
+                    ->state(function (StreamerLogEntry $record) {
+                        $user = auth()->user();
+                        $staff = $user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin();
+                        $mine = $user?->streamer?->id !== null && $user->streamer->id === $record->streamer_id;
+                        return ($staff || $mine) ? (static::payFor($record)['amount'] ?? null) : null;
+                    })
+                    ->money('USD')->alignEnd(),
+                TextColumn::make('inbox_status')->label('Status')
+                    ->state(fn (StreamerLogEntry $record) => match (true) {
+                        $record->hasPendingRevisionRequest() => 'Edit requested',
+                        $record->status === 'streamer_reviewed' => 'Needs review',
+                        $record->status === 'changes_requested' => 'Changes requested',
+                        $record->status === 'admin_approved' => 'Approved',
+                        default => 'In progress',
+                    })
+                    ->badge()
+                    ->color(fn (string $state) => match ($state) {
+                        'Approved' => 'success',
+                        'Edit requested' => 'danger',
+                        'Changes requested' => 'warning',
+                        'Needs review' => 'info',
+                        default => 'gray',
+                    }),
+                TextColumn::make('submitted_at')->label('Submitted')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -316,7 +345,7 @@ class StreamerLogResource extends Resource
                             ->when($data['until'], fn ($q) => $q->whereHas('show', fn ($s) => $s->where('show_date', '<=', $data['until'])));
                     }),
             ])
-            ->actions([
+            ->actions([ActionGroup::make([
                 // Every action sits on the card as its own button; which ones
                 // show depends on where the report is. The main button is last.
                 // Files a report the streamer never submitted, on their behalf —
@@ -517,6 +546,7 @@ class StreamerLogResource extends Resource
                     ->color('primary')
                     ->extraAttributes(['class' => 'vxi-primary'])
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
+                ])->label('Actions')->icon('heroicon-o-ellipsis-horizontal')->button()->outlined()->size('sm'),
             ])
             // Approving a week of logs one row at a time is the actual job on
             // this screen. There was a "bottom action bar" offering Approve,
@@ -621,8 +651,8 @@ class StreamerLogResource extends Resource
             ->filtersFormColumns(['sm' => 2, 'lg' => 4])
             ->deferFilters(false)
             ->searchPlaceholder('Search show or streamer')
-            ->paginated([6, 12, 24])
-            ->defaultPaginationPageOption(6)
+            ->paginated([10, 15, 25, 50])
+            ->defaultPaginationPageOption(15)
             ->deferLoading()
             ->persistFiltersInSession();
     }

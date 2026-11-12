@@ -32,6 +32,9 @@ class UserPayFields
     /** @return list<string> */
     public static function fieldsFor(string $memberType, ?string $model = null): array
     {
+        if ($memberType === 'assistant') {
+            return ['hourly_rate'];
+        }
         if ($memberType === 'fulfillment') {
             return self::FULFILLMENT;
         }
@@ -59,7 +62,7 @@ class UserPayFields
         }
 
         $resolved = PaymentStructure::resolve($profile);
-        foreach (self::fieldsFor($resolved['member_type'], 'shift_share') as $field) {
+        foreach (self::fieldsFor($profile->member_type === 'assistant' ? 'assistant' : $resolved['member_type'], 'shift_share') as $field) {
             $state[self::key($field)] = self::staleLegacyHourly($resolved, $field) ? null : ($resolved['overrides'][$field] ?? null);
         }
         if ($resolved['member_type'] !== 'fulfillment' && ! $resolved['legacy']
@@ -83,7 +86,8 @@ class UserPayFields
 
         $resolved = PaymentStructure::resolve($profile);
         $chosen = in_array($data[self::MODEL] ?? null, self::MODELS, true) ? $data[self::MODEL] : null;
-        $fields = self::fieldsFor($resolved['member_type'], $chosen ?? self::defaultModel($profile->business_id));
+        $assistant = $profile->member_type === 'assistant';
+        $fields = self::fieldsFor($assistant ? 'assistant' : $resolved['member_type'], $chosen ?? self::defaultModel($profile->business_id));
 
         $submitted = [];
         foreach ($fields as $field) {
@@ -97,7 +101,7 @@ class UserPayFields
 
         $before = self::prefill($profile);
         $unchanged = collect($fields)->every(fn ($field) => self::same($before[self::key($field)], $submitted[$field]))
-            && ($resolved['member_type'] === 'fulfillment' || self::same($before[self::MODEL], $model));
+            && ($assistant || $resolved['member_type'] === 'fulfillment' || self::same($before[self::MODEL], $model));
         if ($unchanged) {
             return;
         }
@@ -124,7 +128,10 @@ class UserPayFields
             unset($overrides['burden_rate_type']);
         }
 
-        if ($resolved['member_type'] !== 'fulfillment') {
+        if ($assistant) {
+            // Assistant pay is hourly only. Preserve existing non-hourly settings
+            // rather than silently changing them from the user profile.
+        } elseif ($resolved['member_type'] !== 'fulfillment') {
             // Their own pay type only when chosen (or they have their own
             // formula); otherwise it follows their business's default.
             unset($overrides['payout_type'], $overrides['payout_cadence']);

@@ -475,10 +475,19 @@ class FulfillmentCenterWorkflowTest extends TestCase
 
         Shipment::query()->whereKey($package->shipment_id)->update(['raw_payload' => json_encode(['documents' => ['label_url' => 'https://labels.whatnot.test/abc.pdf']])]);
         $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
-            ->assertSee('Print label')->assertSee('https://labels.whatnot.test/abc.pdf', false)
+            ->assertSee('Print label')->assertSeeHtml("\$dispatch('vxf-label'")
             ->call('labelOpened', $package->id)
             ->assertSee('Reprint');
         $this->assertSame(1, \App\Models\FulfillmentEvent::query()->where('type', 'label_printed')->where('package_id', $package->id)->count());
+
+        // The label is served from this site for in-app printing, only to someone working the show.
+        \Illuminate\Support\Facades\Http::fake(['labels.whatnot.test/*' => \Illuminate\Support\Facades\Http::response('%PDF-1.4 label', 200, ['Content-Type' => 'application/pdf'])]);
+        \App\Http\Controllers\FulfillmentLabelController::$resolve = fn () => ['93.184.216.34'];
+        $this->actingAs($this->packer)->get(route('fulfillment.label', $package->id))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        \App\Http\Controllers\FulfillmentLabelController::$resolve = fn () => ['127.0.0.1'];
+        $this->actingAs($this->packer)->get(route('fulfillment.label', $package->id))->assertNotFound(); // never a local address
+        \App\Http\Controllers\FulfillmentLabelController::$resolve = null;
+        $this->actingAs(\App\Models\User::factory()->create())->get(route('fulfillment.label', $package->id))->assertNotFound();
     }
 
     public function test_the_tv_feed_names_the_show_that_finished(): void

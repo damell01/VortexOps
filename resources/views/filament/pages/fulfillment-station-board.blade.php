@@ -269,7 +269,7 @@
                                             <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
                                         @php $label = $this->labels[$package->id] ?? null; @endphp
                                         @if ($label && $label['url'])
-                                            <a class="vxf-btn vxf-btn--sm" href="{{ $label['url'] }}" target="_blank" rel="noopener noreferrer" wire:click="labelOpened({{ $package->id }})" title="Opens Whatnot's label to print{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Reprint' : 'Print label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</a>
+                                            <button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-label', {{ \Illuminate\Support\Js::from(['id' => $package->id, 'src' => route('fulfillment.label', $package->id), 'url' => $label['url'], 'title' => $current->letter . ' · ' . $current->buyer_username . ' · package ' . $loop->iteration]) }})" title="Show the label here and print it{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Reprint' : 'Print label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</button>
                                         @elseif ($package->shipment_id)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" style="opacity:.55;cursor:not-allowed" title="This shipment's label has not synced from Whatnot yet. Refresh it on Shipping & Labels.">
                                                 <x-heroicon-o-printer /> No label yet</span>
@@ -349,6 +349,29 @@
                     <li><b><x-heroicon-o-check-badge /></b><span><strong>All done? Finish Show.</strong> Look over the review screen and confirm the show is done. The fulfillment admin then signs it off.</span></li>
                 </ol>
                 <button type="button" class="vxf-btn vxf-btn--primary" @click="help = false">Got it</button>
+            </div>
+        </div>
+
+        {{-- In-app label print: the label loads from this site into the window; Print prints just the label. --}}
+        <div x-data="{ open: false, l: null, loading: true, failed: false,
+                show(d) { this.l = d; this.loading = true; this.failed = false; this.open = true },
+                print() { const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
+             x-on:vxf-label.window="show($event.detail)" x-on:keydown.escape.window="open = false">
+            <div x-show="open" x-cloak class="vxf-label-backdrop" x-on:click.self="open = false" role="dialog" aria-modal="true" aria-labelledby="vxf-label-title">
+                <div class="vxf-label-card">
+                    <div class="vxf-label-head">
+                        <h2 id="vxf-label-title"><x-heroicon-o-printer /> <span x-text="l?.title"></span></h2>
+                        <button type="button" class="vxf-iconbtn" x-on:click="open = false" aria-label="Close"><x-heroicon-o-x-mark /></button>
+                    </div>
+                    <div class="vxf-label-frame">
+                        <p x-show="loading && !failed" class="vxf-sub">Loading the label…</p>
+                        <template x-if="open && l"><iframe x-ref="frame" :src="l.src" title="Shipping label" x-on:load="loading = false"></iframe></template>
+                    </div>
+                    <div class="vxf-label-foot">
+                        <a class="vxf-btn" :href="l?.url" target="_blank" rel="noopener noreferrer" x-on:click="$wire.labelOpened(l.id)">Open in new tab</a>
+                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" x-on:click="print()" :disabled="loading"><x-heroicon-o-printer /> Print</button>
+                    </div>
+                </div>
             </div>
         </div>
 

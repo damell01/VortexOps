@@ -427,6 +427,7 @@ class Shows extends Page
             'views' => number_format((int) $s->total_views),
             'cover' => $s->cover_image_url,
             'whatnotId' => $s->whatnot_show_id,
+            'analyticsQueued' => $m['owner'] && data_get($s->raw_import_payload, '_analytics_queued_at') && (! data_get($s->raw_import_payload, '_analytics_last_attempt_at') || data_get($s->raw_import_payload, '_analytics_queued_at') > data_get($s->raw_import_payload, '_analytics_last_attempt_at')) ? data_get($s->raw_import_payload, '_analytics_queued_at') : null,
             'analyticsChecked' => $m['owner'] ? (data_get($s->raw_import_payload, '_analytics_last_attempt_at') ?? $s->last_analytics_synced_at?->toIso8601String() ?? $s->analytics_unavailable_at?->toIso8601String()) : null,
             'analyticsNote' => $m['owner'] ? $s->analytics_sync_note : null,
             'analytics' => $m['owner'] ? (['complete' => 'Synced', 'partial' => 'Partial · retry pending', 'unavailable' => 'Waiting for analytics', 'unclassified' => $state === 'upcoming' ? 'After show' : 'Waiting for analytics'][$coverage] ?? 'Waiting for analytics') : null,
@@ -782,8 +783,13 @@ class Shows extends Page
             Notification::make()->title('This show needs its Whatnot ID and channel before retrying')->warning()->send();
             return;
         }
+        // Expose queue state immediately; the worker will replace it with the actual API attempt time.
+        $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        $meta['_analytics_queued_at'] = now()->toIso8601String();
+        $show->raw_import_payload = $meta;
+        $show->save();
         \App\Jobs\RetryShowAnalytics::dispatch($show->id);
-        Notification::make()->title('Analytics retry queued')->body('It will wait for the active scraper. This does not mean the metrics have synced yet.')->success()->send();
+        Notification::make()->title('Analytics retry queued')->body('The Whatnot API check has been queued. Analytics will appear once Whatnot generates them and the queue worker processes the job.')->success()->send();
     }
 
     public function assignStreamer(int $showId, int $streamerId): void

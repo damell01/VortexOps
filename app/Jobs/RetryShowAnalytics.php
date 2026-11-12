@@ -2,6 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\Show;
+use App\Jobs\ScrapePendingShowAnalytics;
 use App\Models\WhatnotApiConnection;
 use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiShowAnalyticsApplier;
@@ -74,6 +75,11 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                     'analytics_sync_status' => $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable',
                     'analytics_sync_note' => $result['outcome'] === 'not_ready' ? 'Whatnot has not generated show analytics yet.' : 'Whatnot will not calculate analytics for this show.',
                 ])->save();
+            }
+            // The API can lag behind Seller Hub. Scrape analytics only, on a
+            // dedicated browser queue, while continuing API polling for final values.
+            if (WhatnotApiOrderApplier::writesAllowed() && in_array($result['outcome'], ['not_ready', 'not_calculated'], true)) {
+                ScrapePendingShowAnalytics::dispatch($show->id);
             }
             Log::info('Show analytics API retry finished', [
                 'show_id' => $this->showId,

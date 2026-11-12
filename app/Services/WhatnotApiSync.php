@@ -77,8 +77,10 @@ final class WhatnotApiSync
         $log('Starting orders for channel '.$channelId.'…');
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
-        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId;
-        $startCursor = Cache::get($cursorKey);
+        // Fresh and historical runs must not share pagination state. A fresh
+        // pass always starts at the head to discover newly arriving orders.
+        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId.($livePriority ? ':fresh' : ':history');
+        $startCursor = $livePriority ? null : Cache::get($cursorKey);
         if (! is_string($startCursor)) $startCursor = null;
         try {
             $paging = $this->client->eachPage($connection, 'orders', function (array $page) use ($channelId, $dryRun, $since, &$orderCounts, &$needsItems) {

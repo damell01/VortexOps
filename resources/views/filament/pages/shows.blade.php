@@ -390,10 +390,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
         <button type="button" class="vx-btn ic" wire:click="goPrevious" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" /></button>
         <button type="button" class="vx-btn" wire:click="goToToday">Today</button>
         @if(auth()->user()?->isOwner())
-        <button type="button" class="vx-btn" wire:click="syncTodaysWhatnotShows" wire:loading.attr="disabled" wire:target="syncTodaysWhatnotShows" title="Request fresh Whatnot shows, orders, items, analytics, shipments and finance across enabled channels">
+        <button type="button" class="vx-btn" x-on:click="window.dispatchEvent(new CustomEvent('vx-open-whatnot-sync'))" wire:click="syncTodaysWhatnotShows" wire:loading.attr="disabled" wire:target="syncTodaysWhatnotShows" title="Request fresh Whatnot shows, orders, items, analytics, shipments and finance across enabled channels">
             <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> <span wire:loading.remove wire:target="syncTodaysWhatnotShows">Sync today's shows</span><span wire:loading wire:target="syncTodaysWhatnotShows">Syncing…</span>
         </button>
-        <div wire:loading wire:target="syncTodaysWhatnotShows" class="text-xs" role="status" aria-live="polite" style="max-width:360px;max-height:88px;overflow:auto;white-space:pre-wrap"><span wire:stream="today-whatnot-sync-progress">Connecting to Whatnot…</span></div>
         @endif
         <button type="button" class="vx-btn ic" wire:click="goNext" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4" /></button>
         <h2 class="vx-title">{{ $this->calendarTitle() }}</h2>
@@ -780,4 +779,35 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 </div>
 </template>
 </div>
+
+@if(auth()->user()?->isOwner())
+<div x-data="{ open:false, started:false }"
+     x-on:vx-open-whatnot-sync.window="open=true; started=true"
+     x-on:keydown.escape.window="if (!started) open=false"
+     x-on:livewire:navigating.window="open=false"
+     x-cloak>
+    <template x-teleport="body">
+        <div x-show="open" x-transition.opacity class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="vx-sync-title">
+            <div class="absolute inset-0 bg-slate-950/70"></div>
+            <section class="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" style="max-height:min(85dvh,850px)">
+                <header class="flex items-center justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                    <div>
+                        <h2 id="vx-sync-title" class="text-xl font-bold text-gray-950 dark:text-white">Whatnot live sync</h2>
+                        <p class="text-sm text-gray-500">Live results by channel: shows, orders, items, analytics, shipments and finance.</p>
+                    </div>
+                    <button type="button" class="vx-btn" x-on:click="open=false" aria-label="Close sync progress">Close</button>
+                </header>
+                <div class="min-h-0 flex-1 overflow-y-auto p-5">
+                    <div wire:loading wire:target="syncTodaysWhatnotShows" class="mb-3 flex items-center gap-2 text-sm font-semibold text-indigo-600">
+                        <x-filament::loading-indicator class="h-5 w-5" /> Syncing directly with Whatnot API…
+                    </div>
+                    <p class="mb-3 text-xs text-gray-500">Results appear as the API responds. A channel can take time; closing this window does not guarantee the request continues.</p>
+                    <pre class="whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-sm leading-6 text-emerald-300" style="min-height:180px"><span wire:stream="today-whatnot-sync-progress">Waiting for API response…</span></pre>
+                </div>
+                <footer class="border-t border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700">Counts reflect imported API responses. Missing analytics may still be pending at Whatnot.</footer>
+            </section>
+        </div>
+    </template>
+</div>
+@endif
 </x-filament-panels::page>

@@ -152,6 +152,13 @@
                 .vx-chat-compose-person:has(input:checked){background:#f1e9ff}
                 .vx-chat-compose-person:focus-within{outline:2px solid #8b5cf6;outline-offset:-2px}
                 .vx-chat-compose-footer .vx-chatify-new-create:disabled{opacity:.5;cursor:not-allowed}
+                /* Keep recipient selection visible and the primary action anchored. */
+                .vx-chatify-new-overlay.vx-chat-compose{height:100%;max-height:100%;min-height:0;background:#fff}
+                .vx-chat-compose .vx-chatify-conversation-head{flex:0 0 auto;min-height:56px;padding:12px 16px;border-bottom:1px solid #eae5f1}
+                .vx-chat-compose-body{overflow:hidden!important;min-height:0}
+                .vx-chat-compose .vx-chat-compose-users{min-height:120px!important;flex:1 1 120px!important}
+                .vx-chat-compose-footer{flex:0 0 auto;position:relative;z-index:2}
+                .vx-chat-compose-person input:checked{accent-color:#6d28d9}
                 .vx-chat-compose-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px}
                 .vx-chat-compose-mode button{padding:10px 8px;border:1px solid #ddd4ef;border-radius:10px;font-size:12px;font-weight:700;color:#493765;background:#fff}
                 .vx-chat-compose-mode button.is-active{background:#f2eaff;border-color:#7c3aed;color:#6426bd}
@@ -182,7 +189,14 @@
                 .vx-chat-compose-footer{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #e9e3f1;background:#fff}
                 .vx-chat-compose-footer span{white-space:nowrap;color:#766b86;font-size:12px}
                 .vx-chat-compose-footer .vx-chatify-new-create{flex:1;margin:0;min-width:0}
-                @media(max-width:640px){.vx-chat-compose-body{padding:12px}.vx-chat-compose-footer{padding:10px 12px}}
+                @media(max-width:640px){
+                    .vx-chat-compose-body{padding:12px;gap:8px}
+                    .vx-chat-compose-footer{padding:10px 12px}
+                    .vx-chat-compose-mode button{min-height:42px}
+                    .vx-chat-compose .vx-chat-compose-users{min-height:140px!important}
+                    .vx-chat-compose-footer .vx-chatify-new-create{min-height:44px}
+                    .vx-chat-compose .vx-chatify-conversation-head{min-height:48px}
+                }
             </style>
             <script>
                 function vortexChatifyWidget() {

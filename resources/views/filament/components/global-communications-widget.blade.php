@@ -173,6 +173,22 @@
                 .vx-chat-compose-users{scrollbar-width:thin;scrollbar-color:#b7a3d8 transparent}
                 .vx-chat-compose-person:has(input:checked){background:#f1e9ff}
                 .vx-chat-compose-person:focus-within{outline:2px solid #8b5cf6;outline-offset:-2px}
+                /* Recipient gallery: use the entire dialog body rather than a tiny nested list. */
+                .vx-chatify-compose-backdrop .vx-chat-compose-body{overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-width:thin;display:block!important;flex:1 1 auto!important;min-height:0!important;padding:20px 24px!important}
+                .vx-chatify-compose-backdrop .vx-chat-compose-body>.vx-chat-compose-mode{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+                .vx-chatify-compose-backdrop .vx-chat-compose-body>.vx-chat-compose-label{display:flex;justify-content:space-between;margin:10px 0}
+                .vx-chatify-compose-backdrop .vx-chat-compose-body>.vx-chat-compose-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users.vx-chatify-user-list{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;align-content:start!important;overflow:visible!important;max-height:none!important;height:auto!important;min-height:0!important;flex:none!important;padding:0!important;margin:10px 0 20px!important;border:0!important;scrollbar-width:none!important}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person{display:flex!important;align-items:center!important;gap:10px!important;padding:12px!important;min-height:72px!important;border:1px solid #e6dff1!important;border-radius:14px!important;background:#fff;cursor:pointer;box-shadow:0 1px 2px rgba(20,10,40,.05);transition:border-color .15s,background .15s,box-shadow .15s}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person:hover{border-color:#9b6cf5!important;background:#faf7ff!important}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person:has(input:checked){background:#f1e9ff!important;border-color:#7c3aed!important;box-shadow:0 0 0 1px #7c3aed}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person-name{flex:1;min-width:0;overflow:hidden}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person-name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                .vx-chatify-compose-backdrop .vx-chat-compose-users .vx-chat-compose-person input{flex-shrink:0;accent-color:#7c3aed;width:18px;height:18px}
+                .vx-chatify-compose-backdrop .vx-chat-compose .vx-chatify-conversation-head,.vx-chatify-compose-backdrop .vx-chat-compose-footer{flex:0 0 auto!important}
+                @media(max-width:900px){.vx-chatify-compose-backdrop .vx-chat-compose-users.vx-chatify-user-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+                @media(max-width:580px){.vx-chatify-compose-backdrop .vx-chat-compose-users.vx-chatify-user-list{grid-template-columns:1fr!important}.vx-chatify-compose-backdrop .vx-chat-compose-body{padding:12px 16px!important}}
                 .vx-chat-compose-footer .vx-chatify-new-create:disabled{opacity:.5;cursor:not-allowed}
                 /* Keep recipient selection visible and the primary action anchored. */
                 .vx-chatify-new-overlay.vx-chat-compose{height:100%;max-height:100%;min-height:0;background:#fff}

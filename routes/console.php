@@ -210,6 +210,20 @@ Schedule::command('ledger:match-shows --all --limit=100000')->weeklyOn(0, '03:10
 // Shows whose earnings changed after their pay was locked (badge + admin alert).
 Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);
 Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('America/Chicago')->name('ledger-unassigned-alert')->withoutOverlapping(30);
+// Fast lane: check newly ended shows and their orders/analytics each minute.
+// Each channel has its own lock; skip overlapping runs rather than duplicate imports.
+// Historical reconciliation remains on the existing slower schedules.
+foreach ([1, 2, 3, 4] as $whatnotChannelId) {
+    Schedule::command('whatnot:api-sync-tick --channel='.$whatnotChannelId.' --mode=fresh')
+        ->everyMinute()
+        ->name('whatnot-api-'.$whatnotChannelId.'-fresh')
+        ->withoutOverlapping(5)
+        ->runInBackground()
+        ->skip(fn () => ! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+}
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')

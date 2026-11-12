@@ -16,7 +16,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -124,29 +123,26 @@ class ReviewShowStreamers extends ListRecords
     public function table(Table $table): Table
     {
         return $table->columns([
-            Stack::make([
-                TextColumn::make('show_date')->label('Date')->date('M j, Y')->sortable()->color('gray'),
-                TextColumn::make('title')->label('Show')->searchable()->weight('semibold')->wrap(),
-                TextColumn::make('channel.name')->label('Channel')->prefix('Channel: ')->placeholder('No channel assigned')->wrap(),
-                TextColumn::make('status')->label('Show status')->badge()
-                    ->formatStateUsing(fn (string $state) => Show::statusLabels()[$state] ?? ucfirst(str_replace('_',' ',$state))),
-                TextColumn::make('detected_host')->label('Detected host')
-                    ->state(fn (Show $record) => $this->host($record)['detected_name'])
-                    ->prefix('Detected host: ')->placeholder('No clear host in the title')->wrap()->color('gray'),
-                TextColumn::make('suggested_streamer')->label('Suggested streamer')
-                    ->state(function (Show $record) {
-                        $host=$this->host($record);
-                        if ($s=$host['suggestion']) return 'Suggested: '.$s['name'];
-                        return count($host['candidates']) > 1 ? 'Multiple possible hosts: '.collect($host['candidates'])->pluck('name')->join(', ') : null;
-                    })->wrap()->badge()->color(fn (Show $record) => $this->host($record)['suggestion'] ? 'success' : 'warning')
-                    ->placeholder('Choose a streamer manually'),
-                TextColumn::make('matching_reason')->label('Why')
-                    ->state(fn (Show $record) => $this->host($record)['suggestion']['reason']
-                        ?? (count($this->host($record)['candidates']) > 1 ? 'Check every host. This show will not be assigned automatically.' : 'No unique profile or alias matched.'))
-                    ->size('xs')->color('gray')->wrap(),
-            ])->space(2),
-        ])->contentGrid(['md'=>2,'xl'=>3])->defaultSort('show_date','desc')
-            ->paginationPageOptions([12,24,48])->defaultPaginationPageOption(12)
+            TextColumn::make('show_date')->label('Date')->date('M j, Y')->sortable()->color('gray'),
+            TextColumn::make('title')->label('Show')->searchable()->weight('semibold')->wrap()->limit(68)->tooltip(fn (Show $record) => $record->title),
+            TextColumn::make('channel.name')->label('Channel')->placeholder('Unassigned')->toggleable(),
+            TextColumn::make('status')->label('Status')->badge()
+                ->formatStateUsing(fn (string $state) => Show::statusLabels()[$state] ?? ucfirst(str_replace('_',' ',$state))),
+            TextColumn::make('detected_host')->label('Detected host')
+                ->state(fn (Show $record) => $this->host($record)['detected_name'])
+                ->placeholder('Not detected')->color('gray')->wrap()->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('suggested_streamer')->label('Suggested streamer')
+                ->state(function (Show $record) {
+                    $host = $this->host($record);
+                    if ($suggestion = $host['suggestion']) return $suggestion['name'];
+                    return count($host['candidates']) > 1 ? 'Multiple matches' : 'Manual selection';
+                })->badge()->color(fn (Show $record) => $this->host($record)['suggestion'] ? 'success' : 'warning'),
+            TextColumn::make('matching_reason')->label('Why')
+                ->state(fn (Show $record) => $this->host($record)['suggestion']['reason']
+                    ?? (count($this->host($record)['candidates']) > 1 ? 'Multiple possible hosts' : 'No unique match'))
+                ->color('gray')->wrap()->toggleable(isToggledHiddenByDefault: true),
+        ])->defaultSort('show_date', 'desc')
+            ->paginationPageOptions([15, 30, 50])->defaultPaginationPageOption(15)
             ->filters([
                 SelectFilter::make('whatnot_channel_id')->label('Channel')->options(fn () => WhatnotChannel::orderBy('name')->pluck('name','id'))->searchable(),
                 SelectFilter::make('status')->label('Show status')->options(Show::statusLabels()),

@@ -535,6 +535,7 @@
                 $staged = $this->stagedSummary;
                 $alreadyInReport = $lines->groupBy('inventory_item_id')->map(fn ($rows) => $rows->sum('quantity'));
             @endphp
+            @teleport('body')
             <div class="vxw-sheet-wrap" role="dialog" aria-modal="true" aria-labelledby="eos-picker-title"
                 x-data x-init="$nextTick(() => $el.querySelector('input[type=search]')?.focus())" @keydown.escape.window="$wire.toggleBrowse()">
                 <div class="vxw-sheet-backdrop" wire:click="toggleBrowse"></div>
@@ -604,6 +605,8 @@
                                         <div>
                                             <div class="vxw-fig-label">On hand</div>
                                             <div class="vxw-fig-value">{{ number_format((float)($item->stock_sum_quantity ?? 0)) }}</div>
+                                            <div class="vxw-fig-label mt-1">Target price</div>
+                                            <div class="vxw-fig-value">${{ number_format((float)($item->sale_price ?? 0), 2) }}</div>
                                         </div>
                                         @if($stagedQty === 0)
                                             <button type="button" class="vxw-btn vxw-btn--sm" wire:click="stageItem({{ $item->id }})">
@@ -641,7 +644,7 @@
                             @else
                                 <strong class="text-[var(--vxw-text)]">{{ $staged['items'] }}</strong> {{ \Illuminate\Support\Str::plural('item', $staged['items']) }} ·
                                 <strong class="text-[var(--vxw-text)]">{{ number_format($staged['units']) }}</strong> {{ \Illuminate\Support\Str::plural('unit', $staged['units']) }}
-                                @if($staged['cost'] > 0) · <strong class="text-[var(--vxw-text)]">${{ number_format($staged['cost'], 2) }}</strong> at cost @endif
+                                @if($staged['cost'] > 0) · <strong class="text-[var(--vxw-text)]">${{ number_format($staged['cost'], 2) }}</strong> target total @endif
                             @endif
                         </div>
                         <div class="flex items-center gap-2 max-sm:w-full">
@@ -660,6 +663,7 @@
                     </div>
                 </section>
             </div>
+            @endteleport
         @endif
 
         <script>

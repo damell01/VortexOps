@@ -48,6 +48,7 @@ final class WhatnotApiSync
         $summary = ['channel_id' => $channelId, 'days' => $days, 'dry_run' => $dryRun, 'errors' => []];
 
         if ($only === null || in_array('shows', $only, true)) {
+        $log('Starting shows for channel '.$channelId.'…');
         // 0. Shows: every scheduled show (created ahead of time; reschedules
         // and title changes logged), and shows that ended in the window.
         $showCounts = [];
@@ -73,6 +74,7 @@ final class WhatnotApiSync
 
         $needsItems = [];
         if ($only === null || in_array('orders', $only, true)) {
+        $log('Starting orders for channel '.$channelId.'…');
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
         $cursorKey = 'whatnot-api-orders-cursor:'.$channelId;
@@ -104,6 +106,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('items', $only, true)) {
+        $log('Starting items for channel '.$channelId.'…');
         // 2. Line items for orders still missing an item name.
         $items = ['filled' => 0, 'unchanged' => 0, 'no_row' => 0, 'no_items' => 0, 'failed' => 0];
         foreach (array_slice(array_values(array_unique($needsItems)), 0, self::MAX_ITEM_LOOKUPS) as $orderId) {
@@ -123,6 +126,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('shipments', $only, true)) {
+        $log('Starting shipments for channel '.$channelId.'…');
         // 2b. Shipments created in the window → tracking/status on orders.
         $shipCounts = [];
         try {
@@ -148,6 +152,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('analytics', $only, true)) {
+        $log('Starting analytics for channel '.$channelId.'…');
         // 3. Ended shows in the window that exist here → their analytics.
         $analyticsCounts = [];
         try {
@@ -194,6 +199,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('ledger', $only, true)) {
+        $log('Starting ledger for channel '.$channelId.'…');
         // 4. Financial report → ledger (tips, earnings, refunds).
         try {
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
@@ -209,6 +215,7 @@ final class WhatnotApiSync
         }
 
         if ($only === null || in_array('overview', $only, true)) {
+        $log('Starting overview for channel '.$channelId.'…');
         // 5. Daily business overview for the window.
         try {
             $report = $this->reports->fetch($connection, WhatnotApiReports::overview($since->copy()->startOfDay(), now()->startOfHour()));

@@ -15,6 +15,9 @@
 .vxf-queue-dock__name{font-weight:700;white-space:nowrap}.vxf-queue-dock__state{color:#64748b;font-size:10px}.vxf-queue-dock__assign{border-radius:7px;background:#6d28d9;color:white;padding:5px 8px;font-weight:700;font-size:11px}
 .dark .vxf-queue-dock{background:rgba(30,20,50,.97);border-color:#6d28d9}.dark .vxf-queue-dock__target{background:#241c35;color:#f8fafc}
 @media(max-width:800px){.vxf-queue-dock{top:4rem;display:block;padding:8px}.vxf-queue-dock__label{margin-bottom:6px}.vxf-queue-dock__label span{display:none}.vxf-queue-dock__target{min-height:44px}}
+
+.vxf-dnd-mobile-hint{display:none}
+@media(max-width:800px){.vxf-dnd-desktop-hint{display:none}.vxf-dnd-mobile-hint{display:inline}.vxf-dnd-team__chips{display:none}.vxf-queue-dock__assign{min-height:36px;padding:7px 12px}.vxf-queue-dock__stations{scroll-snap-type:x proximity}.vxf-queue-dock__target{scroll-snap-align:start}}
 </style>
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
@@ -207,7 +210,7 @@
             </div>
             @if ($manager && count($this->team))
                 <div class="vxf-dnd-team" aria-label="Fulfillment team">
-                    <span class="vxf-sub">Drag a person onto a show or a ready station · drag a show onto a station</span>
+                    <span class="vxf-sub"><span class="vxf-dnd-desktop-hint">Drag a teammate onto a show, or drag a show to a station above.</span><span class="vxf-dnd-mobile-hint">Use Assign on a show or station to choose a packer and station.</span></span>
                     <div class="vxf-dnd-team__chips">
                         @foreach ($this->team as $p)
                             <span class="vxf-chip vxf-dnd-chip" draggable="true" title="Drag {{ $p['name'] }} onto a show or a ready station"

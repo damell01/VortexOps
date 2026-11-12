@@ -170,7 +170,7 @@ final class FulfillmentQueue
      *
      * @param  'all'|'slow'|'quick'  $length  long jobs (slow-pack shows) or the quick ones
      */
-    public function queueQuery(?User $viewer, string $length = 'all'): Builder
+    public function queueQuery(?User $viewer, string $length = 'all', string $search = ''): Builder
     {
         $manager = \App\Support\FulfillmentAccess::isManager($viewer);
 
@@ -180,6 +180,14 @@ final class FulfillmentQueue
             ->where('shows.is_operational', true)->where('shows.status', '!=', 'cancelled')
             ->where('shows.show_date', '>=', today()->subDays(self::WINDOW_DAYS)->toDateString())
             ->when(ChannelContext::isScoped(), fn (Builder $q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+            ->when(trim($search) !== '', function (Builder $q) use ($search) {
+                $term = '%'.addcslashes(trim($search), '%_\\\\').'%';
+                $q->where(function (Builder $matches) use ($term) {
+                    $matches->where('shows.title', 'like', $term)
+                        ->orWhere('shows.whatnot_show_id', 'like', $term)
+                        ->orWhereHas('show.streamers', fn (Builder $streamers) => $streamers->where('name', 'like', $term));
+                });
+            })
             ->when(in_array($length, ['slow', 'quick'], true), fn (Builder $q) => $q->where('shows.is_slow_pack', $length === 'slow'))
             ->when(! $manager && $viewer, fn (Builder $q) => $q->whereExists(fn ($u) => $u->from('show_fulfillment_user')
                 ->whereColumn('show_fulfillment_user.show_id', 'shows.id')->where('show_fulfillment_user.user_id', $viewer->id)))
@@ -187,9 +195,9 @@ final class FulfillmentQueue
     }
 
     /** One page of the queue, with only what the rows show. */
-    public function queuePage(?User $viewer, string $length, int $page, int $perPage): Collection
+    public function queuePage(?User $viewer, string $length, int $page, int $perPage, string $search = ''): Collection
     {
-        return $this->queueQuery($viewer, $length)
+        return $this->queueQuery($viewer, $length, $search)
             ->with(['show:id,title,show_date,start_time,whatnot_channel_id,status,is_slow_pack', 'show.channel:id,name', 'show.streamers:id,name',
                 'show.fulfillmentUsers:id,name', 'station:id,name', 'packers:id,name'])
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])

@@ -20,6 +20,8 @@
     $counts = ['all' => $t['shows'], 'finalized' => $t['finalized'], 'incomplete' => $t['incomplete'], 'losses' => $t['finalized_losing'], 'whatnot' => $t['whatnot_negative']];
     $tab = $showFilter === 'complete' ? 'finalized' : $showFilter;
     $detail = $this->detail();
+    $flow = $period !== 'day' ? $this->salesVsNet() : null;
+    $vsPrev = 'vs previous';
 @endphp
 
 <div class="vxr" data-vx-page="profit-loss">
@@ -68,13 +70,13 @@
 
     <x-vx.tip id="pl-breakdown">Click any show in the list for its full breakdown: what is still missing, and which pay runs it is in.</x-vx.tip>
 
-    <div class="vxr-stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr))">
-        <x-vxr.stat compact label="Shows" :value="number_format($t['shows'])" icon="heroicon-o-calendar-days">{{ $deltaNote($t['shows'], $prev['shows']) }}</x-vxr.stat>
-        <x-vxr.stat compact label="Sales" :value="$money($t['sales'])" icon="heroicon-o-shopping-cart">{{ $deltaNote($t['sales'], $prev['sales']) }}</x-vxr.stat>
-        <x-vxr.stat compact label="Whatnot Earnings" :value="$money($t['earnings'])" icon="heroicon-o-banknotes" title="Whatnot's earnings after its fees, plus tips">{{ $deltaNote($t['earnings'], $prev['earnings']) }}</x-vxr.stat>
-        <x-vxr.stat compact label="Recorded COGS" :value="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'Missing' : $money($t['cogs'])" icon="heroicon-o-cube" :tone="$t['missing_cogs'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'vxr-val-warn' : ''" :note="$t['missing_cogs'] ? $t['missing_cogs'].' '.\Illuminate\Support\Str::plural('show', $t['missing_cogs']).' missing' : null" />
-        <x-vxr.stat compact label="Worker Payouts" :value="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'Pending' : $money($t['payouts'])" icon="heroicon-o-users" :tone="$t['pay_pending'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'vxr-val-warn' : ''" :note="$t['pay_pending'] ? $t['pay_pending'].' not final' : null" />
-        <x-vxr.stat compact :class="$t['finalized'] && $t['finalized_profit'] > 0 ? 'vx-zard-perch' : ''" label="Finalized Profit" :value="$t['finalized'] ? $money($t['finalized_profit']) : '—'" icon="heroicon-o-chart-bar" tone="ok" :value-class="$t['finalized'] ? ($t['finalized_profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok') : 'vxr-val-muted'" :note="$t['finalized'].' finalized · '.$money($t['profit']).' incl. incomplete'" />
+    <div class="vxr-stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <x-vxr.stat label="Shows" :value="number_format($t['shows'])" icon="heroicon-o-calendar-days" :delta="$delta($t['shows'], $prev['shows'])" :delta-note="$vsPrev" />
+        <x-vxr.stat label="Sales" :value="$money($t['sales'])" icon="heroicon-o-shopping-cart" :delta="$delta($t['sales'], $prev['sales'])" :delta-note="$vsPrev" :spark="$flow['spark_sales'] ?? null" />
+        <x-vxr.stat label="Whatnot Earnings" :value="$money($t['earnings'])" icon="heroicon-o-banknotes" title="Whatnot's earnings after its fees, plus tips" featured :delta="$delta($t['earnings'], $prev['earnings'])" :delta-note="$vsPrev" :spark="$flow['spark_net'] ?? null" />
+        <x-vxr.stat label="Recorded COGS" :value="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'Missing' : $money($t['cogs'])" icon="heroicon-o-cube" :tone="$t['missing_cogs'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'vxr-val-warn' : ''" :note="$t['missing_cogs'] ? $t['missing_cogs'].' '.\Illuminate\Support\Str::plural('show', $t['missing_cogs']).' missing' : null" />
+        <x-vxr.stat label="Worker Payouts" :value="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'Pending' : $money($t['payouts'])" icon="heroicon-o-users" :tone="$t['pay_pending'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'vxr-val-warn' : ''" :note="$t['pay_pending'] ? $t['pay_pending'].' not final' : null" />
+        <x-vxr.stat :class="$t['finalized'] && $t['finalized_profit'] > 0 ? 'vx-zard-perch' : ''" label="Finalized Profit" :value="$t['finalized'] ? $money($t['finalized_profit']) : '—'" icon="heroicon-o-chart-bar" tone="ok" :value-class="$t['finalized'] ? ($t['finalized_profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok') : 'vxr-val-muted'" :note="$t['finalized'].' finalized · '.$money($t['profit']).' incl. incomplete'" />
     </div>
 
     <div class="vxr-tabs" role="tablist">
@@ -87,11 +89,12 @@
         @if ($period !== 'day')
             <section class="vxr-card">
                 <div class="vxr-card-head">
-                    <div><h2 class="vxr-card-title" style="font-size:18px">Whatnot estimated earnings by {{ $period === 'year' ? 'month' : 'day' }}</h2></div>
-                    <div class="vxr-legend"><span><i style="background:var(--vxw-accent)"></i>Earnings (actual)</span><span><i style="background:var(--vxw-sunken);border:1px solid var(--vxw-border)"></i>Future {{ $period === 'year' ? 'month' : 'day' }} (no data yet)</span></div>
+                    <div><h2 class="vxr-card-title" style="font-size:18px">Sales and Whatnot earnings by {{ $period === 'year' ? 'month' : 'day' }}</h2></div>
+                    <div class="vxr-legend"><span><i style="height:8px;width:8px;border-radius:2px;background:var(--vxw-accent)"></i>Gross sales</span><span><i style="height:8px;width:8px;border-radius:2px;background:color-mix(in srgb,var(--vxw-accent) 35%,var(--vxw-surface))"></i>Whatnot net</span></div>
                 </div>
                 <div class="vxr-card-body">
-                    <x-vxr.chart :points="$this->earningsChart()" type="bar" :height="230" />
+                    <x-vxr.grouped :labels="$flow['labels']" :height="230" aria-label="Sales and Whatnot net"
+                        :series="[['name' => 'Gross sales', 'values' => $flow['sales'], 'color' => 'var(--vxw-accent)'], ['name' => 'Whatnot net', 'values' => $flow['net'], 'color' => 'color-mix(in srgb,var(--vxw-accent) 35%,var(--vxw-surface))']]" />
                     <p class="vxr-hint">Does not include business expenses (COGS, worker payouts, or other costs).</p>
                 </div>
             </section>
@@ -137,6 +140,11 @@
 
     {{-- Every show --}}
     @php $shows = $this->showRows(); @endphp
+    <section class="vxr-card">
+        <div class="vxr-card-head"><div><h2 class="vxr-card-title" style="font-size:17px"><x-filament::icon icon="heroicon-o-chart-pie" /> Where each sales dollar went</h2><p class="vxr-card-sub">{{ $money($t['sales']) }} in sales this period, split into Whatnot's fees, cost of goods, pay and what is left. Includes shows still missing costs.</p></div></div>
+        <div class="vxr-card-body"><x-vxr.donut :segments="$this->moneySplit()" :center="$t['sales'] > 0 ? round(max(0, $t['profit']) / $t['sales'] * 100).'%' : '—'" center-label="kept as profit" /></div>
+    </section>
+
     <section class="vxr-card">
         <div class="vxr-card-head">
             <div><h2 class="vxr-card-title" style="font-size:17px">{{ \App\Filament\Pages\ProfitLoss::TABS[$tab] ?? 'Shows' }}</h2><p class="vxr-card-sub">{{ $shows->count() }} of {{ $t['shows'] }} {{ \Illuminate\Support\Str::plural('show', $t['shows']) }} · Click a show for its breakdown.</p></div>

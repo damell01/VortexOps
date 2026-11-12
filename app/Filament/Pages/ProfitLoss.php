@@ -302,6 +302,46 @@ class ProfitLoss extends Page
         return array_values(array_map(fn ($b) => $b + ['title' => str_replace("\n", ' ', $b['label']).($b['muted'] ? ': no data yet' : ': $'.number_format($b['value'], 2).' · '.$b['shows'].' '.str('show')->plural($b['shows']))], $buckets));
     }
 
+    /** Gross sales and Whatnot net per day (per month for a year), for the grouped chart. */
+    public function salesVsNet(): array
+    {
+        [$from, $to] = $this->range();
+        $year = $this->period === 'year';
+        $b = [];
+        for ($d = $from->copy(); $d->lte($to); $year ? $d->addMonthNoOverflow()->startOfMonth() : $d->addDay()) {
+            $b[$year ? $d->format('Y-m') : $d->toDateString()] = ['label' => $year ? $d->format('M') : ($this->period === 'week' ? $d->format('D j') : $d->format('M j')), 'sales' => 0.0, 'net' => 0.0, 'profit' => 0.0];
+        }
+        foreach ($this->rows() as $r) {
+            $k = $year ? $r['date']?->format('Y-m') : $r['date']?->toDateString();
+            if ($k !== null && isset($b[$k])) { $b[$k]['sales'] += $r['sales']; $b[$k]['net'] += $r['whatnot_net']; $b[$k]['profit'] += $r['profit']; }
+        }
+        $today = BusinessTime::local()->toDateString();
+        $upto = count(array_filter(array_keys($b), fn ($k) => ($year ? $k.'-01' : $k) <= $today));
+        $b = array_values($b);
+
+        return ['labels' => array_column($b, 'label'), 'sales' => array_column($b, 'sales'), 'net' => array_column($b, 'net'), 'profit' => array_column($b, 'profit'),
+            'spark_sales' => array_slice(array_column($b, 'sales'), 0, max(2, $upto)), 'spark_net' => array_slice(array_column($b, 'net'), 0, max(2, $upto))];
+    }
+
+    /** Where each sales dollar went: Whatnot fees, cost of goods, pay and what is left. */
+    public function moneySplit(): array
+    {
+        $rows = $this->rows();
+        $sales = (float) $rows->sum('sales');
+        $net = (float) $rows->sum('whatnot_net');
+        $cogs = (float) $rows->sum('cogs');
+        $pay = (float) $rows->sum('payouts');
+        $tips = (float) $rows->sum('tips');
+        $left = $net + $tips - $cogs - $pay;
+
+        return [
+            ['label' => 'Profit (est.)', 'value' => max(0, $left), 'color' => 'var(--vxw-accent)'],
+            ['label' => 'Cost of goods', 'value' => $cogs, 'color' => 'var(--vxc-2)'],
+            ['label' => 'Worker pay', 'value' => $pay, 'color' => 'var(--vxc-1)'],
+            ['label' => 'Whatnot fees', 'value' => max(0, $sales - $net), 'color' => 'var(--vxc-4)'],
+        ];
+    }
+
     /** What has to be done before this period's profit is final. */
     public function checklist(): array
     {

@@ -690,3 +690,4 @@ a.vxd-row:hover { background: var(--vxw-sunken); }
 @media (prefers-reduced-motion: reduce) { .vxg-bar, .vxp-bar i { animation: none !important; } }
 .vxd { display: flex; flex-wrap: wrap; justify-content: center; }
 .vxd-legend { flex: 1 1 190px; }
+.vxd-legend { max-width: 440px; } .vxr-card-body > .vxd { justify-content: flex-start; gap: 24px; }

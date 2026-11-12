@@ -44,18 +44,27 @@
     @endif
 
     @if ($isStaff && $this->reopenRequests()->isNotEmpty())
-        <section class="vxi-panel border-rose-200 dark:border-rose-900/60" aria-labelledby="reopen-heading">
-            <div class="flex flex-wrap items-center justify-between gap-2 px-4 pt-4"><h3 id="reopen-heading" class="font-bold">Requests to reopen</h3><button type="button" wire:click="selectInboxStatus('edit_requested')" class="text-sm font-semibold text-primary-600 dark:text-primary-400">View all requests →</button></div>
-            <div class="grid gap-3 p-4 lg:grid-cols-2">
-                @foreach($this->reopenRequests() as $report)
-                    <article class="rounded-xl border border-gray-200 p-4 dark:border-gray-700" wire:key="reopen-request-{{ $report->id }}">
-                        <h4 class="font-semibold">{{ $report->show?->title ?: 'Report #' . $report->id }}</h4><p class="mt-1 text-xs text-gray-500">{{ $report->streamer?->name ?: 'No streamer linked' }} · {{ $report->show?->show_date?->format('M j, Y') ?: 'No show date' }} · Requested {{ $report->revision_requested_at?->diffForHumans() }}</p>
-                        <p class="mt-3 whitespace-pre-line text-sm">{{ $report->revision_reason ?: 'The streamer did not include a reason.' }}</p>
-                        <div class="mt-4 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $report]) }}" class="vxi-btn">Review report</a><button type="button" wire:click="reopenRequestedReport({{ $report->id }})" wire:confirm="Reopen this report for the streamer? Existing inventory postings remain in place." wire:loading.attr="disabled" wire:target="reopenRequestedReport" class="vxi-btn border-amber-500 bg-amber-500 text-gray-950 dark:text-white">Approve & reopen</button></div>
-                    </article>
+        <details class="vxi-panel vxi-reopen-compact">
+            <summary class="flex flex-wrap items-center gap-3 px-4 py-3 cursor-pointer">
+                <x-filament::icon icon="heroicon-o-lock-open" class="h-5 w-5 text-rose-600" />
+                <strong>Requests to reopen</strong>
+                <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">{{ $this->reopenRequests()->count() }}</span>
+                <span class="ml-auto text-xs text-gray-500">Expand to review</span>
+            </summary>
+            <div class="divide-y border-t border-gray-200 dark:border-gray-700">
+                @foreach ($this->reopenRequests() as $report)
+                    <div class="flex flex-wrap items-center gap-3 px-4 py-3" wire:key="reopen-request-{{ $report->id }}">
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate font-semibold">{{ $report->show?->title ?: 'Report #'.$report->id }}</div>
+                            <div class="text-xs text-gray-500">{{ $report->streamer?->name ?: 'No streamer' }} · {{ $report->revision_requested_at?->diffForHumans() }}</div>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $report->revision_reason ?: 'No reason provided' }}</p>
+                        </div>
+                        <a class="vxi-btn" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $report]) }}">Review</a>
+                        <button type="button" class="vxi-btn" wire:click="reopenRequestedReport({{ $report->id }})" wire:confirm="Reopen this report for the streamer? Existing inventory postings remain in place." wire:loading.attr="disabled" wire:target="reopenRequestedReport">Approve &amp; reopen</button>
+                    </div>
                 @endforeach
             </div>
-        </section>
+        </details>
     @endif
 
     <section class="vxi-panel" x-data="{ more: false, selecting: false }" :class="selecting && 'is-selecting'">
@@ -76,7 +85,7 @@
                     </select>
                 </label>
                 <select wire:model.live="tableRecordsPerPage" class="vxi-select" aria-label="Reports per page">
-                    @foreach ([6, 12, 24] as $n)<option value="{{ $n }}">{{ $n }} per page</option>@endforeach
+                    @foreach ([10, 15, 25, 50] as $n)<option value="{{ $n }}">{{ $n }} per page</option>@endforeach
                 </select>
                 @if ($isStaff)
                     <button type="button" class="vxi-btn" @click="selecting = !selecting" :aria-pressed="selecting" x-text="selecting ? 'Done selecting' : 'Select'" title="Pick several reports to approve or send back together">Select</button>
@@ -112,7 +121,7 @@
             <button type="button" class="vxi-btn self-end" wire:click="resetTableFiltersForm">Clear filters</button>
         </div>
 
-        <div class="vxi-grid min-w-0">{{ $this->table }}</div>
+        <div class="vxi-grid vxi-report-table min-w-0">{{ $this->table }}</div>
     </section>
 
     <details class="vxi-howto">
@@ -242,5 +251,16 @@
         .vxi-tabs { gap: 1.1rem; }
     }
     @media (prefers-reduced-motion: reduce) { .vxi-stat, .vxi-stat:hover, .vxi-grid .fi-ta-record, .vxi-grid .fi-ta-record:hover { transition:none; transform:none; } }
+    /* Compact inbox: visible table rows, not multi-column report cards. */
+    .vxi .vxi-stat { padding:.55rem .75rem; gap:.6rem; border-radius:.7rem; }
+    .vxi .vxi-stat-icon { width:2rem; height:2rem; border-radius:.55rem; }
+    .vxi .vxi-stat .text-2xl { font-size:1.3rem; line-height:1.3; }
+    .vxi .vxi-policy { padding:.5rem .75rem; border-radius:.7rem; }
+    .vxi .vxi-filterbar { padding:.65rem .8rem; gap:.55rem; }
+    .vxi .vxi-tabs { gap:1rem; }
+    .vxi .vxi-tabs button { padding:.65rem 0; }
+    .vxi .vxi-report-table .fi-ta-cell { padding-top:.5rem; padding-bottom:.5rem; }
+    .vxi .vxi-reopen-compact summary::-webkit-details-marker { display:none; }
+    @media(min-width:1280px){.vxi .vxi-filterbar{grid-template-columns:minmax(13rem,2fr) repeat(3,minmax(8rem,1fr)) auto;}}
 </style>
 </x-filament-panels::page>

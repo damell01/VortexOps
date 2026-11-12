@@ -389,6 +389,11 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     <div class="vx-bar">
         <button type="button" class="vx-btn ic" wire:click="goPrevious" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" /></button>
         <button type="button" class="vx-btn" wire:click="goToToday">Today</button>
+        @if(auth()->user()?->isOwner())
+        <button type="button" class="vx-btn" wire:click="syncTodaysWhatnotShows" wire:loading.attr="disabled" wire:target="syncTodaysWhatnotShows" title="Request fresh Whatnot shows, orders, items, analytics, shipments and finance across enabled channels">
+            <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> <span wire:loading.remove wire:target="syncTodaysWhatnotShows">Sync today's shows</span><span wire:loading wire:target="syncTodaysWhatnotShows">Queuing…</span>
+        </button>
+        @endif
         <button type="button" class="vx-btn ic" wire:click="goNext" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4" /></button>
         <h2 class="vx-title">{{ $this->calendarTitle() }}</h2>
         <div wire:loading.delay class="text-xs" style="color:var(--vx-faint)">Loading…</div>

@@ -40,7 +40,7 @@ final class WhatnotApiSync
      * @param callable(string):void|null $log
      * @return array<string,mixed>
      */
-    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null): array
+    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null, ?int $analyticsLimit = null): array
     {
         $log ??= fn () => null;
         $channelId = (int) $connection->whatnot_channel_id;
@@ -174,7 +174,7 @@ final class WhatnotApiSync
                 ->orderByDesc('start_time')
                 ->pluck('whatnot_show_id')->map(fn ($id) => strtolower($id))->unique()->values();
             $analyticsCounts['not_in_vortexops'] = count(array_unique($showIds)) - $known->count();
-            foreach ($known->take(self::MAX_ANALYTICS_LOOKUPS) as $id) {
+            foreach ($known->take($analyticsLimit ?? self::MAX_ANALYTICS_LOOKUPS) as $id) {
                 $showLabel = Show::query()->where('whatnot_channel_id', $channelId)
                     ->whereRaw('LOWER(whatnot_show_id) = ?', [$id])->value('title') ?: $id;
                 $log('Analytics: '.$showLabel.' — fetching');

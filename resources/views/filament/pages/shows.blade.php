@@ -781,7 +781,8 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 </div>
 
 @if(auth()->user()?->isOwner())
-<div x-data="{ open:false, started:false }"
+<div wire:stream="today-whatnot-sync-progress" x-data x-init="window.addEventListener('vx-open-whatnot-sync', () => { $store.vxSyncProgress.text = 'Connecting to Whatnot…' }); const observer = new MutationObserver(() => { $store.vxSyncProgress.text = $el.textContent }); observer.observe($el, { childList: true, characterData: true, subtree: true });" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)" aria-hidden="true"></div>
+<div x-data="{ open:false, started:false }" x-init="if (!Alpine.store('vxSyncProgress')) Alpine.store('vxSyncProgress', { text: 'Waiting for API response…' })"
      x-on:vx-open-whatnot-sync.window="open=true; started=true"
      x-on:keydown.escape.window="if (!started) open=false"
      x-on:livewire:navigating.window="open=false"
@@ -802,7 +803,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                         <x-filament::loading-indicator class="h-5 w-5" /> Syncing directly with Whatnot API…
                     </div>
                     <p class="mb-3 text-xs text-gray-500">Results appear as the API responds. A channel can take time; closing this window does not guarantee the request continues.</p>
-                    <pre class="whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-sm leading-6 text-emerald-300" style="min-height:180px"><span wire:stream="today-whatnot-sync-progress">Waiting for API response…</span></pre>
+                    <pre class="whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-4 text-sm leading-6 text-emerald-300" style="min-height:180px"><span x-text="$store.vxSyncProgress?.text || 'Connecting to Whatnot…'"></span></pre>
                 </div>
                 <footer class="border-t border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700">Counts reflect imported API responses. Missing analytics may still be pending at Whatnot.</footer>
             </section>

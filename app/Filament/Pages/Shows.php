@@ -775,6 +775,41 @@ class Shows extends Page
         Notification::make()->title($count.' shows assigned')->body('Assigned to '.$streamer->name)->success()->send();
     }
 
+    public function syncTodaysWhatnotShows(): void
+    {
+        abort_unless(auth()->user()?->isOwner(), 403);
+
+        if (! app()->environment('production')
+            || ! config('services.whatnot_seller.live_requests_enabled', false)
+            || ! config('services.whatnot_seller.contract_verified', false)
+            || ! config('services.whatnot_seller.sync_scheduler_enabled', false)) {
+            Notification::make()->title('Whatnot API sync is not enabled')
+                ->body('Enable and verify the production Whatnot Seller API connection before running a manual sync.')
+                ->warning()->send();
+            return;
+        }
+
+        $channels = \App\Models\WhatnotApiConnection::query()
+            ->where('enabled', true)->where('sync_enabled', true)
+            ->pluck('whatnot_channel_id');
+
+        if ($channels->isEmpty()) {
+            Notification::make()->title('No enabled Whatnot channels')->warning()->send();
+            return;
+        }
+
+        foreach ($channels as $channelId) {
+            \Illuminate\Support\Facades\Artisan::queue('whatnot:api-sync-tick', [
+                '--channel' => (int) $channelId,
+                '--mode' => 'all',
+            ])->onQueue('default');
+        }
+
+        Notification::make()->title('Whatnot sync queued')
+            ->body('Requested shows, orders, items, analytics, shipments and finance for '.$channels->count().' channel(s). Data arrives as the queue processes requests and Whatnot makes it available.')
+            ->success()->send();
+    }
+
     public function retryShowAnalytics(int $showId): void
     {
         abort_unless(auth()->user()?->isOwner(), 403);

@@ -6,7 +6,6 @@ use App\Models\WhatnotApiConnection;
 use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiShowAnalyticsApplier;
 use App\Services\WhatnotSellerApiClient;
-use App\Support\WhatnotPipelineLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -30,9 +29,6 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
 
     public function handle(WhatnotSellerApiClient $client, WhatnotApiShowAnalyticsApplier $applier): void
     {
-        $lock = WhatnotPipelineLock::acquire('Owner API analytics retry for show #'.$this->showId);
-        if (! $lock) { $this->release(30); return; }
-
         try {
             $show = Show::readyForAnalytics()->find($this->showId);
             if (! $show || ! $show->whatnot_show_id || ! $show->whatnot_channel_id) return;
@@ -78,8 +74,9 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                 'outcome' => $result['outcome'],
                 'writes_allowed' => WhatnotApiOrderApplier::writesAllowed(),
             ]);
-        } finally {
-            WhatnotPipelineLock::release($lock);
+        } catch (\Throwable $e) {
+            Log::warning('Show analytics API retry failed', ['show_id' => $this->showId, 'error' => $e->getMessage()]);
+            throw $e;
         }
     }
 }

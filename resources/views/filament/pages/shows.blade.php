@@ -746,7 +746,8 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                         @if(auth()->user()?->isOwner())
                         <div class="vx-kv"><span>Analytics</span><span :class="show.analyticsOk ? 'vx-ok' : 'vx-wait'" x-text="show.analytics + (show.analyticsOk ? ' ✓' : '')"></span></div>
                         <div class="vx-kv"><span>Orders</span><span :class="show.ordersOk ? 'vx-ok' : 'vx-wait'" x-text="show.orders + (show.ordersOk ? ' ✓' : '')"></span></div>
-                        <div class="vx-kv"><span>Last checked</span><span x-text="show.analyticsChecked ? new Date(show.analyticsChecked).toLocaleString() : 'Not checked yet'"></span></div>
+                        <div class="vx-kv" x-show="show.analyticsQueued"><span>Retry queued</span><span x-text="show.analyticsQueued ? new Date(show.analyticsQueued).toLocaleString() : ''"></span></div>
+                        <div class="vx-kv"><span>Last API check</span><span x-text="show.analyticsChecked ? new Date(show.analyticsChecked).toLocaleString() : 'Not checked yet'"></span></div>
                         <p class="mt-2 break-words text-xs text-gray-500" x-show="show.analyticsNote" x-text="show.analyticsNote"></p>
                         <button type="button" x-show="show.whatnotId && show.state === 'done'" @click="$wire.retryShowAnalytics(show.id)" wire:loading.attr="disabled" wire:target="retryShowAnalytics" class="vx-btn mt-2 w-full">Retry analytics</button>
                         @endif

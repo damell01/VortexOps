@@ -5,7 +5,8 @@ namespace App\Console\Commands;
 use App\Jobs\RetryShowAnalytics;
 use App\Models\Show;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
+use App\Support\BusinessTime;
+use Carbon\Carbon;
 
 /**
  * Poll recent completed shows using the Whatnot Owner API, not Seller Hub scraping.
@@ -24,10 +25,20 @@ class PollWhatnotShowAnalyticsApi extends Command
             ->missingAnalytics()
             ->whereNotNull('whatnot_show_id')
             ->whereNotNull('whatnot_channel_id')
-            ->whereDate('show_date', '>=', now(\App\Support\BusinessTime::zone())->subDays(3)->toDateString())
+            ->whereDate('show_date', '>=', BusinessTime::local()->subDays(3)->toDateString())
             ->orderByDesc('show_date')
-            ->limit($limit)
-            ->get();
+            ->limit(min(500, $limit * 8))
+            ->get()
+            ->filter(function (Show $show): bool {
+                $attempt = data_get($show->raw_import_payload, '_analytics_last_attempt_at');
+                if (! $attempt) return true;
+                try {
+                    return Carbon::parse($attempt)->lte(now()->subMinutes(15));
+                } catch (\Throwable) {
+                    return true;
+                }
+            })
+            ->take($limit);
 
         foreach ($shows as $show) {
             if (! $this->option('dry-run')) {

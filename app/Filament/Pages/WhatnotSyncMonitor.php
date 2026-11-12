@@ -14,7 +14,7 @@ class WhatnotSyncMonitor extends Page
     public static function canAccess(): bool { return auth()->user()?->isOwner() ?? false; }
     public static function shouldRegisterNavigation(): bool { return static::canAccess(); }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-signal'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Super Admin'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Owner Tools'; }
     public static function getNavigationSort(): ?int { return 22; }
 
     public function mount(): void { abort_unless(static::canAccess(), 403); }

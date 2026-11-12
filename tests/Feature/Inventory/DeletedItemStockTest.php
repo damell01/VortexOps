@@ -179,6 +179,8 @@ class DeletedItemStockTest extends TestCase
         $item->delete();
 
         $this->assertSame(0, \App\Models\InventoryMovement::whereHas('item')->count());
-        $this->assertSame(1, \App\Models\InventoryMovement::count(), 'The history itself must survive.');
+        // The history survives, and deleting wrote off the stock it still held (one more line).
+        $this->assertSame(2, \App\Models\InventoryMovement::count(), 'The history itself must survive.');
+        $this->assertStringContainsString('item deleted', (string) \App\Models\InventoryMovement::latest('id')->value('reason'));
     }
 }

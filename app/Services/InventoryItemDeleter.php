@@ -56,11 +56,7 @@ class InventoryItemDeleter
             // hidden by InventoryStock's live-product scope, so afterwards
             // there would be nothing left to zero.
             if ($onHand > 0) {
-                $note = 'Written off — item deleted'.(filled($reason) ? ': '.trim($reason) : '');
-                foreach ($item->stock()->where('quantity', '>', 0)->get() as $stock) {
-                    $location = InventoryLocation::find($stock->inventory_location_id);
-                    if ($location) $this->inventory->adjustStock($item, $location, 0, $note, 'adjustment');
-                }
+                $this->writeOffRemaining($item, 'Written off — item deleted'.(filled($reason) ? ': '.trim($reason) : ''));
             }
 
             $item->delete();
@@ -71,6 +67,28 @@ class InventoryItemDeleter
 
             return $onHand;
         });
+    }
+
+    /**
+     * Set every location holding this item to zero through InventoryService,
+     * so each one leaves a movement in the inventory log (and its cost lots
+     * are consumed). Reads the raw stock rows: visibility rules must not hide
+     * stock from a write-off. The item must not be deleted yet.
+     *
+     * @return float units written off
+     */
+    public function writeOffRemaining(Product $item, string $note): float
+    {
+        $total = 0.0;
+        $rows = \App\Models\InventoryStock::withoutGlobalScopes()->where('inventory_item_id', $item->id)->where('quantity', '>', 0)->get();
+        foreach ($rows as $stock) {
+            $location = InventoryLocation::find($stock->inventory_location_id);
+            if (! $location) continue;
+            $total += (float) $stock->quantity;
+            $this->inventory->adjustStock($item, $location, 0, $note, 'adjustment');
+        }
+
+        return $total;
     }
 
     public function restore(int $id): ?InventoryItem

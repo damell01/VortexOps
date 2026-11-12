@@ -267,6 +267,13 @@
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
                                             <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
+                                        @php $label = $this->labels[$package->id] ?? null; @endphp
+                                        @if ($label && $label['url'])
+                                            <a class="vxf-btn vxf-btn--sm" href="{{ $label['url'] }}" target="_blank" rel="noopener noreferrer" wire:click="labelOpened({{ $package->id }})" title="Opens Whatnot's label to print{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Reprint' : 'Print label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</a>
+                                        @elseif ($package->shipment_id)
+                                            <span class="vxf-btn vxf-btn--sm" aria-disabled="true" style="opacity:.55;cursor:not-allowed" title="This shipment's label has not synced from Whatnot yet. Refresh it on Shipping & Labels.">
+                                                <x-heroicon-o-printer /> No label yet</span>
+                                        @endif
                                         @if ($package->status !== 'packed' && $canWork && ! $paused)
                                             <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})" aria-label="Mark package {{ $loop->iteration }} packed"><x-heroicon-o-check /> Pack</button>
                                         @elseif ($package->status === 'packed')

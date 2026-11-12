@@ -578,6 +578,16 @@ class WhatnotReportingReconciler
                     continue;
                 }
 
+                // The API may finish while the browser is navigating. Never let a
+                // late Seller Hub response overwrite already-generated API values.
+                $show->refresh();
+                $currentMeta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                if (! empty($currentMeta['_analytics_api_generated_at'])) {
+                    $skipped++;
+                    $progress && $progress("analytics: show #{$show->id} skipped; official API already generated");
+                    continue;
+                }
+
                 $beforeAnalytics = [];
                 foreach (array_keys($fields) as $field) {
                     $beforeAnalytics[$field] = $show->{$field};

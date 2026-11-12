@@ -24,7 +24,6 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -345,8 +344,8 @@ class StreamerLogResource extends Resource
                             ->when($data['until'], fn ($q) => $q->whereHas('show', fn ($s) => $s->where('show_date', '<=', $data['until'])));
                     }),
             ])
-            ->actions([ActionGroup::make([
-                // Every action sits on the card as its own button; which ones
+            ->actions([
+                // Show available actions directly in each table row; which ones
                 // show depends on where the report is. The main button is last.
                 // Files a report the streamer never submitted, on their behalf —
                 // through submitReport() so it is stamped, stock posts and the
@@ -546,7 +545,6 @@ class StreamerLogResource extends Resource
                     ->color('primary')
                     ->extraAttributes(['class' => 'vxi-primary'])
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
-                ])->label('Actions')->icon('heroicon-o-ellipsis-horizontal')->button()->outlined()->size('sm'),
             ])
             // Approving a week of logs one row at a time is the actual job on
             // this screen. There was a "bottom action bar" offering Approve,

@@ -783,7 +783,7 @@ class Shows extends Page
             return;
         }
         \App\Jobs\RetryShowAnalytics::dispatch($show->id);
-        Notification::make()->title('Analytics retry queued')->body('It will wait for the active scraper. This does not mean the metrics have synced yet.')->success()->send();
+        Notification::make()->title('Analytics retry queued')->body('The Whatnot API check has been queued. Analytics will appear once Whatnot generates them and the queue worker processes the job.')->success()->send();
     }
 
     public function assignStreamer(int $showId, int $streamerId): void

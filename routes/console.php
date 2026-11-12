@@ -219,6 +219,11 @@ Schedule::command('ledger:match-shows --all --limit=100000')->weeklyOn(0, '03:10
 // Shows whose earnings changed after their pay was locked (badge + admin alert).
 Schedule::command('payroll:changed-after-payout')->hourlyAt(37)->name('payroll-changed-after-payout')->withoutOverlapping(30);
 Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('America/Chicago')->name('ledger-unassigned-alert')->withoutOverlapping(30);
+// Alert only for enabled channels; log warnings are deduplicated hourly.
+Schedule::command('whatnot:sync-health --alert --max-age=10')
+    ->everyFiveMinutes()->name('whatnot-api-sync-health-alerts')->withoutOverlapping(5)
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
 // Fast lane: check newly ended shows and their orders/analytics each minute.
 // Each channel has its own lock; skip overlapping runs rather than duplicate imports.
 // Historical reconciliation remains on the existing slower schedules.

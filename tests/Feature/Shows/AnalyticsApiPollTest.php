@@ -43,7 +43,7 @@ class AnalyticsApiPollTest extends TestCase
         $recentAttempt = $this->show(['raw_import_payload' => [
             '_analytics_last_attempt_at' => now()->subMinutes(3)->toIso8601String(),
         ]]);
-        $complete = $this->show(['analytics_sync_status' => 'complete', 'gross_revenue' => 100]);
+        $complete = $this->show(['analytics_sync_status' => 'complete', 'gross_revenue' => 100, 'completed_earnings' => 80]);
         $future = $this->show(['show_date' => '2026-10-17']);
         $cancelled = $this->show(['status' => 'cancelled']);
 

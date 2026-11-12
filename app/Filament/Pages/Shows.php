@@ -809,11 +809,11 @@ class Shows extends Page
                 continue;
             }
             try {
-                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: requesting shows, orders, analytics and finance…\n");
+                $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: quick sync: recent shows, orders, items, shipments and analytics…\n");
                 $result = $sync->run($connection, 1, dryRun: false,
                     log: function (string $line) use ($channelId): void {
                         $this->stream(to: 'today-whatnot-sync-progress', content: "Channel {$channelId}: {$line}\n");
-                    });
+                    }, only: ['shows', 'orders', 'items', 'shipments', 'analytics'], analyticsLimit: 12);
                 if (! empty($result['errors'])) {
                     $failures[] = "Channel {$channelId}: ".implode('; ', $result['errors']);
                 } else {

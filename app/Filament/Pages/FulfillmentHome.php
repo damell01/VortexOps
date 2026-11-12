@@ -158,6 +158,48 @@ class FulfillmentHome extends Page
             ->latest('id')->limit(5)->get();
     }
 
+    /**
+     * A packer's own work: the run they are on (packing first, then paused,
+     * then ready), the rest waiting for them, and today's numbers.
+     *
+     * @return array{current: ?FulfillmentRun, next: \Illuminate\Support\Collection, mine_today: int, team_today: int, buyer: ?object, flags: int}
+     */
+    #[Computed]
+    public function myWork(): array
+    {
+        $me = auth()->id();
+        $ids = DB::table('fulfillment_run_packers')->where('user_id', $me)->pluck('run_id')
+            ->merge(DB::table('fulfillment_runs')->join('show_fulfillment_user', 'show_fulfillment_user.show_id', '=', 'fulfillment_runs.show_id')
+                ->where('show_fulfillment_user.user_id', $me)->pluck('fulfillment_runs.id'))
+            ->unique()->all();
+        $runs = $ids ? FulfillmentRun::query()->whereIn('id', $ids)->whereIn('status', FulfillmentRun::OPEN)
+            ->with(['show:id,title,show_date,start_time,whatnot_channel_id,cover_image_url', 'show.channel:id,name', 'station:id,name', 'currentBuyer:id,letter,buyer_username'])
+            ->get() : collect();
+        $rank = [FulfillmentRun::PACKING => 0, FulfillmentRun::PAUSED => 1, FulfillmentRun::READY => 2];
+        // Today's shift station first among equals, then the oldest show.
+        $shiftStation = FulfillmentShift::query()->where('user_id', $me)->where('starts_at', '<=', now())->where('ends_at', '>', now())->value('station_id');
+        $runs = $runs->sortBy(fn ($r) => sprintf('%d-%d-%s', $rank[$r->status] ?? 9, $shiftStation && (int) $r->station_id === (int) $shiftStation ? 0 : 1, $r->show?->show_date?->format('Ymd') ?? '99999999'))->values();
+        $current = $runs->first();
+        if ($current) {
+            $counts = DB::table('fulfillment_run_packages')->where('run_id', $current->id)
+                ->selectRaw("COUNT(*) as total, SUM(CASE WHEN status = 'packed' THEN 1 ELSE 0 END) as packed")->first();
+            $current->setAttribute('pkg_total', (int) ($counts->total ?? 0));
+            $current->setAttribute('pkg_packed', (int) ($counts->packed ?? 0));
+        }
+        $buyer = $current ? ($current->currentBuyer ?? DB::table('fulfillment_run_buyers')->where('run_id', $current->id)->where('status', 'waiting')
+            ->orderByRaw('LENGTH(letter)')->orderBy('letter')->first(['id', 'letter', 'buyer_username'])) : null;
+        $today = BusinessTime::local()->startOfDay()->utc();
+
+        return [
+            'current' => $current,
+            'next' => $runs->slice(1)->take(4)->values(),
+            'buyer' => $buyer,
+            'mine_today' => DB::table('fulfillment_run_packages')->where('packed_by', $me)->where('status', 'packed')->where('packed_at', '>=', $today)->count(),
+            'team_today' => DB::table('fulfillment_run_packages')->where('status', 'packed')->where('packed_at', '>=', $today)->count(),
+            'flags' => DB::table('fulfillment_flags')->where('reported_by', $me)->where('status', 'open')->count(),
+        ];
+    }
+
     public function stationState(?FulfillmentRun $run): string
     {
         if (! $run) return 'idle';

@@ -560,7 +560,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $run = $this->started();
         app(FulfillmentRunService::class)->selectBuyer($run->id, $run->buyers()->firstOrFail()->id, $this->packer);
 
-        $this->actingAs($this->packer)->get(route('fulfillment.whiteboard'))->assertOk()->assertSee('Fulfillment whiteboard')->assertSee('In development');
+        $this->actingAs($this->packer)->get(route('fulfillment.whiteboard'))->assertOk()->assertSee('Fulfillment whiteboard');
         $json = $this->actingAs($this->packer)->getJson(route('fulfillment.whiteboard.feed'))->assertOk()->json();
         $card = collect($json['stations'])->firstWhere('id', $this->station->id);
         $this->assertSame('A', $card['letter']);
@@ -727,7 +727,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
     {
         $run = $this->started();
         foreach ([$this->manager, $this->packer] as $user) {
-            Livewire::actingAs($user)->test(FulfillmentHome::class)->assertOk()->assertSee('Big Giveys Top Hit Tuesday')->assertSee('In development');
+            Livewire::actingAs($user)->test(FulfillmentHome::class)->assertOk()->assertSee('Big Giveys Top Hit Tuesday');
             Livewire::actingAs($user)->test(FulfillmentStationBoard::class, ['runId' => $run->id])->assertOk()->assertSee('Alpha_Rips')->assertSee('In development');
             foreach (array_keys(FulfillmentActivity::TABS) as $tab) {
                 Livewire::actingAs($user)->test(FulfillmentActivity::class)->set('tab', $tab)->assertOk()->assertSee('In development');

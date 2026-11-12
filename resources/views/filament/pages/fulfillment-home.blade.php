@@ -83,6 +83,9 @@
 </style>
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
+    @if (! $manager)
+        @include('filament.pages.partials.fulfillment-my-station')
+    @else
     <div class="vxf-head">
         <div>
             <h1>Fulfillment Dashboard</h1>
@@ -487,6 +490,7 @@
     @island(name: 'signoff')
         @include('fulfillment.signoff-review')
     @endisland
+    @endif
 </div>
 
 @script

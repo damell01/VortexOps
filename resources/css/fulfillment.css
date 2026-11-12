@@ -1173,3 +1173,32 @@ html.dark .vxf-full{background:#0b1020}
   }
   .vxf-assign-show-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Packing on a phone: one screen, buttons pinned to the bottom ------ */
+@media (max-width:767px){
+  body:has(.vxf-board) .vx-tabbar{display:none!important}
+  .vxf-board .vxf-sbar{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 10px;padding:10px 12px}
+  .vxf-board .vxf-sbar__station{grid-column:1/-1;justify-self:start;font-size:11px;padding:3px 10px}
+  .vxf-board .vxf-sbar__progress{grid-column:1;grid-row:2;display:flex;align-items:center}
+  .vxf-board .vxf-sbar__progress small{display:none}
+  .vxf-board .vxf-sbar__progress svg{width:46px!important;height:46px!important}
+  .vxf-board .vxf-sbar__show{grid-column:2;grid-row:2;min-width:0}
+  .vxf-board .vxf-sbar__tools{grid-column:3;grid-row:2}
+  .vxf-board #vxf-scan-help{display:none}
+  .vxf-board .vxf-sbar__show p,.vxf-board .vxf-sbar__cover,.vxf-board .vxf-sbar__tools .vxf-iconbtn:not(:first-child){display:none!important}
+  .vxf-board .vxf-sbar__show h1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vxf-board .vxf-sb>.vxf-big-actions{order:4;position:sticky;bottom:0;margin:0 -12px;border-radius:18px 18px 0 0;z-index:40;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;height:auto!important;
+    padding:12px max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
+    background:color-mix(in srgb,var(--vxf-card,#fff) 94%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--vxf-line,#e5e7eb);box-shadow:0 -10px 30px -18px rgba(20,10,40,.35)}
+  .vxf-board .vxf-big-actions>.vxf-big--go{grid-column:1/-1;order:9;min-height:60px;font-size:17px;border-radius:16px}
+  .vxf-board .vxf-big-actions>button.vxf-big:not(.vxf-big--go){display:none}
+  .vxf-board .vxf-big-actions .vxf-pair,.vxf-board .vxf-big-actions .vxf-acttiles{display:contents}
+  .vxf-board .vxf-big-actions .vxf-pair>button:first-child{display:none}
+  .vxf-board .vxf-big-actions .vxf-pair>button,.vxf-board .vxf-big-actions .vxf-acttile{min-height:54px;padding:6px 2px;font-size:11px;flex-direction:column;gap:3px;border-radius:12px;order:1}
+  .vxf-board .vxf-big-actions .vxf-pair>button svg,.vxf-board .vxf-big-actions .vxf-acttile svg{width:18px;height:18px}
+  .vxf-board .vxf-big-actions>.vxf-btn,.vxf-board .vxf-big-actions>p{grid-column:1/-1;order:10}
+  .vxf-board .vxf-scan input{font-size:16px}
+  .vxf-board .vxf-items li{flex-wrap:wrap}
+  .vxf-board .vxf-items li>span[style*="flex:1"]{flex:1 1 calc(100% - 40px)!important}
+  body:has(.vxf-board) .vx-scroll-top,body:has(.vxf-board) [class*="back-to-top"]{display:none!important}
+}

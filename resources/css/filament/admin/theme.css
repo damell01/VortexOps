@@ -1462,7 +1462,7 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 .fi-breadcrumbs a:hover .fi-breadcrumbs-item-label{color:var(--vx-brand)}
 /* Each page settles in gently after navigating. */
 @keyframes vx-page-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.fi-page{animation:vx-page-in .22s ease-out both}
+.fi-page{animation:vx-page-in .22s ease-out backwards}
 @media (prefers-reduced-motion:reduce){.fi-page{animation:none}}
 /* Links and focus feel the same everywhere. */
 .fi-page a:not([class*="fi-"]):focus-visible,.fi-page button:not([class*="fi-"]):focus-visible{outline:3px solid #a78bfa;outline-offset:2px;border-radius:8px}

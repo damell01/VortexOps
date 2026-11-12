@@ -138,7 +138,7 @@ class UserResource extends Resource
         }
         $names = once(fn () => Role::query()->pluck('name', 'id'))->only($roleIds->all())->values();
 
-        return $names->contains('streamer') ? 'streamer' : ($names->contains('fulfillment') ? 'fulfillment' : null);
+        return $names->contains('streamer') ? 'streamer' : ($names->contains('fulfillment') ? 'fulfillment' : ($names->contains('streamer_assistant') ? 'assistant' : null));
     }
 
     /** The streamer pay model the Pay section is showing: chosen, or the business's default. */
@@ -347,12 +347,12 @@ class UserResource extends Resource
                     TextInput::make(UserPayFields::key('hourly_rate'))
                         ->label('Hourly rate')
                         ->numeric()->minValue(0)->step(0.01)->prefix('$')->suffix('/hr')
-                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint(static::payMemberType($get) ?? 'streamer', 'hourly_rate', $get(UserPayFields::BUSINESS)))
-                        ->helperText(fn (Get $get): ?string => static::payMemberType($get) === 'streamer'
+                        ->placeholder(fn (Get $get) => static::payMemberType($get) === 'assistant' ? 'Enter hourly rate' : UserPayFields::defaultHint(static::payMemberType($get) ?? 'streamer', 'hourly_rate', $get(UserPayFields::BUSINESS)))
+                        ->helperText(fn (Get $get): ?string => static::payMemberType($get) === 'assistant' ? 'Hourly pay for approved time-clock hours.' : (static::payMemberType($get) === 'streamer'
                             ? ($get('streamer_type') === 'remote'
                                 ? 'Remote streamers are not paid hourly. Set Streamer Type to In-House to pay this.'
                                 : 'Paid for each show\'s hours on top of their share.')
-                            : null)
+                            : null))
                         ->dehydrated(false),
 
                     TextInput::make(UserPayFields::key('pwe_rate'))

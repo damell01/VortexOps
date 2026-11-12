@@ -20,6 +20,21 @@
 .vxf-queue-search{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.vxf-queue-search input{flex:1;min-width:180px;min-height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;background:var(--vxf-panel,#fff);color:inherit}.vxf-queue-search input:focus{outline:2px solid #7c3aed;outline-offset:1px}
 
 /* Dashboard hierarchy: compact stats, uncluttered stations, full-width queue. */
+.vxf .vxf-dnd-team{display:block;padding:0;border:1px solid var(--vxf-line);border-radius:10px;margin:8px 0;overflow:hidden}
+.vxf .vxf-team-summary{display:flex;align-items:center;gap:10px;min-height:36px;padding:7px 12px;font-size:12px;font-weight:750;cursor:pointer;list-style:none}
+.vxf .vxf-team-summary::-webkit-details-marker{display:none}
+.vxf .vxf-team-summary .vxf-sub{font-weight:400}
+.vxf .vxf-dnd-team>.vxf-sub,.vxf .vxf-dnd-team>.vxf-dnd-team__chips{margin:6px 12px}
+.vxf .vxf-table-wrap{overflow-x:auto}
+.vxf .vxf-table{width:100%;table-layout:auto}
+.vxf .vxf-table th{padding:9px 10px;font-size:11px;letter-spacing:.025em}
+.vxf .vxf-table td{padding:9px 10px;font-size:12px;vertical-align:middle}
+.vxf .vxf-table td strong{font-size:12px;line-height:1.25}
+.vxf .vxf-table td .vxf-sub{font-size:11px;line-height:1.3}
+.vxf .vxf-table .vxf-btn--sm{min-height:32px;padding:5px 9px;font-size:11px}
+.vxf .vxf-table .vxf-pill{font-size:11px}
+@media(min-width:1440px){.vxf .vxf-table td:first-child{width:27%}.vxf .vxf-table td:last-child{width:23%}}
+
 .vxf .vxf-queue-dock{display:block;position:relative!important;top:auto!important;z-index:1!important;overflow:visible}
 .vxf .vxf-queue-dock__label{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:44px}
 .vxf .vxf-queue-dock__label::-webkit-details-marker{display:none}
@@ -261,7 +276,7 @@
                 @if ($queueSearch !== '')<button type="button" class="vxf-btn vxf-btn--sm" wire:click="$set('queueSearch', '')">Clear</button>@endif
             </div>
             @if ($manager && count($this->team))
-                <div class="vxf-dnd-team" aria-label="Fulfillment team">
+                <details class="vxf-dnd-team" aria-label="Fulfillment team"><summary class="vxf-team-summary">Team assignments <span class="vxf-sub">Expand to drag packers onto shows</span></summary>
                     <span class="vxf-sub"><span class="vxf-dnd-desktop-hint">Drag a teammate onto a show, or drag a show to a station above.</span><span class="vxf-dnd-mobile-hint">Use Assign on a show or station to choose a packer and station.</span></span>
                     <div class="vxf-dnd-team__chips">
                         @foreach ($this->team as $p)
@@ -269,7 +284,7 @@
                                   x-on:dragstart="window.vxfDnd.start($event, 'packer', {{ \Illuminate\Support\Js::from(['id' => $p['id'], 'name' => $p['name']]) }})"><b>{{ $p['initials'] }}</b> {{ $p['name'] }}</span>
                         @endforeach
                     </div>
-                </div>
+                </details>
             @endif
             @if ($this->queue->isEmpty())
                 <p class="vxf-empty">{{ $jobs !== 'all' ? 'No ' . ($jobs === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>

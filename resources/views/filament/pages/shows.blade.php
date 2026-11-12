@@ -391,8 +391,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
         <button type="button" class="vx-btn" wire:click="goToToday">Today</button>
         @if(auth()->user()?->isOwner())
         <button type="button" class="vx-btn" wire:click="syncTodaysWhatnotShows" wire:loading.attr="disabled" wire:target="syncTodaysWhatnotShows" title="Request fresh Whatnot shows, orders, items, analytics, shipments and finance across enabled channels">
-            <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> <span wire:loading.remove wire:target="syncTodaysWhatnotShows">Sync today's shows</span><span wire:loading wire:target="syncTodaysWhatnotShows">Queuing…</span>
+            <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> <span wire:loading.remove wire:target="syncTodaysWhatnotShows">Sync today's shows</span><span wire:loading wire:target="syncTodaysWhatnotShows">Syncing…</span>
         </button>
+        <div wire:loading wire:target="syncTodaysWhatnotShows" class="text-xs" role="status" aria-live="polite" style="max-width:360px;max-height:88px;overflow:auto;white-space:pre-wrap"><span wire:stream="today-whatnot-sync-progress">Connecting to Whatnot…</span></div>
         @endif
         <button type="button" class="vx-btn ic" wire:click="goNext" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4" /></button>
         <h2 class="vx-title">{{ $this->calendarTitle() }}</h2>

@@ -20,6 +20,16 @@
 .vxf-queue-search{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.vxf-queue-search input{flex:1;min-width:180px;min-height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;background:var(--vxf-panel,#fff);color:inherit}.vxf-queue-search input:focus{outline:2px solid #7c3aed;outline-offset:1px}
 
 /* Dashboard hierarchy: compact stats, uncluttered stations, full-width queue. */
+.vxf .vxf-queue-dock{display:block;position:relative!important;top:auto!important;z-index:1!important;overflow:visible}
+.vxf .vxf-queue-dock__label{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:44px}
+.vxf .vxf-queue-dock__label::-webkit-details-marker{display:none}
+.vxf .vxf-queue-dock__label strong{white-space:nowrap}
+.vxf .vxf-queue-dock__label span:not(.vxf-queue-dock__chevron){flex:1}
+.vxf .vxf-queue-dock__chevron{margin-left:auto;font-size:19px;transition:transform .15s ease}
+.vxf .vxf-queue-dock[open] .vxf-queue-dock__chevron{transform:rotate(180deg)}
+.vxf .vxf-queue-dock__stations{padding:6px 10px 10px}
+@media(max-width:650px){.vxf .vxf-queue-dock__label{flex-wrap:wrap}.vxf .vxf-queue-dock__label span:not(.vxf-queue-dock__chevron){font-size:11px;flex-basis:100%;order:3}}
+
 .vxf .vxf-head{padding:2px 2px 0}
 .vxf .vxf-head h1{font-size:20px}
 .vxf .vxf-head-actions .vxf-btn{min-height:34px;padding:0 11px;font-size:12px}
@@ -217,9 +227,9 @@
         @endphp
         <div class="vxf-island" wire:poll.visible.60s>
         @if ($manager)
-        {{-- Keep station targets visible while scrolling the show queue. Keyboard/touch users can use Assign. --}}
-        <div class="vxf-queue-dock" role="region" aria-label="Station assignment shortcuts">
-            <div class="vxf-queue-dock__label"><strong>Assign to station</strong><span>Drag a show here, or choose Assign on its row</span></div>
+        {{-- Station assignment shortcuts stay beside the queue, without obscuring rows. --}}
+        <details class="vxf-queue-dock" aria-label="Station assignment shortcuts">
+            <summary class="vxf-queue-dock__label"><strong>Assign to station</strong><span>Expand for station drop targets · You can also assign from any show row</span><span class="vxf-queue-dock__chevron" aria-hidden="true">⌄</span></summary>
             <div class="vxf-queue-dock__stations">
                 @foreach ($this->stationChoices as $choice)
                     <div class="vxf-queue-dock__target" x-data="{ over: false }" x-bind:class="{ 'is-over': over, 'is-busy': @js($choice['busy']) }"
@@ -234,7 +244,7 @@
                     </div>
                 @endforeach
             </div>
-        </div>
+        </details>
         @endif
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">

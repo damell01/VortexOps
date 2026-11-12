@@ -170,12 +170,17 @@ final class WhatnotApiSync
                 ->pluck('whatnot_show_id')->map(fn ($id) => strtolower($id))->unique()->values();
             $analyticsCounts['not_in_vortexops'] = count(array_unique($showIds)) - $known->count();
             foreach ($known->take(self::MAX_ANALYTICS_LOOKUPS) as $id) {
+                $showLabel = Show::query()->where('whatnot_channel_id', $channelId)
+                    ->whereRaw('LOWER(whatnot_show_id) = ?', [$id])->value('title') ?: $id;
+                $log('Analytics: '.$showLabel.' — fetching');
                 $response = $this->client->call($connection, 'show_analytics', $id);
                 if (! $response->successful()) {
                     $analyticsCounts['failed'] = ($analyticsCounts['failed'] ?? 0) + 1;
+                    $log('Analytics: '.$showLabel.' — HTTP '.$response->status());
                     continue;
                 }
                 $outcome = $this->analytics->apply($channelId, (array) $response->json(), $dryRun)['outcome'];
+                $log('Analytics: '.$showLabel.' — '.$outcome);
                 $analyticsCounts[$outcome] = ($analyticsCounts[$outcome] ?? 0) + 1;
             }
             if (($analyticsCounts['failed'] ?? 0) > 0) $summary['errors'][] = 'show analytics: '.$analyticsCounts['failed'].' requests failed';

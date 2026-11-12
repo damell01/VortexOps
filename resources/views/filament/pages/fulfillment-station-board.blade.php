@@ -144,7 +144,9 @@
 @elseif ($run->isOnStation())
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
-    <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())">
+    <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() },
+            beep(ok) { try { const C = window.AudioContext || window.webkitAudioContext; if (!C) return; this.ac ??= new C(); const t = this.ac.currentTime; (ok ? [[880, 0]] : [[220, 0], [180, 0.18]]).forEach(([f, d]) => { const o = this.ac.createOscillator(), g = this.ac.createGain(); o.frequency.value = f; o.type = ok ? 'sine' : 'square'; g.gain.setValueAtTime(0.12, t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.16); o.connect(g).connect(this.ac.destination); o.start(t + d); o.stop(t + d + 0.17); }); } catch (e) {} try { navigator.vibrate?.(ok ? 40 : [90, 60, 90]); } catch (e) {} } }"
+        x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())" @vxf-scan-result.window="beep($event.detail.ok ?? $event.detail[0]?.ok)">
         <header class="vxf-sbar">
             <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused · ' . \App\Models\FulfillmentRun::pauseReasonLabel($run->pause_reason) : 'Packing' }}</span>
             <x-show-cover :show="$show" :size="40" class="vxf-sbar__cover" />
@@ -367,7 +369,13 @@
                 @elseif ($r['blockingIssues'])
                     <div class="vxf-alert" role="alert"><div><strong>{{ $r['blockingIssues'] }} open {{ \Illuminate\Support\Str::plural('issue', $r['blockingIssues']) }} must be resolved first</strong><span class="vxf-sub">Ask the fulfillment admin to resolve it.</span></div></div>
                 @else
-                    <label class="vxf-review__confirm"><input type="checkbox" x-model="sure"> <span>Every package for this show is packed and the counts above are right.</span></label>
+                    @php $rc = $r['reconcile'] ?? null; $missing = $rc['missing_orders'] ?? []; @endphp
+                    @if ($missing)
+                        <div class="vxf-alert vxf-alert--warn" role="alert"><div><strong>{{ count($missing) }} {{ \Illuminate\Support\Str::plural('order', count($missing)) }} with no package</strong>
+                            <div class="vxf-review__left">@foreach (array_slice($missing, 0, 10) as $m)<span><b>{{ $m['buyer'] ?: '—' }}</b> {{ $m['order'] ? '#' . $m['order'] : '' }}{{ $m['item'] ? ' · ' . \Illuminate\Support\Str::limit($m['item'], 30) : '' }}</span>@endforeach @if (count($missing) > 10)<span>+{{ count($missing) - 10 }} more</span>@endif</div>
+                            <span class="vxf-sub">These are on Whatnot but were not packed here ({{ collect($missing)->contains('why', 'Buyer was not on the board') ? 'some buyers ordered after packing started' : 'not in a packed package' }}). Pack them or flag them; if they are handled, you can still confirm.</span></div></div>
+                    @endif
+                    <label class="vxf-review__confirm"><input type="checkbox" x-model="sure"> <span>{{ $missing ? 'I checked the orders above, and every' : 'Every' }} package for this show is packed and the counts above are right.</span></label>
                 @endif
                 <div class="vxf-review__foot">
                     <button type="button" class="vxf-btn" wire:click="$set('reviewing', false)">Keep packing</button>

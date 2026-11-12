@@ -200,6 +200,63 @@ class FulfillmentHome extends Page
         ];
     }
 
+    /**
+     * What needs the manager now, most urgent first: sign-offs waiting,
+     * open issues, ready shows with no station or packer, and stations
+     * paused a long time. Each item carries its one-click action.
+     *
+     * @return list<array{tone:string, icon:string, title:string, sub:string, action:string, kind:string, value:mixed}>
+     */
+    #[Computed]
+    public function needsYou(): array
+    {
+        if (! $this->isManager()) return [];
+        $tz = BusinessTime::zone();
+        $out = [];
+        foreach ($this->signoffQueue->take(3) as $r) {
+            $out[] = ['tone' => 'ok', 'icon' => 'heroicon-o-check-badge', 'title' => 'Sign off: '.($r->show?->title ?? 'Show'),
+                'sub' => trim(($r->station?->name ? $r->station->name.' finished' : 'Finished').' · '.((int) $r->completed_packages).' packages'.($r->open_flags_count ? ' · '.$r->open_flags_count.' open '.str('issue')->plural($r->open_flags_count) : '')),
+                'action' => 'Review', 'kind' => 'signoff', 'value' => $r->id];
+        }
+        foreach (\App\Models\FulfillmentFlag::query()->with(['show:id,title', 'buyer:id,letter,buyer_username'])->where('status', 'open')->latest()->limit(3)->get() as $f) {
+            $out[] = ['tone' => 'bad', 'icon' => 'heroicon-o-exclamation-triangle', 'title' => str((string) $f->type)->replace('_', ' ')->ucfirst().($f->buyer ? ' · '.$f->buyer->buyer_username : ''),
+                'sub' => ($f->show?->title ?? 'Show').' · '.$f->created_at?->diffForHumans(short: true),
+                'action' => 'Resolve', 'kind' => 'link', 'value' => FulfillmentActivity::getUrl(['tab' => 'issues'])];
+        }
+        // The long/quick filter on the page applies here too.
+        $unassigned = FulfillmentRun::query()->where('status', FulfillmentRun::READY)->whereNull('station_id')->whereDoesntHave('packers')
+            ->when(in_array($this->jobs, ['slow', 'quick'], true), fn ($q) => $q->whereHas('show', fn ($s) => $s->where('is_slow_pack', $this->jobs === 'slow')))
+            ->with('show:id,title,show_date')->orderBy('ready_at')->limit(2)->get();
+        foreach ($unassigned as $r) {
+            $out[] = ['tone' => 'blue', 'icon' => 'heroicon-o-arrow-right-circle', 'title' => ($r->show?->title ?? 'Show').' has no station',
+                'sub' => 'Ready to pack'.($r->show?->show_date ? ' · streamed '.$r->show->show_date->format('M j') : ''),
+                'action' => 'Assign', 'kind' => 'assign', 'value' => ['runId' => $r->id, 'title' => $r->show?->title]];
+        }
+        $stalled = FulfillmentRun::query()->where('status', FulfillmentRun::PAUSED)->where('paused_at', '<', now()->subMinutes(20))
+            ->with(['station:id,name', 'packers:id,name'])->orderBy('paused_at')->limit(2)->get();
+        foreach ($stalled as $r) {
+            $out[] = ['tone' => 'warn', 'icon' => 'heroicon-o-pause-circle', 'title' => ($r->station?->name ?? 'A station').' paused '.(int) $r->paused_at->diffInMinutes(now()).' min',
+                'sub' => trim($r->packers->pluck('name')->join(', ').' · '.FulfillmentRun::pauseReasonLabel($r->pause_reason), ' ·'),
+                'action' => 'Open', 'kind' => 'link', 'value' => FulfillmentStationBoard::getUrl(['run' => $r->id])];
+        }
+
+        return $out;
+    }
+
+    /** Packages per hour and the time left at that pace, for a station's run. */
+    public function pace(?FulfillmentRun $run): ?array
+    {
+        if (! $run || ! $run->isOnStation() || ! $run->started_at) return null;
+        $secs = $run->activeSeconds();
+        $done = (int) $run->completed_packages;
+        if ($secs < 300 || $done < 1) return null;
+        $rate = $done / ($secs / 3600);
+        $left = $run->expected_packages !== null ? max(0, $run->expected_packages - $done) : null;
+        $mins = $left !== null && $rate > 0 ? (int) round($left / $rate * 60) : null;
+
+        return ['rate' => (int) round($rate), 'eta' => $mins === null ? null : ($mins >= 60 ? intdiv($mins, 60).'h '.($mins % 60).'m' : $mins.'m')];
+    }
+
     public function stationState(?FulfillmentRun $run): string
     {
         if (! $run) return 'idle';

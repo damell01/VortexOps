@@ -723,6 +723,24 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->actingAs($outsider)->get(\App\Filament\Pages\FulfillmentReports::getUrl())->assertForbidden();
     }
 
+    public function test_a_packer_lands_on_their_station_with_one_button(): void
+    {
+        $run = $this->started();
+        $page = Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->assertOk()
+            ->assertSee('Continue packing')->assertSee('Big Giveys Top Hit Tuesday')->assertDontSee('Needs you now');
+        $this->assertSame($run->id, $page->instance()->myWork['current']->id);
+        $page->assertSee('station?run='.$run->id, false);
+    }
+
+    public function test_the_manager_sees_what_needs_them_now(): void
+    {
+        $run = $this->started();
+        $run->forceFill(['status' => FulfillmentRun::PAUSED, 'paused_at' => now()->subMinutes(45)])->save();
+        $page = Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->assertOk()->assertSee('Needs you now');
+        $kinds = collect($page->instance()->needsYou)->pluck('title')->implode(' | ');
+        $this->assertStringContainsString('paused 45 min', $kinds);
+    }
+
     public function test_pages_render_for_a_manager_and_a_member(): void
     {
         $run = $this->started();

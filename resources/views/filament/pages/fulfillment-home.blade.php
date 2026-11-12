@@ -123,6 +123,29 @@
         <button type="button" class="vxf-iconbtn" @click="toggleGuide()" aria-label="Hide the guide"><x-heroicon-o-x-mark /></button>
     </section>
 
+    @if ($manager && count($this->needsYou))
+        <section class="vxf-needs" aria-labelledby="vxf-needs-title">
+            <h2 id="vxf-needs-title"><x-heroicon-o-bell-alert /> Needs you now <span>{{ count($this->needsYou) }}</span></h2>
+            <div class="vxf-needs__list">
+                @foreach ($this->needsYou as $n)
+                    <div class="vxf-need is-{{ $n['tone'] }}">
+                        <i><x-filament::icon :icon="$n['icon']" /></i>
+                        <div><b>{{ $n['title'] }}</b><span>{{ $n['sub'] }}</span></div>
+                        @if ($n['kind'] === 'signoff')
+                            <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openSignoff({{ $n['value'] }})">{{ $n['action'] }}</button>
+                        @elseif ($n['kind'] === 'assign')
+                            <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" x-on:click="$dispatch('vxf-assign', {{ \Illuminate\Support\Js::from($n['value']) }})">{{ $n['action'] }}</button>
+                        @else
+                            <a class="vxf-btn vxf-btn--sm" href="{{ $n['value'] }}">{{ $n['action'] }}</a>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @elseif ($manager)
+        <section class="vxf-needs is-clear"><h2><x-heroicon-o-check-circle /> Nothing needs you right now</h2><span class="vxf-sub">Sign-offs, issues, unassigned shows and long pauses show up here.</span></section>
+    @endif
+
     @island(name: 'floor')
     @php
         $manager = $this->isManager();
@@ -193,6 +216,8 @@
                                 <span class="vxf-station__letter {{ $row['current'] ? '' : 'is-empty' }}" aria-label="{{ $row['current'] ? 'Current buyer ' . $row['current']->letter : 'No buyer selected' }}">{{ $row['current']?->letter ?? ($state === 'paused' ? '❚❚' : '–') }}</span>
                                 @include('fulfillment.ring', ['pct' => $pct, 'label' => $done . ' / ' . ($total ?? '?'), 'tone' => $tone, 'size' => 74])
                             </div>
+                            @php $sp = $this->pace($run); @endphp
+                            @if ($sp)<p class="vxf-station__pace"><x-heroicon-o-bolt /> {{ $sp['rate'] }}/hr @if ($sp['eta'])· ~{{ $sp['eta'] }} left @endif</p>@endif
                             <div class="vxf-station__foot">
                                 @if ($state === 'ready')
                                     <span class="vxf-station__next"><x-heroicon-o-clock /> Waiting to start</span>

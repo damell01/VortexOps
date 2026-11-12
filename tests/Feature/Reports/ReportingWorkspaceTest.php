@@ -64,8 +64,9 @@ class ReportingWorkspaceTest extends TestCase
     {
         Show::create(['title' => 'Incomplete', 'show_date' => '2026-10-14', 'status' => 'draft', 'is_operational' => true, 'whatnot_net' => 100]);
 
-        Livewire::test(ReportsOverview::class)->assertSee('Report Library')->assertSee('Pending Financials')
-            ->assertSee('0 finalized shows only');
+        // The incomplete show is pending, not counted as a final result.
+        Livewire::test(ReportsOverview::class)->assertSee('Pending costs &amp; pay', false)->assertSee('1 show')
+            ->assertSee('Pending</span>', false)->assertDontSee('vxr-chip ok', false);
     }
 
     public function test_empty_loss_summary_does_not_notify_anyone(): void

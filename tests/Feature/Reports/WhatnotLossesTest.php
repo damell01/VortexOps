@@ -108,8 +108,8 @@ class WhatnotLossesTest extends TestCase
         $this->actingAs($this->owner);
 
         $this->get(ReportsOverview::getUrl(['range' => 'last_week']))->assertOk()
-            ->assertSee('Reports Overview')->assertSee('Needs Attention')->assertSee('Negative Whatnot Earnings')
-            ->assertSee('2 shows')->assertSee('-$155')->assertSee('Report Library')->assertSee('Whatnot Losses');
+            ->assertSee('Executive overview')->assertSee('Needs attention')->assertSee('Negative Whatnot earnings')
+            ->assertSee('2 shows')->assertSee('−$155')->assertSee('Whatnot Losses');
     }
 
     public function test_it_rains_when_losses_are_worse_than_the_week_before_and_is_sunny_with_none(): void

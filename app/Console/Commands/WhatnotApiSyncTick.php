@@ -60,7 +60,7 @@ final class WhatnotApiSyncTick extends Command
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
                 $result = $sync->run($connection, ($mode === 'fresh' ? 1 : (int) config('services.whatnot_seller.sync_days', 3)),
-                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: null);
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode], analyticsLimit: null, livePriority: $mode === 'fresh');
                 // Newly synced orders may supply the missing exact show evidence
                 // for previously imported tips. Retry safely without touching payroll.
                 if (! $result['dry_run'] && in_array($mode, ['recent', 'finance'], true)) {

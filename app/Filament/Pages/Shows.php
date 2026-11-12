@@ -782,6 +782,11 @@ class Shows extends Page
             Notification::make()->title('This show needs its Whatnot ID and channel before retrying')->warning()->send();
             return;
         }
+        // Expose queue state immediately; the worker will replace it with the actual API attempt time.
+        $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        $meta['_analytics_queued_at'] = now()->toIso8601String();
+        $show->raw_import_payload = $meta;
+        $show->save();
         \App\Jobs\RetryShowAnalytics::dispatch($show->id);
         Notification::make()->title('Analytics retry queued')->body('The Whatnot API check has been queued. Analytics will appear once Whatnot generates them and the queue worker processes the job.')->success()->send();
     }

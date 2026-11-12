@@ -18,7 +18,7 @@ class WhatnotSyncHealth extends Command
             $key = 'whatnot:sync-health:'.$channel.':fresh';
             $success = Cache::get($key.':last_success');
             $result = Cache::get($key.':last_result', []);
-            $age = $success ? now()->diffInMinutes(\Carbon\Carbon::parse($success)) : null;
+            $age = $success ? max(0, \Carbon\Carbon::parse($success)->diffInMinutes(now(), false)) : null;
             $isStale = $age === null || $age > $maxAge;
             if ($isStale) $stale++;
             $orders = $result['orders'] ?? [];

@@ -427,6 +427,42 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertStringEndsWith('products/tch.webp', $line['image']);
     }
 
+    public function test_scanning_every_item_packs_the_buyer_and_brings_up_the_next(): void
+    {
+        $run = $this->started($this->show(['alpha' => 1, 'zed' => 1]));
+        $box = \App\Models\InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'barcode' => '0001', 'is_active' => true]);
+        \App\Models\InventoryItem::create(['name' => 'Blaster', 'sku' => 'BL-1', 'barcode' => '0002', 'is_active' => true]);
+        WhatnotShowOrder::query()->where('show_id', $run->show_id)->update(['inventory_item_id' => $box->id, 'quantity' => 2]);
+        $alpha = $run->buyers()->where('buyer_username', 'alpha')->firstOrFail();
+        app(FulfillmentRunService::class)->selectBuyer($run->id, $alpha->id, $this->packer);
+
+        $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id]);
+        $board->set('scanCode', '0002')->call('scan')
+            ->assertSet('flash.ok', false)->assertSet('flash.text', "Wrong item: Blaster is not in A · alpha's order.")
+            ->assertDispatched('vxf-scan-result', ok: false);
+        $this->travel(5)->seconds();
+        $board->set('scanCode', '0001')->call('scan')->assertSet('flash.text', 'Hobby Box ✓ 1 of 2')->assertDispatched('vxf-scan-result', ok: true);
+        $this->assertSame('packing', $alpha->fresh()->status);
+        $this->travel(5)->seconds();
+        $board->set('scanCode', '0001')->call('scan');
+
+        $this->assertSame('packed', $alpha->fresh()->status, 'The last expected item packs the buyer.');
+        $this->assertStringContainsString('all items in', $board->get('flash')['text']);
+        $this->assertSame($run->buyers()->where('buyer_username', 'zed')->value('id'), $run->fresh()->current_buyer_id);
+    }
+
+    public function test_the_finish_check_lists_orders_with_no_package(): void
+    {
+        $run = $this->started($this->show(['alpha' => 1]));
+        foreach ($run->buyers as $b) app(FulfillmentRunService::class)->markPacked($run->id, $b->id, $this->packer);
+        WhatnotShowOrder::create(['show_id' => $run->show_id, 'buyer_username' => 'late_buyer', 'whatnot_order_id' => 'ORD-LATE',
+            'item_name' => 'Box', 'quantity' => 1, 'total_price' => 5, 'status' => 'completed']);
+
+        Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
+            ->call('openReview')
+            ->assertSee('1 order with no package')->assertSee('late_buyer')->assertSee('I checked the orders above');
+    }
+
     public function test_the_tv_feed_names_the_show_that_finished(): void
     {
         $run = $this->started();

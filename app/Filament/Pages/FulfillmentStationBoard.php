@@ -255,15 +255,48 @@ class FulfillmentStationBoard extends Page
         });
     }
 
+    /**
+     * One item scanned into the current buyer's package. A right item says what
+     * it was and how many of it are in ("Hobby Box ✓ 2 of 3"); a wrong one is
+     * rejected with its name. When the last expected item goes in, the buyer is
+     * packed and the next one comes up, so a fully scanned order needs no tap.
+     */
     public function scan(): void
     {
         $code = trim($this->scanCode);
         $this->scanCode = '';
         if ($code === '' || ! $this->current) return;
-        $this->act(function () use ($code) {
-            app(FulfillmentVerificationService::class)->verify($this->runId, $this->current->id, $code, auth()->user());
-            $this->say('Verified ' . $code, true);
+        $buyer = $this->current;
+        $ok = false;
+        $this->act(function () use ($code, $buyer, &$ok) {
+            $verifier = app(FulfillmentVerificationService::class);
+            try {
+                $verifier->verify($this->runId, $buyer->id, $code, auth()->user());
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $product = \App\Models\InventoryItem::findByScan($code);
+                $message = (string) (collect($e->errors())->flatten()->first() ?: 'That did not work.');
+                if ($product && str_starts_with($message, 'Wrong item')) {
+                    $message = "Wrong item: {$product->name} is not in {$buyer->letter} · {$buyer->buyer_username}'s order.";
+                }
+                throw \Illuminate\Validation\ValidationException::withMessages(['barcode' => $message]);
+            }
+            $ok = true;
+            $coverage = $verifier->coverage($this->runId, $buyer->id);
+            $product = \App\Models\InventoryItem::findByScan($code);
+            $line = collect($coverage['lines'] ?? [])->firstWhere('product_id', $product?->id);
+            $what = ($product?->name ?? $code) . ($line ? " ✓ {$line['verified']} of {$line['expected']}" : ' ✓');
+
+            if (($coverage['complete'] ?? false) && ($coverage['supported'] ?? false)) {
+                app(FulfillmentRunService::class)->markPacked($this->runId, $buyer->id, auth()->user());
+                $this->clearComputed();
+                $next = $this->buyers->first(fn ($b) => $b->id !== $buyer->id && ! in_array($b->status, ['packed', 'held'], true));
+                if ($next) app(FulfillmentRunService::class)->selectBuyer($this->runId, $next->id, auth()->user());
+                $this->say("{$what} · all items in, {$buyer->letter} · {$buyer->buyer_username} packed" . ($next ? " · next: {$next->letter}" : ''), true);
+            } else {
+                $this->say($what, true);
+            }
         });
+        $this->dispatch('vxf-scan-result', ok: $ok);
         $this->dispatch('vxf-scan-done');
     }
 
@@ -349,6 +382,8 @@ class FulfillmentStationBoard extends Page
             'blockingIssues' => (clone $flags)->where('status', 'open')->where('blocking', true)->count(),
             'issues' => (clone $flags)->count(),
             'seconds' => $run->activeSeconds(),
+            // Whatnot orders and shipments with no packed package: shown before Finish, not only at sign-off.
+            'reconcile' => app(\App\Services\FulfillmentReconciliation::class)->forRun($run),
         ];
     }
 

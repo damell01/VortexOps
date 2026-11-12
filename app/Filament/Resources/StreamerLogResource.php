@@ -751,6 +751,11 @@ class StreamerLogResource extends Resource
     {
         $query = parent::getEloquentQuery()->with(['show', 'streamer'])->inChannelContext();
 
+        // The report inbox is for shows that have happened, not future scheduled shows.
+        // Use the business timezone consistently with the rest of the reporting UI.
+        $query->whereHas('show', fn (Builder $q) => $q
+            ->whereDate('show_date', '<=', \App\Support\BusinessTime::local()->toDateString()));
+
         if ($from = static::reportStartDate()) {
             $query->whereHas('show', fn (Builder $q) => $q->whereDate('show_date', '>=', $from));
         }

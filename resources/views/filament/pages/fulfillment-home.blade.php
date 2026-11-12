@@ -4,6 +4,18 @@
 @endphp
 @include('fulfillment.dev-banner')
 @include('fulfillment.motion')
+
+<style>
+/* Compact sticky station targets stay in view while the manager scrolls the show queue. */
+.vxf-queue-dock{position:sticky;top:7.25rem;z-index:18;display:flex;align-items:center;gap:12px;padding:9px 12px;margin-bottom:10px;border:1px solid #ddd6fe;border-radius:14px;background:rgba(250,248,255,.97);box-shadow:0 6px 18px rgba(30,18,65,.08);backdrop-filter:blur(10px)}
+.vxf-queue-dock__label{display:flex;flex-direction:column;gap:2px;min-width:135px;font-size:12px}.vxf-queue-dock__label span{color:#64748b;font-size:10px}
+.vxf-queue-dock__stations{display:flex;gap:7px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
+.vxf-queue-dock__target{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:42px;padding:6px 9px;border:1px dashed #a78bfa;border-radius:10px;background:#fff;font-size:12px}
+.vxf-queue-dock__target.is-over{background:#ede9fe;border:2px solid #7c3aed}.vxf-queue-dock__target.is-busy{border-style:solid;border-color:#e2e8f0;opacity:.65}
+.vxf-queue-dock__name{font-weight:700;white-space:nowrap}.vxf-queue-dock__state{color:#64748b;font-size:10px}.vxf-queue-dock__assign{border-radius:7px;background:#6d28d9;color:white;padding:5px 8px;font-weight:700;font-size:11px}
+.dark .vxf-queue-dock{background:rgba(30,20,50,.97);border-color:#6d28d9}.dark .vxf-queue-dock__target{background:#241c35;color:#f8fafc}
+@media(max-width:800px){.vxf-queue-dock{top:4rem;display:block;padding:8px}.vxf-queue-dock__label{margin-bottom:6px}.vxf-queue-dock__label span{display:none}.vxf-queue-dock__target{min-height:44px}}
+</style>
 <div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     <div class="vxf-head">
@@ -164,6 +176,26 @@
             $ordersLink = \App\Filament\Resources\FulfillmentResource::canAccess();
         @endphp
         <div class="vxf-island" wire:poll.visible.60s>
+        @if ($manager)
+        {{-- Keep station targets visible while scrolling the show queue. Keyboard/touch users can use Assign. --}}
+        <div class="vxf-queue-dock" role="region" aria-label="Station assignment shortcuts">
+            <div class="vxf-queue-dock__label"><strong>Assign to station</strong><span>Drag a show here, or choose Assign on its row</span></div>
+            <div class="vxf-queue-dock__stations">
+                @foreach ($this->stationChoices as $choice)
+                    <div class="vxf-queue-dock__target" x-data="{ over: false }" x-bind:class="{ 'is-over': over, 'is-busy': @js($choice['busy']) }"
+                         x-on:dragover="if (!@js($choice['busy']) && window.vxfDnd?.accepts($event, ['run'])) { $event.preventDefault(); over = true }"
+                         x-on:dragleave="over = false"
+                         x-on:drop.prevent="over = false; if (!@js($choice['busy'])) window.vxfDnd.dropOnStation($event, $wire, { station: @js($choice['id']), runId: null, users: [] })">
+                        <span class="vxf-queue-dock__name">{{ $choice['name'] }}</span>
+                        <span class="vxf-queue-dock__state">{{ $choice['busy'] ? 'Occupied' : 'Available' }}</span>
+                        @unless ($choice['busy'])
+                            <button type="button" class="vxf-queue-dock__assign" x-on:click="$dispatch('vxf-assign', { station: @js($choice['id']) })" aria-label="Assign a show to {{ $choice['name'] }}">Assign</button>
+                        @endunless
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
                 <h2 id="vxf-queue">{{ $manager ? "Today's Shows / Ready to Pack" : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>

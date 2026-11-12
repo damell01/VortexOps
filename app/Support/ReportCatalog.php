@@ -57,6 +57,13 @@ final class ReportCatalog
                 }
                 $list[] = ['label' => $label, 'icon' => $icon, 'url' => $url, 'class' => $class];
             }
+            // The ledger's own reports and checks sit under Money too.
+            if ($group === 'Money') {
+                foreach (LedgerNav::links() as [$label, $url, , $icon]) {
+                    if ($label === 'Ledger') continue;
+                    $list[] = ['label' => $label, 'icon' => $icon, 'url' => $url, 'class' => null];
+                }
+            }
             if ($list) $out[] = ['group' => $group, 'items' => $list];
         }
 

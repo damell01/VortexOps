@@ -5,48 +5,56 @@
 
 <x-filament-panels::page>
 <x-reports.shell>
-    <div class="space-y-3 sm:space-y-5" data-vx-page="show-formats">
+    <div class="vxr" data-vx-page="show-formats">
 
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="flex flex-wrap items-end gap-3 p-4 sm:p-5">
-                <label class="min-w-0 flex-1">
-                    <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Period</span>
-                    <select wire:model.live="range" class="min-h-11 w-full rounded-xl border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
-                        @foreach ($this->rangeOptions() as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label class="min-w-0 flex-1">
-                    <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Channel</span>
-                    <select wire:model.live="channelId" class="min-h-11 w-full rounded-xl border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
-                        @foreach ($this->channelOptions() as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
+        <div class="vxr-toolbar vxr-toolbar--card">
+            <label class="vxr-control"><x-filament::icon icon="heroicon-o-calendar" />
+                <select wire:model.live="range" aria-label="Period">@foreach ($this->rangeOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
+            </label>
+            <label class="vxr-control"><x-filament::icon icon="heroicon-o-signal" />
+                <select wire:model.live="channelId" aria-label="Channel">@foreach ($this->channelOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>
+            </label>
+        </div>
+
+        @if ($overall['shows'] > 0)
+            @php
+                $best = collect($rows)->filter(fn ($r) => $r['format'] !== null && $r['shows'] >= 3)->sortByDesc('avg_net')->first();
+                $maxAvg = max(1, collect($rows)->max('avg_net'));
+                $fmtColors = ['var(--vxc-1)', 'var(--vxc-2)', 'var(--vxc-3)', 'var(--vxc-4)', 'var(--vxw-accent)', 'var(--vxw-muted)'];
+            @endphp
+            <div class="vxr-stats" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+                <x-vxr.stat label="Shows in range" :value="number_format($overall['shows'])" icon="heroicon-o-video-camera" :note="number_format($overall['classified']).' classified'" />
+                <x-vxr.stat label="Average per show" :value="'$'.number_format($overall['avg_net'], 0)" icon="heroicon-o-scale" note="The line each format is measured against" featured />
+                <x-vxr.stat label="Total in range" :value="'$'.number_format($overall['total_net'], 0)" icon="heroicon-o-banknotes" note="Net where synced, gross where not" />
+                <x-vxr.stat label="Best format" :value="$best['label'] ?? '—'" icon="heroicon-o-trophy" tone="ok" :note="$best ? '$'.number_format($best['avg_net'], 0).' a show · '.($best['net_vs_overall_pct'] >= 0 ? '+' : '').number_format($best['net_vs_overall_pct'] ?? 0, 0).'% vs average' : 'Needs 3+ shows of a format'" />
             </div>
 
-            @if ($overall['shows'] > 0)
-                <div class="grid gap-px border-t border-gray-100 bg-gray-100 dark:border-gray-800 dark:bg-gray-800 sm:grid-cols-3">
-                    <div class="bg-white p-4 dark:bg-gray-900">
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Shows in range</div>
-                        <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($overall['shows']) }}</div>
-                        <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ number_format($overall['classified']) }} classified</div>
+            <div class="vxr-dash">
+                <section class="vxr-card span-8">
+                    <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-bar" /> Average Whatnot net per show</h2><p class="vxr-card-sub">Each format's typical show. The dashed line is the average of every show in range.</p></div>
+                        @if (\App\Filament\Pages\ReportCompare::canAccess() && collect($rows)->whereNotNull('format')->count() >= 2)<a class="vxr-btn vxr-btn--sm vxr-btn--outline" href="{{ \App\Filament\Pages\ReportCompare::getUrl() }}?kind=format&items={{ collect($rows)->whereNotNull('format')->take(2)->pluck('format')->implode(',') }}">Compare</a>@endif
                     </div>
-                    <div class="bg-white p-4 dark:bg-gray-900">
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Average per show</div>
-                        <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">${{ number_format($overall['avg_net'], 2) }}</div>
-                        <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">The line each format below is measured against</div>
+                    <div class="vxr-card-body vxr-lead">
+                        @foreach ($rows as $i => $row)
+                            <div class="vxr-lead-row" style="grid-template-columns:minmax(0,170px) minmax(0,1fr) auto">
+                                <span class="nm">{{ $row['label'] }}<small>{{ number_format($row['shows']) }} {{ Str::plural('show', $row['shows']) }}@if($row['shows'] < 3) · too few to trust @endif</small></span>
+                                <span style="position:relative;height:14px;border-radius:99px;background:var(--vxw-sunken)">
+                                    <i style="position:absolute;inset:0 auto 0 0;border-radius:99px;width:{{ max(1, $row['avg_net'] / $maxAvg * 100) }}%;background:{{ $row['format'] === null ? 'var(--vxw-muted)' : 'linear-gradient(90deg,var(--vxr-hero-c),var(--vxr-hero-a))' }};animation:vxpGrow .8s cubic-bezier(.2,.7,.2,1) both"></i>
+                                    <em style="position:absolute;top:-4px;bottom:-4px;left:{{ $overall['avg_net'] / $maxAvg * 100 }}%;border-left:2px dashed var(--vxw-text);opacity:.45"></em>
+                                </span>
+                                <span class="v">${{ number_format($row['avg_net'], 0) }} @if ($row['net_vs_overall_pct'] !== null)<span @class(['vxr-delta', 'is-up' => $row['net_vs_overall_pct'] > 0, 'is-down' => $row['net_vs_overall_pct'] < 0])>{{ $row['net_vs_overall_pct'] >= 0 ? '+' : '' }}{{ number_format($row['net_vs_overall_pct'], 0) }}%</span>@endif</span>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="bg-white p-4 dark:bg-gray-900">
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total in range</div>
-                        <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">${{ number_format($overall['total_net'], 2) }}</div>
-                        <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Net where synced, gross where not</div>
+                </section>
+                <section class="vxr-card span-4">
+                    <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-pie" /> Mix of shows</h2><p class="vxr-card-sub">How many shows of each format ran.</p></div></div>
+                    <div class="vxr-card-body">
+                        <x-vxr.donut :money="false" center-label="shows" :segments="collect($rows)->values()->map(fn ($r, $i) => ['label' => $r['label'], 'value' => $r['shows'], 'color' => $r['format'] === null ? 'var(--vxw-border-strong, #c4c0d0)' : $fmtColors[min($i, 5)]])->all()" />
                     </div>
-                </div>
-            @endif
-        </section>
+                </section>
+            </div>
+        @endif
 
         @if (empty($rows))
             <section class="rounded-xl border border-gray-200 bg-white p-5 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">

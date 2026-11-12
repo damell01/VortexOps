@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $report = $this->report();
         $range = $report ? $this->range() : null;
@@ -272,4 +273,5 @@
             <p class="vxw-meta">Channels are shared. A business is identified only through an exact order match to one show whose streamers all belong to that business. Other tips remain unassigned. These live totals do not allocate tips or change payroll; missing imports can make them incomplete.</p>
         @endif
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

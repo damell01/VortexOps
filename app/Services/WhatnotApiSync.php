@@ -160,8 +160,13 @@ final class WhatnotApiSync
             }, ['status' => 'ended']);
             if (! $paging['ok']) $summary['errors'][] = 'shows: HTTP '.$paging['http_status'];
 
+            // Prioritize recently ended shows without complete analytics. The API's
+            // returned order is not a reliable priority for our per-run lookup cap.
             $known = Show::query()->where('whatnot_channel_id', $channelId)
                 ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(whatnot_show_id)'), $showIds ?: ['-'])
+                ->orderByRaw("CASE WHEN analytics_sync_status = 'complete' THEN 1 ELSE 0 END")
+                ->orderByDesc('show_date')
+                ->orderByDesc('start_time')
                 ->pluck('whatnot_show_id')->map(fn ($id) => strtolower($id))->unique()->values();
             $analyticsCounts['not_in_vortexops'] = count(array_unique($showIds)) - $known->count();
             foreach ($known->take(self::MAX_ANALYTICS_LOOKUPS) as $id) {

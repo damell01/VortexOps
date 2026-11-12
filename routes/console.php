@@ -213,14 +213,14 @@ Schedule::command('ledger:unassigned-alert')->dailyAt('08:23')->timezone('Americ
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('0-59/5 * * * *')
     ->name('whatnot-api-1-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=1 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('5-59/10 * * * *')
     ->name('whatnot-api-1-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -234,14 +234,14 @@ Schedule::command('whatnot:api-sync-tick --channel=1 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=2 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('1-59/5 * * * *')
     ->name('whatnot-api-2-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=2 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('6-59/10 * * * *')
     ->name('whatnot-api-2-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -255,14 +255,14 @@ Schedule::command('whatnot:api-sync-tick --channel=2 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=3 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('2-59/5 * * * *')
     ->name('whatnot-api-3-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=3 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('7-59/10 * * * *')
     ->name('whatnot-api-3-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()
@@ -276,14 +276,14 @@ Schedule::command('whatnot:api-sync-tick --channel=3 --mode=finance')
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=4 --mode=recent')
-    ->cron('*/15 * * * *')
+    ->cron('3-59/5 * * * *')
     ->name('whatnot-api-4-recent')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 Schedule::command('whatnot:api-sync-tick --channel=4 --mode=analytics')
-    ->cron('*/30 * * * *')
+    ->cron('8-59/10 * * * *')
     ->name('whatnot-api-4-analytics')
     ->withoutOverlapping(25)
     ->runInBackground()

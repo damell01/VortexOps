@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -357,7 +358,8 @@ class StreamerLogResource extends Resource
                     }),
             ])
             ->actions([
-                // Show available actions directly in each table row; which ones
+                ActionGroup::make([
+                // Keep workflow actions available in one predictable menu; which ones
                 // show depends on where the report is. The main button is last.
                 // Files a report the streamer never submitted, on their behalf —
                 // through submitReport() so it is stamped, stock posts and the
@@ -551,6 +553,11 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
+                ] )
+                    ->label('Actions')
+                    ->icon('heroicon-o-ellipsis-horizontal')
+                    ->color('gray')
+                    ->button(),
                 Action::make('open')
                     ->label(fn (StreamerLogEntry $record) => match (true) {
                         $record->hasPendingRevisionRequest() => 'View request',
@@ -558,10 +565,9 @@ class StreamerLogResource extends Resource
                         $record->status === 'changes_requested' => 'View changes',
                         default => 'Open report',
                     })
-                    ->iconButton()
+                    ->button()
                     ->size('sm')
                     ->tooltip('Open report')
-                    ->extraAttributes(['aria-label' => 'Open report', 'class' => 'vxi-row-icon'])
                     ->color('primary')
                     
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),

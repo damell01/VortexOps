@@ -382,6 +382,15 @@
                     <div class="vxf-review__stat {{ $r['openIssues'] ? 'is-warn' : 'is-ok' }}"><b>{{ $r['openIssues'] }}</b><span>open {{ \Illuminate\Support\Str::plural('issue', $r['openIssues']) }}{{ $r['issues'] > $r['openIssues'] ? ' · ' . ($r['issues'] - $r['openIssues']) . ' resolved' : '' }}</span></div>
                     <div class="vxf-review__stat"><b>{{ $r['seconds'] >= 3600 ? gmdate('G\h i\m', $r['seconds']) : intdiv($r['seconds'], 60) . 'm' }}</b><span>packing time</span></div>
                 </div>
+                <div class="vxf-card" style="padding:14px;margin-top:12px">
+                    <h3 style="font-weight:800;margin-bottom:8px">Packing readiness checklist</h3>
+                    <div style="display:grid;gap:7px;font-size:13px">
+                        <div>{{ $r['packedPackages'] }}/{{ $r['packages'] }} packages packed · {{ $r['unverifiedPackages'] }} not yet marked packed</div>
+                        <div>{{ $r['openIssues'] }} unresolved issues · {{ $r['blockingIssues'] }} blocking</div>
+                        <div>{{ $r['missingLabels'] }} linked shipments without a synced Whatnot label</div>
+                        <div class="vxf-sub">Missing labels are shown for review; packing sign-off remains governed by existing completion and blocking-issue rules. Printing verification is performed before each label print.</div>
+                    </div>
+                </div>
                 @if ($r['notPacked']->isNotEmpty())
                     <div class="vxf-alert" role="alert"><div><strong>{{ $r['notPacked']->count() }} {{ \Illuminate\Support\Str::plural('buyer', $r['notPacked']->count()) }} not packed yet</strong>
                         <div class="vxf-review__left">@foreach ($r['notPacked']->take(12) as $b)<span><b>{{ $b->letter }}</b> {{ $b->buyer_username }}</span>@endforeach @if ($r['notPacked']->count() > 12)<span>+{{ $r['notPacked']->count() - 12 }} more</span>@endif</div>

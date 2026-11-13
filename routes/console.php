@@ -151,7 +151,7 @@ Schedule::command('whatnot:analytics-catchup')
 // The dedicated browser worker only scrapes targeted analytics, not orders or shipments.
 Schedule::command('whatnot:analytics-show-end-poll --limit=2')
     ->appendOutputTo($whatnotLog)
-    ->skip($scraperOff)
+    ->skip(fn () => $whatnotPaused() || ! filter_var(config('vortex.whatnot.show_end_browser_enabled', false), FILTER_VALIDATE_BOOLEAN))
     ->everyMinute()
     ->name('whatnot-show-end-sellerhub-analytics')
     ->withoutOverlapping(2);

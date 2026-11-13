@@ -165,7 +165,7 @@ class WeeklyPayoutBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->extraAttributes(['class' => 'vx-finance-table'])
+            ->extraAttributes(['class' => 'vx-finance-table vx-payrun-compact'])
             ->heading('Pay Run History')
             ->description('Custom payroll runs, newest first.')
             ->emptyStateHeading('No pay runs')
@@ -231,18 +231,16 @@ class WeeklyPayoutBatchResource extends Resource
                     ->visible(fn () => ! \App\Support\BusinessContext::isScoped()),
             ])
             ->actions([
+                \Filament\Actions\ActionGroup::make([
+                    \Filament\Actions\EditAction::make()->visible(fn ($record) => $record->status === 'draft'),
+                    \Filament\Actions\DeleteAction::make()->visible(fn ($record) => $record->status === 'draft'),
+                ])->label('Actions')->icon('heroicon-o-ellipsis-horizontal')->color('gray')->button(),
                 ViewAction::make()->label(fn (WeeklyPayoutBatch $record) => match ($record->status) {
                     'draft' => 'Review & finalize',
                     'finalized' => 'Submit to ADP',
                     'submitted_to_adp' => 'Mark paid',
                     default => 'View',
                 })->button()->color('primary'),
-                \Filament\Actions\ActionGroup::make([
-                    \Filament\Actions\EditAction::make()
-                        ->visible(fn ($record) => $record->status === 'draft'),
-                    \Filament\Actions\DeleteAction::make()
-                        ->visible(fn ($record) => $record->status === 'draft'),
-                ])->label('More')->button()->color('gray'),
             ]);
     }
 

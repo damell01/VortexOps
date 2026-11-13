@@ -102,7 +102,16 @@
                                 <p class="mt-1 break-all text-xs text-gray-600 dark:text-gray-300">Tracking: {{ $shipment->tracking_number ?: 'Not available' }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ $shipment->weight_oz !== null ? $shipment->weight_oz.' oz' : 'Weight pending' }} · {{ $shipment->item_count ?? 0 }} items</p>
                                 <div class="mt-3 flex flex-wrap gap-2">
-                                    @if($label)<a href="{{ $label }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg bg-violet-600 px-3 font-semibold text-white hover:bg-violet-700">Open / print label</a>@endif
+                                    @if($label)
+                                        <div x-data="{ open: false }" class="w-full" wire:key="shipping-label-{{ $shipment->id }}">
+                                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" class="inline-flex min-h-10 items-center rounded-lg bg-violet-600 px-3 font-semibold text-white hover:bg-violet-700">Preview label</button>
+                                            <a href="{{ route('fulfillment.shipment-label', ['shipment' => $shipment->id]) }}" target="_blank" rel="noopener noreferrer" class="ml-2 inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 font-semibold text-violet-700">Open / print</a>
+                                            <div x-show="open" x-cloak class="mt-3 rounded-xl border border-violet-200 bg-white p-2">
+                                                <div class="mb-2 flex items-center justify-between gap-2"><strong class="text-sm text-gray-900">Label for {{ $buyer['username'] }}</strong><button type="button" @click="open = false" class="rounded-lg border px-3 py-2 text-xs font-semibold">Close preview</button></div>
+                                                <template x-if="open"><iframe src="{{ route('fulfillment.shipment-label', ['shipment' => $shipment->id]) }}" title="Whatnot shipping label for {{ $buyer['username'] }}" style="display:block;width:100%;height:460px;border:0;background:#f8fafc"></iframe></template>
+                                            </div>
+                                        </div>
+                                    @endif
                                     @if($bundle)<a href="{{ $bundle }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 font-semibold text-violet-700 dark:text-violet-300">Open bundled document</a>@endif
                                     @if($dashboard)<a href="{{ $dashboard }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 px-3 font-medium dark:border-gray-600">Open in Whatnot</a>@endif
                                     @if(!$label && !$bundle)<span class="text-xs text-amber-700 dark:text-amber-300">No printable document currently synced</span>@endif

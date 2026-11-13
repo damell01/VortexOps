@@ -80,7 +80,7 @@ class ShippingDesk extends Page
             $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
             $docs = is_array($raw['documents'] ?? null) ? $raw['documents'] : [];
             $url = self::safeDocumentUrl($docs['label_url'] ?? null);
-            return $url ? ['buyer' => $shipment->buyer_username ?: 'Unknown buyer', 'url' => $url] : null;
+            return $url ? ['buyer' => $shipment->buyer_username ?: 'Unknown buyer', 'url' => route('fulfillment.shipment-label', ['shipment' => $shipment->id])] : null;
         })->filter()->values()->all();
         if (count($documents) !== count($ids)) {
             throw ValidationException::withMessages(['selectedShipmentIds' => 'Every selected shipment must have a synced, printable label URL.']);

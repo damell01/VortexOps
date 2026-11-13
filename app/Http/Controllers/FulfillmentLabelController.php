@@ -46,6 +46,33 @@ class FulfillmentLabelController
         ]);
     }
 
+    /** Preview a shipment label from Shipment Center or Shipping & Labels. */
+    public function shipment(Request $request, int $shipment): Response
+    {
+        $row = Shipment::query()->findOrFail($shipment);
+        $user = $request->user();
+        abort_unless($user && FulfillmentAccess::moduleEnabled(), 404);
+        $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail($row->show_id);
+        abort_unless(\App\Filament\Resources\FulfillmentResource::canView($show), 403);
+
+        $payload = is_array($row->raw_payload) ? $row->raw_payload : (json_decode((string) $row->raw_payload, true) ?: []);
+        $url = ShippingDesk::safeDocumentUrl(($payload['documents'] ?? [])['label_url'] ?? null);
+        abort_unless($url && $this->isPublicHost((string) parse_url($url, PHP_URL_HOST)), 404);
+        $response = Http::timeout(20)->withOptions(['allow_redirects' => ['max' => 0]])->get($url);
+        abort_unless($response->successful(), 502, 'The Whatnot label is currently unavailable.');
+        $type = strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0]));
+        abort_unless($type === 'application/pdf' || in_array($type, ['image/png', 'image/jpeg', 'image/webp'], true), 502, 'Unsupported label document format.');
+        abort_unless(strlen($response->body()) <= 15 * 1024 * 1024, 502, 'Label exceeds preview size limit.');
+
+        return response($response->body(), 200, [
+            'Content-Type' => $type,
+            'Content-Disposition' => 'inline; filename="shipment-label-' . $row->id . '.' . ($type === 'application/pdf' ? 'pdf' : 'png') . '"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
+        ]);
+    }
+
     /** Refuse anything that resolves to this machine or a private network. */
     private function isPublicHost(string $host): bool
     {

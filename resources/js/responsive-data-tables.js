@@ -156,7 +156,11 @@ const MONEY = /^[-−(]?\s*\$\s?[\d,]+(\.\d+)?\)?$/;
 
 function decorateList(table, headers) {
     if (!table.classList.contains('vx-mlist')) table.classList.add('vx-mlist');
-    table.querySelectorAll(':scope > tbody > tr.fi-ta-row').forEach((row) => {
+    try { decorateRows(table, headers); } finally { groupByDate(table, headers); watchForMore(table); }
+}
+
+function decorateRows(table, headers) {
+    table.querySelectorAll(':scope > tbody > tr.fi-ta-row:not(.fi-ta-summary-row):not(.fi-ta-summary-header-row)').forEach((row) => {
         const cells = [...row.querySelectorAll(':scope > td')];
         if (!cells.length) return;
         const meta = cells.map((cell, index) => {
@@ -229,6 +233,87 @@ document.addEventListener('click', (event) => {
     button.setAttribute('aria-expanded', open ? 'true' : 'false');
     button.textContent = open ? 'Less' : button.dataset.count + ' more';
 }, true);
+
+// ---- Date group headers: "Today", "Yesterday", "This week"... ------------
+// Only when the rows are in date order, so a header never repeats.
+const PHONE = window.matchMedia('(max-width: 767px)');
+const DAY = 864e5;
+function groupLabel(d) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    const diff = Math.round((today - day) / DAY);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff === -1) return 'Tomorrow';
+    if (diff < 0) return diff >= -7 ? 'Coming up this week' : 'Coming up';
+    const weekStart = new Date(today); weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    if (day >= weekStart) return 'Earlier this week';
+    const lastWeek = new Date(weekStart); lastWeek.setDate(weekStart.getDate() - 7);
+    if (day >= lastWeek) return 'Last week';
+    return day.toLocaleDateString('en-US', { month: 'long', year: day.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+}
+function groupByDate(table, headers) {
+    const rows = [...table.querySelectorAll(':scope > tbody > tr.fi-ta-row:not(.fi-ta-summary-row):not(.fi-ta-summary-header-row)')];
+    const col = headers.findIndex((h) => /(^|\s)(date|show date|when|created|updated)(\s|$)/.test(h));
+    const clear = () => table.querySelectorAll(':scope > tbody > tr.vx-ml-group').forEach((g) => g.remove());
+    if (col < 0 || rows.length < 2) { clear(); return; }
+    const dates = rows.map((r) => { const c = r.querySelectorAll(':scope > td')[col]; const t = Date.parse((c?.innerText || '').replace(/\s+/g, ' ').trim()); return Number.isNaN(t) ? null : t; });
+    if (dates.some((d) => d === null)) { clear(); return; }
+    const asc = dates.every((d, i) => i === 0 || d >= dates[i - 1]), desc = dates.every((d, i) => i === 0 || d <= dates[i - 1]);
+    if (!asc && !desc) { clear(); return; }
+    let last = null;
+    rows.forEach((row, i) => {
+        const g = groupLabel(dates[i]);
+        const prev = row.previousElementSibling;
+        const has = prev && prev.classList.contains('vx-ml-group');
+        if (g !== last) {
+            if (!has || prev.dataset.g !== g) {
+                if (has) prev.remove();
+                const tr = document.createElement('tr'); tr.className = 'vx-ml-group'; tr.dataset.g = g;
+                const td = document.createElement('td'); td.colSpan = 99; td.textContent = g; tr.appendChild(td);
+                row.before(tr);
+            }
+        } else if (has) prev.remove();
+        last = g;
+    });
+}
+
+// ---- Infinite scroll: near the end of a list, ask for 25 more rows -------
+// Uses the table's own per-page setting (up to 200), so filters, search and
+// sort all still apply; past 200 the normal pages take over.
+const MAX_ROWS = 200;
+function watchForMore(table) {
+    if (!PHONE.matches || !window.Livewire) return;
+    const box = table.closest('.fi-ta');
+    const next = box?.querySelector('.fi-pagination-next-btn');
+    const nav = next?.closest('nav') || next?.parentElement;
+    if (!box || !next || !nav || nav.dataset.vxWatched) return;
+    nav.dataset.vxWatched = '1';
+    const io = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        const host = box.closest('[wire\\:id]');
+        const comp = host && window.Livewire.find(host.getAttribute('wire:id'));
+        if (!comp || box.dataset.vxLoading === '1') return;
+        const per = Number(comp.get('tableRecordsPerPage')) || 25;
+        if (per >= MAX_ROWS) { io.disconnect(); return; }
+        box.dataset.vxLoading = '1'; box.classList.add('vx-loading-more');
+        io.disconnect();
+        Promise.resolve(comp.set('tableRecordsPerPage', Math.min(MAX_ROWS, per + 25))).finally(() => {
+            setTimeout(() => { box.dataset.vxLoading = ''; box.classList.remove('vx-loading-more'); }, 400);
+        });
+    }, { rootMargin: '0px 0px 300px 0px' });
+    io.observe(nav);
+}
+
+// ---- Tap anywhere on a phone card to open the record ----------------------
+document.addEventListener('click', (event) => {
+    if (!PHONE.matches) return;
+    const row = event.target.closest?.('table.vx-mlist > tbody > tr.fi-ta-row');
+    if (!row || event.target.closest('a, button, input, select, textarea, label, [role="menu"], .fi-dropdown')) return;
+    if (String(window.getSelection?.() || '').length) return;
+    const link = row.querySelector('a.fi-ta-col[href]');
+    if (link) link.click();
+});
 
 function decorateTables(root = document) {
     // Every other table in a page or a pop-up keeps every value and its

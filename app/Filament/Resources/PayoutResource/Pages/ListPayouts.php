@@ -7,6 +7,8 @@ use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use App\Models\Payout;
 use Illuminate\Support\Carbon;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListPayouts extends ListRecords
 {
@@ -28,6 +30,21 @@ class ListPayouts extends ListRecords
             'deductions' => (float) (clone $query)->sum('loan_repayment_deducted'),
             'hold' => (int) (clone $query)->where('status', 'on_hold')->count(),
             'label' => $start->format('M j') . ' – ' . $end->format('M j'),
+        ];
+    }
+
+    /** Quick filters, shown as chips above the list. */
+    public function getTabs(): array
+    {
+        $count = fn (string $status) => PayoutResource::getEloquentQuery()->where('status', $status)->count() ?: null;
+        [$start, $end] = \App\Support\PaySchedule::periodFor(now());
+
+        return [
+            'all' => Tab::make('All'),
+            'review' => Tab::make('To review')->badge($count('draft'))->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'draft')),
+            'pay' => Tab::make('To pay')->badge($count('approved'))->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'approved')),
+            'paid' => Tab::make('Paid')->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'paid')),
+            'week' => Tab::make('This pay week')->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('created_at', [$start, $end->copy()->endOfDay()])),
         ];
     }
 

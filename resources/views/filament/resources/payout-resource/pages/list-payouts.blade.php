@@ -10,6 +10,7 @@
             <div class="vx-card p-4"><p class="text-xs font-semibold text-[var(--vx-muted)]">On hold</p><p class="vx-kpi-value mt-2">{{ number_format($stats['hold']) }}</p><p class="mt-1 text-xs text-[var(--vx-faint)]">Needs review</p></div>
         </div>
 
+        <x-quick-tabs />
         <div class="vx-card overflow-hidden">
             {{ $this->table }}
         </div>

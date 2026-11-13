@@ -8,29 +8,42 @@
     $here = rtrim(strtok(request()->fullUrl(), '?'), '/');
     $compareUrl = \App\Filament\Pages\ReportCompare::canAccess() ? \App\Filament\Pages\ReportCompare::getUrl() : null;
 @endphp
-<div class="vxrs vxrs--wide" >
-    <div class="vxrs-topnav">
-        <div class="vxrs-topnav-title"><x-filament::icon icon="heroicon-o-chart-bar-square" /><span>Report library</span></div>
-        <nav class="vxrs-category-nav vxrs-hover-nav" aria-label="Report categories">
+@php
+    $overviewUrl = \App\Filament\Pages\ReportsOverview::getUrl();
+    $libraryInitiallyOpen = rtrim(strtok($overviewUrl, '?'), '/') === $here;
+    $activeReport = collect($catalog)->flatMap(fn ($group) => $group['items'])->first(fn ($item) => rtrim(strtok($item['url'], '?'), '/') === $here);
+@endphp
+<div class="vxrs vxrs--wide" x-data="{ libraryOpen: @js($libraryInitiallyOpen) }">
+    <div class="vxrs-topnav vxrs-library-compact" :class="{ 'is-expanded': libraryOpen }">
+        <div class="vxrs-library-header">
+            <div class="vxrs-topnav-title">
+                <x-filament::icon icon="heroicon-o-chart-bar-square" />
+                <span x-text="libraryOpen ? 'Report library' : 'Reports'">Report library</span>
+                <span class="vxrs-current-report" x-show="!libraryOpen" x-cloak>{{ $activeReport['label'] ?? 'Browse reports' }}</span>
+            </div>
+            <button type="button" class="vxrs-library-toggle" x-on:click="libraryOpen = !libraryOpen" :aria-expanded="libraryOpen.toString()" aria-controls="vxrs-library-grid">
+                <x-filament::icon icon="heroicon-o-squares-2x2" />
+                <span x-text="libraryOpen ? 'Collapse library' : 'Browse all reports'"></span>
+                <x-filament::icon icon="heroicon-o-chevron-down" />
+            </button>
+        </div>
+        <div id="vxrs-library-grid" x-show="libraryOpen" x-cloak x-transition.opacity.duration.150ms class="vxrs-library-grid">
             @foreach ($catalog as $g)
-                @php $activeGroup = collect($g['items'])->contains(fn ($item) => rtrim($item['url'], '/') === $here); @endphp
-                <div class="vxrs-nav-group" x-data="{ open: false }" x-on:mouseenter="open = true" x-on:mouseleave="open = false" x-on:keydown.escape="open = false" x-on:focusout="if (!$el.contains($event.relatedTarget)) open = false">
-                    <button type="button" @class(['vxrs-category', 'is-active' => $activeGroup]) x-on:click="open = !open" x-on:focus="open = true" :aria-expanded="open.toString()" aria-haspopup="true">
-                        {{ $g['group'] }} <x-filament::icon icon="heroicon-o-chevron-down" />
-                    </button>
-                    <div class="vxrs-hover-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
-                        <div class="vxrs-hover-heading">{{ $g['group'] }} reports</div>
+                <section class="vxrs-library-section" aria-label="{{ $g['group'] }} reports">
+                    <h3>{{ $g['group'] }} <span>{{ count($g['items']) }} reports</span></h3>
+                    <nav aria-label="{{ $g['group'] }} reports">
                         @foreach ($g['items'] as $item)
-                            @php $on = rtrim($item['url'], '/') === $here; @endphp
-                            <a href="{{ $item['url'] }}" wire:navigate @class(['vxrs-link', 'is-on' => $on]) @if($on) aria-current="page" @endif>
+                            @php $on = rtrim(strtok($item['url'], '?'), '/') === $here; @endphp
+                            <a href="{{ $item['url'] }}" wire:navigate @class(['vxrs-link', 'is-on' => $on]) @if($on) aria-current="page" @endif x-on:click="libraryOpen = false">
                                 <span class="vxrs-ic"><x-filament::icon :icon="$item['icon']" /></span>
                                 <span>{{ $item['label'] }}</span>
+                                <x-filament::icon icon="heroicon-o-chevron-right" class="vxrs-link-chevron" />
                             </a>
                         @endforeach
-                    </div>
-                </div>
+                    </nav>
+                </section>
             @endforeach
-        </nav>
+        </div>
     </div>
     <div class="vxrs-main">{{ $slot }}</div>
 </div>

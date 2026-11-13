@@ -41,7 +41,7 @@
         .vxs-buyer{font-weight:800;color:#27123f}
         .vxs-muted{color:#64748b;font-size:11px}
         .vxs-pill{display:inline-block;border-radius:99px;padding:4px 8px;background:#f3e8ff;color:#6b21a8;font-size:10px;font-weight:800}
-        .vxs-detail{padding:18px;display:grid;gap:12px}
+        .vxs-detail{padding:18px;display:grid;gap:12px;position:fixed;right:16px;top:96px;bottom:16px;z-index:100;overflow:auto;width:min(510px,calc(100vw - 32px));box-shadow:0 14px 60px rgba(20,10,38,.25);align-content:start}
         .vxs-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
         .vxs-detail-grid dt{font-size:11px;color:#64748b}.vxs-detail-grid dd{font-size:13px;font-weight:750;overflow-wrap:anywhere}
         .vxs-detail-actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -109,7 +109,7 @@
                     @if($rows->count() === 150)<p class="vxs-muted" style="padding:12px 16px">Showing 150 recent matches. Narrow your search to find older shipments.</p>@endif
                 </section>
                 @if($selectedShipment)
-                    <section class="vxs-panel vxs-detail" aria-label="Selected shipment details">
+                    <section class="vxs-panel vxs-detail" role="dialog" aria-modal="false" aria-label="Selected shipment details">
                         <div class="vxs-toolbar" style="padding:0"><div><h2>Shipment details</h2><p class="vxs-sub">{{ $selectedShipment->buyer_username ?: 'Unknown buyer' }} · {{ $selectedShipment->show?->title }}</p></div><button type="button" class="vxs-btn" wire:click="$set('selectedShipmentId', null)">Close</button></div>
                         <dl class="vxs-detail-grid">
                             <div><dt>Tracking number</dt><dd>{{ $selectedShipment->tracking_number ?: 'Not available' }}</dd></div>

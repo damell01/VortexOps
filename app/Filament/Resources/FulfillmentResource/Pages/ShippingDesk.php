@@ -95,8 +95,12 @@ class ShippingDesk extends Page
         $this->validate(['labelSize' => ['required', 'in:4x6,letter'], 'printerName' => ['nullable', 'string', 'max:120']]);
         $previouslyRequested = \App\Models\FulfillmentEvent::query()
             ->where('show_id', $show->id)->whereIn('type', ['label_print_requested', 'label_printed'])
-            ->whereIn('package_id', \App\Models\FulfillmentRunPackage::query()->whereIn('shipment_id', $ids)->select('id'))
-            ->exists();
+            ->where(function ($query) use ($ids) {
+                $query->whereIn('package_id', \App\Models\FulfillmentRunPackage::query()->whereIn('shipment_id', $ids)->select('id'));
+                foreach ($ids as $id) {
+                    $query->orWhere('data->shipment_id', $id);
+                }
+            })->exists();
         if ($previouslyRequested && ! $this->confirmReprints) {
             throw ValidationException::withMessages(['selectedShipmentIds' => 'Some selected labels have previously been sent to print. Review the selection and check Confirm possible reprints.']);
         }

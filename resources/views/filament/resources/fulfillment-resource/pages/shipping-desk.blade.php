@@ -42,6 +42,8 @@
                     <h3 class="font-bold text-violet-950 dark:text-violet-100">Bulk label preparation</h3>
                     <p class="text-sm text-violet-800 dark:text-violet-200">Select shipments below, then prepare a print batch. Only existing Whatnot label documents are used.</p>
                 </div>
+                <button type="button" wire:click="selectPrintableLabels" class="min-h-11 rounded-xl border border-violet-400 bg-white px-4 font-semibold text-violet-800 hover:bg-violet-100">Select printable (up to 100)</button>
+                <button type="button" wire:click="$set('selectedShipmentIds', [])" class="min-h-11 rounded-xl border border-violet-300 px-3 font-semibold text-violet-800">Clear</button>
                 <button type="button" wire:click="preparePrintBatch" wire:loading.attr="disabled" wire:target="preparePrintBatch" class="min-h-11 rounded-xl bg-violet-700 px-4 font-semibold text-white hover:bg-violet-800">Prepare selected labels ({{ count($selectedShipmentIds) }})</button>
             </div>
             <div class="mt-3 grid gap-3 sm:grid-cols-3">

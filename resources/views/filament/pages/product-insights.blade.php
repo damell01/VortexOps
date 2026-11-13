@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $kpis = $this->kpis;
         $rows = $this->rows;
@@ -15,39 +16,23 @@
         $deadCount = $rows->where('is_dead', true)->count();
     @endphp
 
-    <div class="space-y-5">
-
-        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
-            <div class="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Inventory intelligence</div>
-            <h2 class="mt-3 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Product Insights</h2>
-            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">See what is moving, what is tying up capital, and which products may need attention.</p>
-        </section>
+    <div class="vxr">
 
 
         {{-- KPI cards --}}
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Inventory Value</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($kpis['inventory_value'], 0) }}</p>
-                <p class="text-[11px] text-gray-500">capital in on-hand stock</p>
+        @php $deadShare = $kpis['inventory_value'] > 0 ? round($kpis['dead_value'] / $kpis['inventory_value'] * 100) : 0; $live = max(0, $kpis['inventory_value'] - $kpis['dead_value']); @endphp
+        <div class="vxr-dash">
+            <div class="span-8" style="display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))">
+                <x-vxr.stat label="Inventory value" :value="'$'.number_format($kpis['inventory_value'], 0)" icon="heroicon-o-cube" featured note="Capital in on-hand stock" />
+                <x-vxr.stat label="Dead stock" :value="'$'.number_format($kpis['dead_value'], 0)" icon="heroicon-o-archive-box-x-mark" tone="bad" value-class="vxr-val-bad" :note="$deadShare.'% of stock value · no sale in '.\App\Filament\Pages\ProductInsights::DEAD_DAYS.'d'" />
+                <x-vxr.stat label="Active products" :value="number_format($kpis['active_skus'])" icon="heroicon-o-tag" :note="number_format($kpis['sold_skus']).' have sold'" />
+                <x-vxr.stat label="Showing" :value="number_format($rows->count())" icon="heroicon-o-funnel" :note="($views[$this->view] ?? $this->view).($rows->count() >= \App\Filament\Pages\ProductInsights::ROW_LIMIT ? ' · top '.\App\Filament\Pages\ProductInsights::ROW_LIMIT : '')" />
             </div>
-            <div class="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-rose-600 dark:text-rose-300 cursor-help" title="Capital tied up in products that haven't sold within the dead-stock window — inventory that isn't moving.">Dead Stock</p>
-                <p class="mt-1 text-2xl font-bold text-rose-700 dark:text-rose-200">${{ number_format($kpis['dead_value'], 0) }}</p>
-                <p class="text-[11px] text-rose-500/80 dark:text-rose-300/70">tied up, no sale in {{ \App\Filament\Pages\ProductInsights::DEAD_DAYS }}d</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 cursor-help" title="SKU = Stock Keeping Unit — a distinct product. Active SKUs is how many products are currently in your catalog.">Active SKUs</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($kpis['active_skus']) }}</p>
-                <p class="text-[11px] text-gray-500">{{ number_format($kpis['sold_skus']) }} have sold</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Showing</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($rows->count()) }}</p>
-                <p class="text-[11px] text-gray-500">
-                    {{ $views[$this->view] ?? $this->view }}@if ($rows->count() >= \App\Filament\Pages\ProductInsights::ROW_LIMIT) · top {{ \App\Filament\Pages\ProductInsights::ROW_LIMIT }}@endif
-                </p>
-            </div>
+            <section class="vxr-card span-4">
+                <div class="vxr-card-head"><div><h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-pie" /> Is the stock moving?</h3><p class="vxr-card-sub">Value that sold recently vs value sitting still.</p></div></div>
+                <div class="vxr-card-body"><x-vxr.donut :center="$deadShare.'%'" center-label="not moving" :size="140"
+                    :segments="[['label' => 'Moving', 'value' => $live, 'color' => 'var(--vxc-3)'], ['label' => 'Dead stock', 'value' => $kpis['dead_value'], 'color' => 'var(--vxc-2)']]" /></div>
+            </section>
         </div>
 
         {{-- View filter chips --}}
@@ -151,4 +136,5 @@
             </table>
         </div>
     </div>
+</x-reports.shell>
 </x-filament-panels::page>

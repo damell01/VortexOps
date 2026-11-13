@@ -13,6 +13,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
@@ -32,6 +34,17 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
         try {
             $show = Show::readyForAnalytics()->find($this->showId);
             if (! $show || ! $show->whatnot_show_id || ! $show->whatnot_channel_id) return;
+            $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+            if (! empty($meta['_analytics_api_generated_at'])) return;
+            // Atomic guard also covers old queued retries and overlapping workers.
+            $guardKey = 'whatnot:show-analytics-api-attempt:'.$show->id;
+            $lastAttempt = $meta['_analytics_last_attempt_at'] ?? null;
+            if ($lastAttempt) {
+                try {
+                    if (Carbon::parse($lastAttempt)->gt(now()->subMinutes(15))) return;
+                } catch (\Throwable) {}
+            }
+            if (! Cache::add($guardKey, now()->toIso8601String(), now()->addMinutes(15))) return;
 
             $connection = WhatnotApiConnection::query()
                 ->where('whatnot_channel_id', $show->whatnot_channel_id)
@@ -39,6 +52,7 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
                 ->first();
 
             if (! $connection || ! $connection->access_token) {
+                Cache::forget($guardKey);
                 // Do not silently report a queued retry as successful when no API call was made.
                 Log::warning('Show analytics retry skipped: API connection unavailable', ['show_id' => $this->showId]);
                 if (Schema::hasColumn('shows', 'analytics_sync_note')) {

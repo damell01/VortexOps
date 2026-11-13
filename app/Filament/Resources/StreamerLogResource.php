@@ -295,6 +295,7 @@ class StreamerLogResource extends Resource
                             : null
                     )
                     ->wrap()
+
                     ->state(fn (StreamerLogEntry $record) => match (true) {
                         $record->hasPendingRevisionRequest() => 'Edit requested',
                         $record->status === 'streamer_reviewed' => 'Needs review',

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
     @php
         $rows = $this->rows();
         $t = $this->totals();
@@ -56,6 +57,29 @@
             <x-vxr.stat label="Businesses Affected" :value="$t['businesses']" icon="heroicon-o-building-office-2" tone="info" />
         </div>
 
+        @if ($t['count'] > 0)
+            @php
+                $byStreamer = $rows->groupBy(fn ($r) => $r['streamer'] ?? 'Unassigned')->map(fn ($g) => abs((float) $g->sum('whatnot_net')))->sortDesc()->take(6);
+                $byChannel = $rows->groupBy(fn ($r) => $r['channel'] ?? 'No channel')->map(fn ($g) => abs((float) $g->sum('whatnot_net')))->sortDesc();
+                $maxLoss = max(0.01, $byStreamer->max());
+                $lc = ['var(--vxc-2)', 'var(--vxc-4)', 'var(--vxc-1)', 'var(--vxc-3)', 'var(--vxw-muted)'];
+            @endphp
+            <div class="vxr-dash">
+                <section class="vxr-card span-7">
+                    <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-user-group" /> Losses by streamer</h2><p class="vxr-card-sub">Total below zero on their shows this period.</p></div></div>
+                    <div class="vxr-card-body vxr-lead">
+                        @foreach ($byStreamer as $name => $loss)
+                            <div class="vxr-lead-row" style="grid-template-columns:minmax(0,150px) minmax(0,1fr) auto"><span class="nm">{{ $name }}</span><span class="vxr-mini-bar" style="height:12px;margin:0"><i style="width:{{ $loss / $maxLoss * 100 }}%;background:linear-gradient(90deg,#f97316,#dc2626)"></i></span><span class="v" style="color:var(--vxw-bad)">−${{ number_format($loss, 2) }}</span></div>
+                        @endforeach
+                    </div>
+                </section>
+                <section class="vxr-card span-5">
+                    <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-signal" /> By channel</h2><p class="vxr-card-sub">Where the losses happened.</p></div></div>
+                    <div class="vxr-card-body"><x-vxr.donut center-label="lost" :segments="$byChannel->values()->map(fn ($v, $i) => ['label' => $byChannel->keys()[$i], 'value' => $v, 'color' => $lc[min($i, 4)]])->all()" /></div>
+                </section>
+            </div>
+        @endif
+
         <div class="vxr-banner"><x-filament::icon icon="heroicon-s-information-circle" /> Whatnot estimates may change as analytics refresh. Business costs and payroll are not included — see Business Profitability for those.</div>
 
         <div class="vxr-card">
@@ -93,4 +117,5 @@
         'countLabel' => 'shows with negative earnings',
         'amountLabel' => 'estimated Whatnot earnings',
     ])
+</x-reports.shell>
 </x-filament-panels::page>

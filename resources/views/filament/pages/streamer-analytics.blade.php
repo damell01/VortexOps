@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php
     $rows        = $this->analyticsRows;
     $all         = collect($rows);
@@ -507,7 +508,7 @@
         <div class="vxr-stats">
             <x-vxr.stat label="Weeks" :value="number_format(count($weeklyRows))" icon="heroicon-o-calendar" />
             <x-vxr.stat label="Total Shows" :value="number_format($weekly->sum('show_count'))" icon="heroicon-o-video-camera" />
-            <x-vxr.stat label="Gross Revenue" :value="'$' . number_format($totG, 2)" icon="heroicon-o-currency-dollar" />
+            <x-vxr.stat featured label="Gross Revenue" :value="'$' . number_format($totG, 2)" icon="heroicon-o-currency-dollar" />
             <x-vxr.stat label="Best Week Revenue / Show Hour" :value="$bestWeek ? '$' . number_format($bestWeek['sph'], 2) : '—'" icon="heroicon-o-trophy" tone="ok"
                 :note="$bestWeek ? 'Week of ' . $bestWeek['week'] : null" />
         </div>
@@ -591,4 +592,5 @@
     @endif
 
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

@@ -56,6 +56,48 @@ final class GoalProgress
         });
     }
 
+    /**
+     * This month's pace for one metric: the goal, what is in so far, and where
+     * the month lands if the rest goes at the same daily rate. A channel goal
+     * is used when one is set for that channel, else the everyone goal.
+     *
+     * @return array{label:string, scope:string, metric:string, money:bool, target:float, actual:float, projected:float, expected:float, per_day:float, pct:float, status:string, month:string, days_left:int}|null
+     */
+    public function pace(string $metric = 'whatnot_net', ?int $channelId = null): ?array
+    {
+        $start = now()->startOfMonth();
+        $goal = null;
+        if ($channelId) {
+            $goal = Goal::query()->whereDate('month', $start->toDateString())->where('metric', $metric)->where('scope', 'channel')->where('scope_id', $channelId)->first();
+        }
+        $goal ??= Goal::query()->whereDate('month', $start->toDateString())->where('metric', $metric)->where('scope', 'all')->first();
+        if (! $goal || (float) $goal->target <= 0) return null;
+
+        $end = $start->copy()->endOfMonth();
+        $days = $start->daysInMonth;
+        $elapsedDays = min($days, max(1, now()->day));
+        $actual = $this->actual($goal, $start, $end);
+        $target = (float) $goal->target;
+        $projected = $actual / $elapsedDays * $days;
+        $expected = $target * $elapsedDays / $days;
+
+        return [
+            'label' => Goal::METRICS[$metric] ?? $metric,
+            'scope' => $goal->scope === 'channel' ? (WhatnotChannel::query()->whereKey($goal->scope_id)->value('name') ?? 'Channel') : 'Everyone',
+            'metric' => $metric,
+            'money' => $goal->isMoney(),
+            'target' => $target,
+            'actual' => $actual,
+            'projected' => round($projected, 2),
+            'expected' => round($expected, 2),
+            'per_day' => round($target / $days, 2),
+            'pct' => round($actual / $target * 100, 1),
+            'status' => $actual >= $target ? 'done' : ($projected >= $target ? 'ahead' : 'behind'),
+            'month' => $start->format('F'),
+            'days_left' => $days - $elapsedDays,
+        ];
+    }
+
     private function actual(Goal $goal, Carbon $start, Carbon $end): float
     {
         $q = DB::table('shows')

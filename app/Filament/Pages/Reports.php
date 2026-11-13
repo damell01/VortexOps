@@ -451,6 +451,7 @@ class Reports extends Page
                 ->whereNotIn('shows.status', ['cancelled'])
                 ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
                 ->selectRaw('
+                    whatnot_channels.id as channel_id,
                     COALESCE(whatnot_channels.name, "Unknown") as channel,
                     COUNT(*) as shows,
                     COALESCE(SUM(shows.gross_revenue), 0) as gross,
@@ -502,6 +503,41 @@ class Reports extends Page
         });
     }
 
+    /** The comparison period's weekly figures, oldest first (for the dashed line). */
+    public function getRevenueByWeekPreviousProperty(): array
+    {
+        [$from, $to] = $this->comparisonRange();
+
+        return Cache::remember($this->cacheKey('week_prev_'.$from->toDateString()), 300, function () use ($from, $to) {
+            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+            $weekExpr = $isSqlite
+                ? "date(show_date, '-' || ((strftime('%w', show_date) + 6) % 7) || ' days')"
+                : 'DATE_SUB(show_date, INTERVAL WEEKDAY(show_date) DAY)';
+
+            return DB::table('shows')
+                ->whereBetween('show_date', [$from, $to])
+                ->whereNotIn('status', ['cancelled'])
+                ->when($this->channelId() !== null, fn ($q) => $q->where('whatnot_channel_id', $this->channelId()))
+                ->selectRaw("{$weekExpr} as week_start, COUNT(*) as shows, COALESCE(SUM(gross_revenue), 0) as gross, COALESCE(SUM(whatnot_net), 0) as net, COALESCE(SUM(units_sold), 0) as units")
+                ->groupByRaw($weekExpr)->orderBy('week_start')->get()
+                ->map(fn ($r) => ['shows' => (int) $r->shows, 'gross' => (float) $r->gross, 'net' => (float) $r->net, 'units' => (int) $r->units])
+                ->all();
+        });
+    }
+
+    /** This month's goal pace for the charted figure, when a goal is set for it. */
+    public function goalPace(): ?array
+    {
+        $goalMetric = ['gross' => 'gross', 'net' => 'whatnot_net', 'shows' => 'shows'][$this->weekMetric] ?? 'whatnot_net';
+
+        return app(\App\Services\GoalProgress::class)->pace($goalMetric, $this->channelId());
+    }
+
+    public function chartMetric(string $metric): void
+    {
+        if (array_key_exists($metric, self::WEEK_METRICS)) $this->weekMetric = $metric;
+    }
+
     // ── Streamer performance ─────────────────────────────────────────────────
     public function getTopStreamersByPayoutProperty(): array
     {
@@ -515,9 +551,9 @@ class Reports extends Page
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('shows.status', ['cancelled'])
                 ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
-                ->selectRaw('streamers.name as streamer, COUNT(DISTINCT shows.id) as shows, COALESCE(SUM(shows.gross_revenue),0) as gross, COALESCE(SUM(shows.whatnot_net),0) as net')
+                ->selectRaw('streamers.id as streamer_id, streamers.name as streamer, COUNT(DISTINCT shows.id) as shows, COALESCE(SUM(shows.gross_revenue),0) as gross, COALESCE(SUM(shows.whatnot_net),0) as net')
                 ->groupBy('show_streamer.streamer_id', 'streamers.name')->orderByDesc($sort)->orderByDesc('gross')->limit(10)->get()
-                ->map(fn ($r) => ['streamer'=>$r->streamer,'shows'=>(int)$r->shows,'gross'=>(float)$r->gross,'net'=>(float)$r->net])->all();
+                ->map(fn ($r) => ['streamer_id'=>(int)$r->streamer_id,'streamer'=>$r->streamer,'shows'=>(int)$r->shows,'gross'=>(float)$r->gross,'net'=>(float)$r->net])->all();
         });
     }
 

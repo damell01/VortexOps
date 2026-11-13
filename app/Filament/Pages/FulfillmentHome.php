@@ -158,6 +158,105 @@ class FulfillmentHome extends Page
             ->latest('id')->limit(5)->get();
     }
 
+    /**
+     * A packer's own work: the run they are on (packing first, then paused,
+     * then ready), the rest waiting for them, and today's numbers.
+     *
+     * @return array{current: ?FulfillmentRun, next: \Illuminate\Support\Collection, mine_today: int, team_today: int, buyer: ?object, flags: int}
+     */
+    #[Computed]
+    public function myWork(): array
+    {
+        $me = auth()->id();
+        $ids = DB::table('fulfillment_run_packers')->where('user_id', $me)->pluck('run_id')
+            ->merge(DB::table('fulfillment_runs')->join('show_fulfillment_user', 'show_fulfillment_user.show_id', '=', 'fulfillment_runs.show_id')
+                ->where('show_fulfillment_user.user_id', $me)->pluck('fulfillment_runs.id'))
+            ->unique()->all();
+        $runs = $ids ? FulfillmentRun::query()->whereIn('id', $ids)->whereIn('status', FulfillmentRun::OPEN)
+            ->with(['show:id,title,show_date,start_time,whatnot_channel_id,cover_image_url', 'show.channel:id,name', 'station:id,name', 'currentBuyer:id,letter,buyer_username'])
+            ->get() : collect();
+        $rank = [FulfillmentRun::PACKING => 0, FulfillmentRun::PAUSED => 1, FulfillmentRun::READY => 2];
+        // Today's shift station first among equals, then the oldest show.
+        $shiftStation = FulfillmentShift::query()->where('user_id', $me)->where('starts_at', '<=', now())->where('ends_at', '>', now())->value('station_id');
+        $runs = $runs->sortBy(fn ($r) => sprintf('%d-%d-%s', $rank[$r->status] ?? 9, $shiftStation && (int) $r->station_id === (int) $shiftStation ? 0 : 1, $r->show?->show_date?->format('Ymd') ?? '99999999'))->values();
+        $current = $runs->first();
+        if ($current) {
+            $counts = DB::table('fulfillment_run_packages')->where('run_id', $current->id)
+                ->selectRaw("COUNT(*) as total, SUM(CASE WHEN status = 'packed' THEN 1 ELSE 0 END) as packed")->first();
+            $current->setAttribute('pkg_total', (int) ($counts->total ?? 0));
+            $current->setAttribute('pkg_packed', (int) ($counts->packed ?? 0));
+        }
+        $buyer = $current ? ($current->currentBuyer ?? DB::table('fulfillment_run_buyers')->where('run_id', $current->id)->where('status', 'waiting')
+            ->orderByRaw('LENGTH(letter)')->orderBy('letter')->first(['id', 'letter', 'buyer_username'])) : null;
+        $today = BusinessTime::local()->startOfDay()->utc();
+
+        return [
+            'current' => $current,
+            'next' => $runs->slice(1)->take(4)->values(),
+            'buyer' => $buyer,
+            'mine_today' => DB::table('fulfillment_run_packages')->where('packed_by', $me)->where('status', 'packed')->where('packed_at', '>=', $today)->count(),
+            'team_today' => DB::table('fulfillment_run_packages')->where('status', 'packed')->where('packed_at', '>=', $today)->count(),
+            'flags' => DB::table('fulfillment_flags')->where('reported_by', $me)->where('status', 'open')->count(),
+        ];
+    }
+
+    /**
+     * What needs the manager now, most urgent first: sign-offs waiting,
+     * open issues, ready shows with no station or packer, and stations
+     * paused a long time. Each item carries its one-click action.
+     *
+     * @return list<array{tone:string, icon:string, title:string, sub:string, action:string, kind:string, value:mixed}>
+     */
+    #[Computed]
+    public function needsYou(): array
+    {
+        if (! $this->isManager()) return [];
+        $tz = BusinessTime::zone();
+        $out = [];
+        foreach ($this->signoffQueue->take(3) as $r) {
+            $out[] = ['tone' => 'ok', 'icon' => 'heroicon-o-check-badge', 'title' => 'Sign off: '.($r->show?->title ?? 'Show'),
+                'sub' => trim(($r->station?->name ? $r->station->name.' finished' : 'Finished').' · '.((int) $r->completed_packages).' packages'.($r->open_flags_count ? ' · '.$r->open_flags_count.' open '.str('issue')->plural($r->open_flags_count) : '')),
+                'action' => 'Review', 'kind' => 'signoff', 'value' => $r->id];
+        }
+        foreach (\App\Models\FulfillmentFlag::query()->with(['show:id,title', 'buyer:id,letter,buyer_username'])->where('status', 'open')->latest()->limit(3)->get() as $f) {
+            $out[] = ['tone' => 'bad', 'icon' => 'heroicon-o-exclamation-triangle', 'title' => str((string) $f->type)->replace('_', ' ')->ucfirst().($f->buyer ? ' · '.$f->buyer->buyer_username : ''),
+                'sub' => ($f->show?->title ?? 'Show').' · '.$f->created_at?->diffForHumans(short: true),
+                'action' => 'Resolve', 'kind' => 'link', 'value' => FulfillmentActivity::getUrl(['tab' => 'issues'])];
+        }
+        // The long/quick filter on the page applies here too.
+        $unassigned = FulfillmentRun::query()->where('status', FulfillmentRun::READY)->whereNull('station_id')->whereDoesntHave('packers')
+            ->when(in_array($this->jobs, ['slow', 'quick'], true), fn ($q) => $q->whereHas('show', fn ($s) => $s->where('is_slow_pack', $this->jobs === 'slow')))
+            ->with('show:id,title,show_date')->orderBy('ready_at')->limit(2)->get();
+        foreach ($unassigned as $r) {
+            $out[] = ['tone' => 'blue', 'icon' => 'heroicon-o-arrow-right-circle', 'title' => ($r->show?->title ?? 'Show').' has no station',
+                'sub' => 'Ready to pack'.($r->show?->show_date ? ' · streamed '.$r->show->show_date->format('M j') : ''),
+                'action' => 'Assign', 'kind' => 'assign', 'value' => ['runId' => $r->id, 'title' => $r->show?->title]];
+        }
+        $stalled = FulfillmentRun::query()->where('status', FulfillmentRun::PAUSED)->where('paused_at', '<', now()->subMinutes(20))
+            ->with(['station:id,name', 'packers:id,name'])->orderBy('paused_at')->limit(2)->get();
+        foreach ($stalled as $r) {
+            $out[] = ['tone' => 'warn', 'icon' => 'heroicon-o-pause-circle', 'title' => ($r->station?->name ?? 'A station').' paused '.(int) $r->paused_at->diffInMinutes(now()).' min',
+                'sub' => trim($r->packers->pluck('name')->join(', ').' · '.FulfillmentRun::pauseReasonLabel($r->pause_reason), ' ·'),
+                'action' => 'Open', 'kind' => 'link', 'value' => FulfillmentStationBoard::getUrl(['run' => $r->id])];
+        }
+
+        return $out;
+    }
+
+    /** Packages per hour and the time left at that pace, for a station's run. */
+    public function pace(?FulfillmentRun $run): ?array
+    {
+        if (! $run || ! $run->isOnStation() || ! $run->started_at) return null;
+        $secs = $run->activeSeconds();
+        $done = (int) $run->completed_packages;
+        if ($secs < 300 || $done < 1) return null;
+        $rate = $done / ($secs / 3600);
+        $left = $run->expected_packages !== null ? max(0, $run->expected_packages - $done) : null;
+        $mins = $left !== null && $rate > 0 ? (int) round($left / $rate * 60) : null;
+
+        return ['rate' => (int) round($rate), 'eta' => $mins === null ? null : ($mins >= 60 ? intdiv($mins, 60).'h '.($mins % 60).'m' : $mins.'m')];
+    }
+
     public function stationState(?FulfillmentRun $run): string
     {
         if (! $run) return 'idle';

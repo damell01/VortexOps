@@ -211,7 +211,7 @@ class ProductInsightsTest extends TestCase
         $this->stock($item, 10);
         $this->sale($item, 2, 5, 20);
         Livewire::actingAs($admin)->test(ProductInsights::class)
-            ->assertOk()->assertSee('Summarized Item')->assertSee('Inventory intelligence');
+            ->assertOk()->assertSee('Summarized Item')->assertSee('Is the stock moving?');
         $this->assertEqualsWithDelta(10, $this->rowFor($item->id)['margin'], 0.01);
     }
 }

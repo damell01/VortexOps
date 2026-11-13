@@ -1,36 +1,29 @@
 <x-filament-panels::page>
+<x-reports.shell>
 @php $s = $this->summary; @endphp
-<div class="space-y-6">
+<div class="vxr">
 
-<div class="flex justify-end"><x-report-toolbar :exports="['exportCsv' => 'Export top vendors CSV']" /></div>
+<div class="vxr-head" style="justify-content:flex-end"><x-report-toolbar :exports="['exportCsv' => 'Export top vendors CSV']" /></div>
 
-{{-- ── Summary KPIs ──────────────────────────────────────────────────────────── --}}
-<div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['sessions'] }}</p>
-        <p class="text-xs text-gray-500 mt-1">Sessions Completed</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['total_lines'] }}</p>
-        <p class="text-xs text-gray-500 mt-1">Lines Processed</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-2xl font-bold {{ (float)$s['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ((float)$s['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
-            {{ $s['auto_match_rate'] > 0 ? $s['auto_match_rate'] . '%' : '—' }}
-        </p>
-        <p class="text-xs text-gray-500 mt-1">Auto-Match Rate</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($s['total_aliases']) }}</p>
-        <p class="text-xs text-gray-500 mt-1">Aliases Learned</p>
-        <p class="text-xs text-gray-500 mt-0.5">{{ $s['confirmed'] }} confirmed</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center col-span-2 sm:col-span-2">
-        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ $s['receiving_cost'] }}</p>
-        <p class="text-xs text-gray-500 mt-1">Total Receiving Cost</p>
-        <p class="text-xs text-gray-500 mt-0.5">all received lots</p>
-    </div>
+@php $rate = (float) $s['auto_match_rate']; $months = array_reverse($this->sessionsByMonth); @endphp
+<div class="vxr-stats" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+    <x-vxr.stat label="Sessions completed" :value="number_format($s['sessions'])" icon="heroicon-o-inbox-arrow-down" :spark="count($months) > 1 ? array_column($months, 'sessions') : null" />
+    <x-vxr.stat label="Lines processed" :value="number_format($s['total_lines'])" icon="heroicon-o-queue-list" :spark="count($months) > 1 ? array_column($months, 'lines') : null" />
+    <x-vxr.stat label="Auto-match rate" :value="$rate > 0 ? $s['auto_match_rate'].'%' : '—'" icon="heroicon-o-sparkles" featured :note="$rate >= 90 ? 'Great: almost everything matches itself' : ($rate >= 70 ? 'Good, room to improve' : ($rate > 0 ? 'Low: teach it more aliases' : 'No sessions yet'))" />
+    <x-vxr.stat label="Aliases learned" :value="number_format($s['total_aliases'])" icon="heroicon-o-academic-cap" :note="$s['confirmed'].' confirmed'" />
+    <x-vxr.stat label="Total receiving cost" :value="'$'.$s['receiving_cost']" icon="heroicon-o-banknotes" note="All received lots" />
 </div>
+
+@if (count($months) > 0)
+<section class="vxr-card">
+    <div class="vxr-card-head"><div><h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-bar" /> Receiving by month</h2><p class="vxr-card-sub">Sessions and lines received each month.</p></div>
+        <div class="vxr-legend"><span><i style="height:8px;width:8px;border-radius:2px;background:var(--vxw-accent)"></i>Lines</span><span><i style="height:8px;width:8px;border-radius:2px;background:var(--vxc-3)"></i>Sessions</span></div></div>
+    <div class="vxr-card-body">
+        <x-vxr.grouped :money="false" :height="220" :labels="array_column($months, 'month')" aria-label="Receiving by month"
+            :series="[['name' => 'Lines', 'values' => array_column($months, 'lines'), 'color' => 'var(--vxw-accent)'], ['name' => 'Sessions', 'values' => array_column($months, 'sessions'), 'color' => 'var(--vxc-3)']]" />
+    </div>
+</section>
+@endif
 
 {{-- ── Sessions by Month ─────────────────────────────────────────────────────── --}}
 @if(count($this->sessionsByMonth) > 0)
@@ -182,4 +175,5 @@
 @endif
 
 </div>
+</x-reports.shell>
 </x-filament-panels::page>

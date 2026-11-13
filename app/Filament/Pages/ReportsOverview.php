@@ -37,6 +37,8 @@ class ReportsOverview extends Page
     public string $business = '';
 
     private ?Collection $rowsMemo = null;
+    private ?Collection $prevMemo = null;
+    private ?array $flowMemo = null;
 
     protected static function passesModuleAccessCheck(): bool
     {
@@ -84,6 +86,8 @@ class ReportsOverview extends Page
     public function updated(): void
     {
         $this->rowsMemo = null;
+        $this->prevMemo = null;
+        $this->flowMemo = null;
     }
 
     public function rows(): Collection
@@ -121,6 +125,85 @@ class ReportsOverview extends Page
         }
 
         return array_values(array_map(fn ($b) => $b + ['title' => $b['label'].': $'.number_format($b['value'], 2).' from '.$b['shows'].' '.str('show')->plural($b['shows'])], $buckets));
+    }
+
+    /** The same number of days just before this period. */
+    public function previousRows(): Collection
+    {
+        [$from, $to] = $this->period();
+        $days = (int) $from->diffInDays($to) + 1;
+
+        return $this->prevMemo ??= app(ProfitLossReport::class)->rows($from->copy()->subDays($days), $from->copy()->subDay(), ['business' => $this->business !== '' ? (int) $this->business : null]);
+    }
+
+    /** Headline figures with change against the period before and a daily trend line. */
+    public function kpis(): array
+    {
+        $cur = $this->rows(); $prev = $this->previousRows();
+        $flow = $this->flow();
+        $chg = fn ($a, $b) => $b != 0 ? round(($a - $b) / abs($b) * 100, 1) : null;
+        $sum = fn ($rows, $k) => (float) $rows->sum($k);
+        $hours = fn ($rows) => (float) $rows->sum(fn ($r) => $r['hours'] ?? $r['duration_hours'] ?? 0);
+        $nph = fn ($rows) => $hours($rows) > 0 ? $sum($rows, 'whatnot_net') / $hours($rows) : 0;
+
+        return [
+            'sales' => ['Gross sales', $sum($cur, 'sales'), $chg($sum($cur, 'sales'), $sum($prev, 'sales')), $flow['sales'], 'heroicon-o-shopping-bag', true],
+            'net' => ['Whatnot net', $sum($cur, 'whatnot_net'), $chg($sum($cur, 'whatnot_net'), $sum($prev, 'whatnot_net')), $flow['net'], 'heroicon-o-banknotes', true],
+            'profit' => ['Profit (est.)', $sum($cur, 'profit'), $chg($sum($cur, 'profit'), $sum($prev, 'profit')), $flow['profit'], 'heroicon-o-arrow-trending-up', true],
+            'nph' => ['Net per hour', $nph($cur), $chg($nph($cur), $nph($prev)), null, 'heroicon-o-clock', true],
+            'shows' => ['Shows', $cur->count(), $chg($cur->count(), $prev->count()), $flow['shows'], 'heroicon-o-video-camera', false],
+        ];
+    }
+
+    /** Gross, net, profit and show count per day (per week past 45 days, per month for a year). */
+    public function flow(): array
+    {
+        if ($this->flowMemo) return $this->flowMemo;
+        [$from, $to] = $this->period();
+        $days = (int) $from->diffInDays($to) + 1;
+        $unit = $days > 120 ? 'month' : ($days > 45 ? 'week' : 'day');
+        $key = fn (Carbon $d) => match ($unit) { 'month' => $d->format('Y-m'), 'week' => $d->copy()->startOfWeek()->toDateString(), default => $d->toDateString() };
+        $buckets = [];
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            $k = $key($d);
+            $buckets[$k] ??= ['label' => match ($unit) { 'month' => $d->format('M'), 'week' => $d->copy()->startOfWeek()->format('M j'), default => $d->format('M j') }, 'sales' => 0.0, 'net' => 0.0, 'profit' => 0.0, 'shows' => 0];
+        }
+        foreach ($this->rows() as $r) {
+            $k = $r['date'] ? $key($r['date']) : null;
+            if ($k === null || ! isset($buckets[$k])) continue;
+            $buckets[$k]['sales'] += $r['sales']; $buckets[$k]['net'] += $r['whatnot_net']; $buckets[$k]['profit'] += $r['profit']; $buckets[$k]['shows']++;
+        }
+        $b = array_values($buckets);
+
+        return $this->flowMemo = ['unit' => $unit, 'labels' => array_column($b, 'label'), 'sales' => array_column($b, 'sales'), 'net' => array_column($b, 'net'), 'profit' => array_column($b, 'profit'), 'shows' => array_column($b, 'shows')];
+    }
+
+    /** Whatnot net by channel, biggest first. */
+    public function channels(): array
+    {
+        return $this->rows()->groupBy('channel')->map(fn ($g, $name) => ['label' => $name, 'value' => round((float) $g->sum('whatnot_net'), 2), 'id' => $g->first()['channel_id']])
+            ->sortByDesc('value')->values()->all();
+    }
+
+    /** Top streamers by Whatnot net, with show count and net per hour. */
+    public function streamers(): array
+    {
+        return $this->rows()->filter(fn ($r) => $r['streamer_id'])->groupBy('streamer_id')->map(function ($g) {
+            $h = (float) $g->sum(fn ($r) => $r['hours'] ?? $r['duration_hours'] ?? 0);
+            return ['id' => $g->first()['streamer_id'], 'name' => $g->first()['streamer'], 'net' => round((float) $g->sum('whatnot_net'), 2), 'shows' => $g->count(), 'nph' => $h > 0 ? round($g->sum('whatnot_net') / $h, 0) : null];
+        })->sortByDesc('net')->values()->take(6)->all();
+    }
+
+    /** The latest shows in the period. */
+    public function recent(): Collection
+    {
+        return $this->rows()->sortByDesc(fn ($r) => ($r['date']?->timestamp ?? 0) * 100000 + $r['id'])->take(8)->values();
+    }
+
+    /** This month's goals with progress. */
+    public function goals(): Collection
+    {
+        return app(\App\Services\GoalProgress::class)->forMonth(now()->startOfMonth());
     }
 
     /** Links that carry this period to the report they open. */

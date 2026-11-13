@@ -117,7 +117,36 @@
                             <div><dt>Shipment status</dt><dd>{{ \App\Filament\Pages\ShipmentOverview::BUCKETS[\App\Filament\Pages\ShipmentOverview::bucket($selectedShipment->status)] }}</dd></div>
                             <div><dt>Items</dt><dd>{{ $selectedShipment->item_count ?? 'Unknown' }}</dd></div>
                         </dl>
-                        <div class="vxs-detail-actions"><a class="vxs-btn vxs-btn-primary" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $selectedShipment->show_id]) }}">Open labels for this show</a></div>
+                        @php
+                            $labelPayload = is_array($selectedShipment->raw_payload) ? $selectedShipment->raw_payload : [];
+                            $labelDocs = is_array($labelPayload['documents'] ?? null) ? $labelPayload['documents'] : [];
+                            $labelAvailable = (bool) \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($labelDocs['label_url'] ?? null);
+                            $labelPreviewUrl = $labelAvailable ? route('fulfillment.shipment-label', ['shipment' => $selectedShipment->id]) : null;
+                        @endphp
+                        <div class="vxs-panel" style="padding:14px;background:#faf8ff" x-data="{ verified: false, open: false, url: @js($labelPreviewUrl) }" wire:key="shipment-label-{{ $selectedShipment->id }}">
+                            <h3 style="font-weight:850;color:#27123f">Verify buyer &amp; label</h3>
+                            <p class="vxs-muted" style="margin:6px 0 12px">Confirm the buyer and tracking number match the package before printing.</p>
+                            <label style="display:flex;gap:9px;align-items:center;font-size:13px;font-weight:700"><input type="checkbox" x-model="verified" style="width:17px;height:17px"> Buyer {{ $selectedShipment->buyer_username ?: 'Unknown' }} and tracking verified</label>
+                            <div class="vxs-detail-actions" style="margin-top:12px">
+                                @if($labelAvailable)
+                                    <button type="button" class="vxs-btn vxs-btn-primary" :disabled="!verified" @click="open=true">Preview &amp; print label</button>
+                                @else
+                                    <span class="vxs-muted">No printable Whatnot label is available for this shipment. Refresh from Whatnot or check Shipping &amp; Labels.</span>
+                                @endif
+                                <a class="vxs-btn" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $selectedShipment->show_id]) }}">Show shipping workspace</a>
+                            </div>
+                            <template x-if="open && url">
+                                <div role="dialog" aria-modal="true" aria-label="Shipping label preview" @keydown.escape.window="open=false" style="position:fixed;inset:0;z-index:99999;background:rgba(17,12,35,.75);display:flex;align-items:center;justify-content:center;padding:16px" @click.self="open=false">
+                                    <div style="background:#fff;border-radius:15px;width:min(900px,100%);height:min(92vh,900px);display:flex;flex-direction:column;overflow:hidden">
+                                        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+                                            <strong>Label · {{ $selectedShipment->buyer_username ?: 'Unknown buyer' }}</strong>
+                                            <div class="vxs-detail-actions"><a class="vxs-btn" :href="url" target="_blank" rel="noopener noreferrer">Open / print in browser</a><button type="button" class="vxs-btn" @click="open=false">Close</button></div>
+                                        </div>
+                                        <iframe :src="url" title="Whatnot shipping label PDF or image" style="width:100%;flex:1;border:0;background:#f8fafc"></iframe>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
                         <p class="vxs-muted">Labels are previewed and printed using the existing authorized Shipping &amp; Labels and packing station workflows. If Whatnot has not supplied a label, no preview is available.</p>
                     </section>
                 @endif

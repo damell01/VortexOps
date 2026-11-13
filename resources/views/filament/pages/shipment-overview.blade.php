@@ -29,7 +29,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div><h3 class="font-bold text-gray-950 dark:text-white">Recent shows</h3><p class="text-xs text-gray-500">Choose a show to see its shipments and labels, or view all shipments.</p></div>
                 @if($this->showId !== 'all')
-                    <a class="inline-flex min-h-10 items-center rounded-lg bg-violet-700 px-4 text-sm font-bold text-white hover:bg-violet-800" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => (int) $this->showId]) }}">Open Shipping &amp; Labels</a>
+                    <div class="flex flex-wrap gap-2"><button type="button" wire:click="refreshSelectedShow" wire:loading.attr="disabled" wire:target="refreshSelectedShow" class="inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 text-sm font-bold text-violet-700">Refresh from Whatnot</button><a class="inline-flex min-h-10 items-center rounded-lg bg-violet-700 px-4 text-sm font-bold text-white hover:bg-violet-800" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => (int) $this->showId]) }}">Open Shipping &amp; Labels</a></div>
                 @endif
             </div>
             <div class="mt-3 flex gap-2 overflow-x-auto pb-2" role="group" aria-label="Filter by show">

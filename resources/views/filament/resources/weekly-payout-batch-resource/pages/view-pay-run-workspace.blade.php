@@ -128,7 +128,7 @@
                 </div>
             </div>
 
-            @if(count($reconciliationFlags) > 0)
+            <?php if (count($reconciliationFlags) > 0): ?>
                 <details class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
                     <summary class="cursor-pointer text-sm font-semibold text-amber-900 dark:text-amber-200">
                         {{ count($reconciliationFlags) }} financial reconciliation {{ \Illuminate\Support\Str::plural('notice', count($reconciliationFlags)) }} — informational
@@ -144,17 +144,17 @@
                         @endforeach
                     </ul>
                 </details>
-            @endif
+            <?php endif; ?>
 
             <ol class="vxw-stages" aria-label="Pay run progress">
                 @foreach($statusSteps as $key => $label)
                     @php
                         $i = array_search($key, $statusKeys, true);
                     @endphp
-                    <li @class(['vxw-stage', 'is-done' => $i < $statusIndex || $run->status === 'paid', 'is-current' => $i === $statusIndex && $run->status !== 'paid']) @if($i === $statusIndex) aria-current="step" @endif>
-                        <span class="vxw-stage-dot">@if($i < $statusIndex || $run->status === 'paid')<x-filament::icon icon="heroicon-m-check" />@else
+                    <li @class(['vxw-stage', 'is-done' => $i < $statusIndex || $run->status === 'paid', 'is-current' => $i === $statusIndex && $run->status !== 'paid']) <?php if ($i === $statusIndex): ?> aria-current="step" <?php endif; ?>>
+                        <span class="vxw-stage-dot"><?php if ($i < $statusIndex || $run->status === 'paid'): ?><x-filament::icon icon="heroicon-m-check" /><?php else: ?>
                             {{ $i + 1 }}
-                        @endif</span>
+                        <?php endif; ?></span>
                         <span class="vxw-stage-label">{{ $label }}</span>
                     </li>
                 @endforeach
@@ -168,31 +168,31 @@
                     <div class="vxw-meta">{{ $nextAction['detail'] }}</div>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    @if($run->status === 'draft' && count($problems))
+                    <?php if ($run->status === 'draft' && count($problems)): ?>
                         <a href="{{ $blockedUrl }}" class="vxw-btn vxw-btn--sm">Fix blocked shows</a>
-                    @elseif($run->status === 'draft' && $payouts->isNotEmpty())
+                    <?php elseif ($run->status === 'draft' && $payouts->isNotEmpty()): ?>
                         <button type="button" wire:click="mountAction('finalize')" wire:loading.attr="disabled" wire:target="mountAction" class="vxw-btn vxw-btn--success vxw-btn--sm"><x-filament::icon icon="heroicon-m-lock-closed" /> Finalize</button>
-                    @elseif($run->status === 'finalized')
+                    <?php elseif ($run->status === 'finalized'): ?>
                         <button type="button" wire:click="mountAction('export_adp')" wire:loading.attr="disabled" wire:target="mountAction" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export ADP CSV</button>
                         <button type="button" wire:click="mountAction('mark_submitted')" wire:loading.attr="disabled" wire:target="mountAction" class="vxw-btn vxw-btn--primary vxw-btn--sm">Mark submitted</button>
-                    @elseif($run->status === 'submitted_to_adp')
+                    <?php elseif ($run->status === 'submitted_to_adp'): ?>
                         <button type="button" wire:click="mountAction('mark_paid')" wire:loading.attr="disabled" wire:target="mountAction" class="vxw-btn vxw-btn--success vxw-btn--sm">Mark paid</button>
-                    @endif
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
         <div class="vxw-stats">
             <div class="vxw-stat"><div class="vxw-stat-label">Total payroll</div><div class="vxw-stat-value">{{ $money($run->total_payout) }}</div></div>
             @foreach(\App\Support\PayrollRoles::ORDER as $role)
-                @if(($roleTotals[$role]['people'] ?? 0) > 0 || $role === 'streamer')
+                <?php if (($roleTotals[$role]['people'] ?? 0) > 0 || $role === 'streamer'): ?>
                     <div class="vxw-stat"><div class="vxw-stat-label">{{ \App\Support\PayrollRoles::plural($role) }}</div><div class="vxw-stat-value">{{ $money($roleTotals[$role]['total'] ?? 0) }}</div></div>
-                @endif
+                <?php endif; ?>
             @endforeach
             <div class="vxw-stat"><div class="vxw-stat-label">Blockers</div><div class="vxw-stat-value {{ count($problems) ? 'vxw-tone-warn' : 'vxw-tone-ok' }}">{{ count($problems) }}</div></div>
         </div>
     </section>
 
-    @if($periodShows !== null)
+    <?php if ($periodShows !== null): ?>
         <section class="vxw-card" aria-label="Shows in this period" x-data="{ showsExpanded: false }">
             <div class="vxw-card-head">
                 <div><h3 class="vxw-h2">Shows in this period · {{ $periodShows->total() }}</h3>
@@ -214,16 +214,16 @@
                 @empty
                     <p class="vxw-meta">No shows are assigned to this business during these dates.</p>
                 @endforelse
-                @if($periodShows->hasPages())
+                <?php if ($periodShows->hasPages()): ?>
                     <div class="flex items-center justify-between gap-3">
                         <button type="button" wire:click="previousShowsPage" wire:loading.attr="disabled" wire:target="previousShowsPage,nextShowsPage" @disabled($periodShows->onFirstPage()) class="vxw-btn vxw-btn--sm">Previous shows</button>
                         <span class="vxw-meta">Page {{ $periodShows->currentPage() }} of {{ $periodShows->lastPage() }}</span>
                         <button type="button" wire:click="nextShowsPage" wire:loading.attr="disabled" wire:target="previousShowsPage,nextShowsPage" @disabled(! $periodShows->hasMorePages()) class="vxw-btn vxw-btn--sm">Next shows</button>
                     </div>
-                @endif
+                <?php endif; ?>
             </div>
         </section>
-    @endif
+    <?php endif; ?>
 
     <div class="vxw-split">
         <section class="vxw-card">
@@ -232,9 +232,9 @@
                     <h3 class="vxw-h2">People in this run</h3>
                     <p class="vxw-sub">Grouped by role, largest payouts first. Open a person to see the lines behind their total.</p>
                 </div>
-                @if($run->status === 'draft' && $payouts->isNotEmpty())
+                <?php if ($run->status === 'draft' && $payouts->isNotEmpty()): ?>
                     <button type="button" wire:click="mountAction('other_payment')" wire:loading.attr="disabled" wire:target="mountAction" class="vxw-btn vxw-btn--primary vxw-btn--sm"><x-filament::icon icon="heroicon-m-plus-circle" /> Add Payment</button>
-                @endif
+                <?php endif; ?>
                 <div class="vxw-search w-full sm:w-56">
                     <x-filament::icon icon="heroicon-m-magnifying-glass" />
                     <input type="search" wire:model.live.debounce.300ms="peopleSearch" placeholder="Search people" class="vxw-input" aria-label="Search people in this pay run">
@@ -256,7 +256,7 @@
                         $pwe = (int) $rows->sum('pwe_count');
                         $personShows = $rows->pluck('show_id')->filter()->unique()->count();
                     @endphp
-                    @if($role !== $lastRole)
+                    <?php if ($role !== $lastRole): ?>
                         @php
                             $lastRole = $role;
                         @endphp
@@ -264,7 +264,7 @@
                             <span>{{ \App\Support\PayrollRoles::plural($role) }}</span>
                             <span class="vxw-meta">{{ $roleTotals[$role]['people'] ?? 0 }} {{ \Illuminate\Support\Str::plural('person', $roleTotals[$role]['people'] ?? 0) }} · {{ $money($roleTotals[$role]['total'] ?? 0) }}</span>
                         </div>
-                    @endif
+                    <?php endif; ?>
                     <details class="vxw-disclose vx-payroll-person-card" wire:key="pay-person-{{ $streamerId ?: 'none' }}">
                         <summary class="vxw-row" style="border-top:0">
                             <div class="vxw-row-main">
@@ -275,8 +275,8 @@
                                 <div class="vxw-row-line">
                                     <span>{{ $personShows }} {{ \Illuminate\Support\Str::plural('show', $personShows) }}</span>
                                     <span>{{ number_format($hours, 2) }} hrs</span>
-                                    @if($labels || $pwe)<span>{{ $labels }} labels · {{ $pwe }} PWE</span>@endif
-                                    @if($assistantHours)<span>{{ number_format($assistantHours['hours'], 2) }} h clocked @if($assistantHours['pending_review'])<span class="text-amber-600">· {{ $assistantHours['pending_review'] }} to review</span>@endif</span>@endif
+                                    <?php if ($labels || $pwe): ?><span>{{ $labels }} labels · {{ $pwe }} PWE</span><?php endif; ?>
+                                    <?php if ($assistantHours): ?><span>{{ number_format($assistantHours['hours'], 2) }} h clocked <?php if ($assistantHours['pending_review']): ?><span class="text-amber-600">· {{ $assistantHours['pending_review'] }} to review</span><?php endif; ?></span><?php endif; ?>
                                 </div>
                             </div>
                             <div class="vxw-row-side">
@@ -285,64 +285,64 @@
                             </div>
                         </summary>
                         <div class="vxw-disclose-body vx-payroll-line-cards">
-                            @if($run->status === 'draft')
+                            <?php if ($run->status === 'draft'): ?>
                                 <div class="flex flex-wrap justify-end gap-2 pb-2">
                                     <button type="button" wire:click="mountAction('other_payment', { payout_id: {{ (int) $rows->first()->id }} })" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-plus-circle" /> Add Payment for {{ $person?->name ?? 'this person' }}</button>
                                 </div>
-                            @endif
+                            <?php endif; ?>
                             @foreach($rows as $payout)
                                 <article class="vx-payroll-line-card">
                                     <div>
                                         <div class="truncate font-semibold text-[var(--vxw-text)]">{{ $payout->show?->title ?? 'General payroll line' }}</div>
-                                    @if($payout->show)
+                                    <?php if ($payout->show): ?>
                                         @php
                                             $recordedTip = max((float) ($payout->show->tips ?? 0), (float) ($approvedTipsByShow[$payout->show_id] ?? 0));
                                         @endphp
-                                        @if($recordedTip > 0)
+                                        <?php if ($recordedTip > 0): ?>
                                             <span class="vxw-pill" style="background:#dcfce7;color:#166534;border-color:#86efac" title="Recorded show tips; whether they are included in payout depends on the pay formula">
                                                 Tips recorded: {{ $money($recordedTip) }}
                                             </span>
-                                            @if(! $payout->streamer?->include_tips)
+                                            <?php if (! $payout->streamer?->include_tips): ?>
                                                 <span class="vxw-meta" title="This streamer's settings do not include tips in their payout formula">Not included in payout</span>
-                                            @endif
-                                        @endif
-                                    @endif
-                                        <div class="vxw-meta">{{ $payout->payout_type === \App\Services\OtherPayService::TYPE ? 'Other Pay' : (\App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? ''))) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
-                                        @if(str_contains((string) $payout->calculation_notes, '[OTHER_PAYMENT:'))
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                        <div class="vxw-meta">{{ $payout->payout_type === \App\Services\OtherPayService::TYPE ? 'Other Pay' : (\App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? ''))) }}<?php if ($payout->show?->show_date): ?> · {{ $payout->show->show_date->format('M j') }}<?php endif; ?></div>
+                                        <?php if (str_contains((string) $payout->calculation_notes, '[OTHER_PAYMENT:')): ?>
                                             <div class="vxw-meta" style="margin-top:4px">
                                                 @foreach(preg_split('/\\r?\\n/', (string) $payout->calculation_notes) as $note)
-                                                    @if(str_starts_with(trim($note), '[OTHER_PAYMENT:'))
+                                                    <?php if (str_starts_with(trim($note), '[OTHER_PAYMENT:')): ?>
                                                         <div>{{ trim(str_replace(['[OTHER_PAYMENT:PERSON]', '[OTHER_PAYMENT:SHOW]'], ['General payment:', 'Show payment:'], $note)) }}</div>
-                                                    @endif
+                                                    <?php endif; ?>
                                                 @endforeach
                                             </div>
-                                        @endif
+                                        <?php endif; ?>
                                     </div>
-                                    @if($payout->show)
+                                    <?php if ($payout->show): ?>
                                         <div class="col-span-full text-xs text-gray-500 dark:text-gray-400">
                                             Hours source: {{ $payout->show->streamerLogEntry?->hours_streamed !== null ? 'Streamer report' : 'Time clock / missing' }} ·
                                             Counts source: {{ $payout->show->streamerLogEntry ? 'Streamer report / fulfillment fallback' : 'Show / fulfillment fallback' }}.
                                             Show duration is not automatically paid hours.
                                         </div>
-                                    @endif
-                                    @if($payout->calculation_notes)
+                                    <?php endif; ?>
+                                    <?php if ($payout->calculation_notes): ?>
                                         <details class="col-span-full rounded-lg border border-gray-200 p-2 text-xs dark:border-gray-700">
                                             <summary class="cursor-pointer font-semibold">How this payout was calculated</summary>
                                             <div class="mt-2 whitespace-pre-wrap break-words text-gray-600 dark:text-gray-300">{{ $payout->calculation_notes }}</div>
                                         </details>
-                                    @endif
-                                    @if($run->status === 'draft')
+                                    <?php endif; ?>
+                                    <?php if ($run->status === 'draft'): ?>
                                         <div class="col-span-full flex justify-end">
                                             <button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('override_payout', { payout_id: {{ (int) $payout->id }} })">
                                                 <x-filament::icon icon="heroicon-m-pencil-square" /> Adjust payout
                                             </button>
-                                            @if($payout->show)
+                                            <?php if ($payout->show): ?>
                                                 <button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('edit_show_inputs', { payout_id: {{ (int) $payout->id }} })">
                                                     <x-filament::icon icon="heroicon-m-pencil-square" /> Edit inputs
                                                 </button>
-                                            @endif
+                                            <?php endif; ?>
                                         </div>
-                                    @endif
+                                    <?php endif; ?>
                                     <div><div class="vxw-fig-label">Hours</div><div class="vxw-num">{{ number_format((float)$payout->hours_worked, 2) }}</div></div>
                                     <div><div class="vxw-fig-label">Shipments</div><div class="vxw-num">{{ number_format((int)$payout->shipments_count) }}</div></div>
                                     <div><div class="vxw-fig-label">Labels</div><div class="vxw-num">{{ number_format((int)$payout->label_count) }}</div></div>
@@ -359,7 +359,7 @@
                     </div>
                 @endforelse
 
-                @if($unpaidAssistants->isNotEmpty() && $peopleSearch === '' && $peoplePage === $peopleLastPage)
+                <?php if ($unpaidAssistants->isNotEmpty() && $peopleSearch === '' && $peoplePage === $peopleLastPage): ?>
                     <div class="vx-payroll-role-head" data-payroll-role="assistant-unpaid">
                         <span>Streamer assistants with hours but no pay line</span>
                         <span class="vxw-meta">Add them before finalizing if they should be paid in this run</span>
@@ -368,15 +368,15 @@
                         <div class="vxw-row" wire:key="pay-assistant-hours-{{ $assistant['user_id'] }}">
                             <div class="vxw-row-main">
                                 <div class="flex flex-wrap items-center gap-2"><span class="vxw-row-title">{{ $assistant['name'] }}</span><span class="vxw-pill vxw-pill--warn" style="height:20px;font-size:11px">No pay line</span></div>
-                                <div class="vxw-row-line"><span>{{ number_format($assistant['hours'], 2) }} h clocked</span>@if($assistant['pending_review'])<span class="text-amber-600">{{ $assistant['pending_review'] }} to review</span>@endif</div>
+                                <div class="vxw-row-line"><span>{{ number_format($assistant['hours'], 2) }} h clocked</span><?php if ($assistant['pending_review']): ?><span class="text-amber-600">{{ $assistant['pending_review'] }} to review</span><?php endif; ?></div>
                             </div>
                             <div class="vxw-row-side"><div class="vxw-fig"><div class="vxw-fig-label">Estimated</div><div class="vxw-fig-value" style="font-size:15px">{{ $assistant['estimated_pay'] !== null ? $money($assistant['estimated_pay']) : 'No rate set' }}</div></div></div>
                         </div>
                     @endforeach
-                @endif
+                <?php endif; ?>
             </div>
 
-            @if($peopleLastPage > 1)
+            <?php if ($peopleLastPage > 1): ?>
                 <div class="vxw-card-foot">
                     <span class="vxw-meta">{{ (($peoplePage-1)*$this::PEOPLE_PER_PAGE)+1 }}–{{ min($peoplePage*$this::PEOPLE_PER_PAGE,$peopleTotal) }} of {{ $peopleTotal }} people</span>
                     <div class="vxw-pager">
@@ -385,7 +385,7 @@
                         <button type="button" class="vxw-page" wire:click="nextPeoplePage({{ $peopleLastPage }})" wire:loading.attr="disabled" wire:target="previousPeoplePage,nextPeoplePage" @disabled($peoplePage >= $peopleLastPage) aria-label="Next page">›</button>
                     </div>
                 </div>
-            @endif
+            <?php endif; ?>
         </section>
 
         <aside class="vxw-aside">
@@ -398,14 +398,14 @@
                 $importedTipNet = array_sum(array_column($tipChannels, 'net'));
             @endphp
             @php $bizNet = $this->businessNet(); @endphp
-            @if($bizNet['business'])
+            <?php if ($bizNet['business']): ?>
                 <section class="vxw-card" data-vx-business-net>
                     <div class="vxw-card-head">
                         <h3 class="vxw-h2">{{ $bizNet['business'] }} streams · Whatnot net</h3>
                         <span class="vxw-pill vxw-pill--accent">{{ $money($bizNet['total']) }}</span>
                     </div>
                     <div class="vxw-card-body">
-                        @if($bizNet['channels'])
+                        <?php if ($bizNet['channels']): ?>
                             <div data-vx-pair-net style="border:1px solid #ddd6fe;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;padding:12px 14px;margin-bottom:12px">
                                 <p class="vxw-meta" style="margin:0;font-weight:600">{{ \App\Services\BusinessChannelNet::PAIR_LABEL }}</p>
                                 <strong style="font-size:24px;font-variant-numeric:tabular-nums">{{ $money($bizNet['pair']['net']) }}</strong>
@@ -417,20 +417,20 @@
                                 @endforeach
                                 <div><dt><strong>Total</strong></dt><dd><strong>{{ $money($bizNet['total']) }}</strong></dd></div>
                             </dl>
-                        @else
+                        <?php else: ?>
                             <p class="vxw-meta">No {{ $bizNet['business'] }} shows in this period.</p>
-                        @endif
+                        <?php endif; ?>
                         <p class="vxw-meta mt-2">Shows hosted by {{ $bizNet['business'] }} streamers, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}.</p>
                     </div>
                 </section>
-            @endif
+            <?php endif; ?>
             <section class="vxw-card" data-vx-tip-streamers>
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Verified tips by streamer</h3>
                     <span class="vxw-pill">{{ $money($approvedTipNet / 100) }}</span>
                 </div>
                 <div class="vxw-card-body">
-                    @if($streamerTips->isNotEmpty())
+                    <?php if ($streamerTips->isNotEmpty()): ?>
                         <dl class="vxw-dl">
                             @foreach($streamerTips as $tip)
                                 <div>
@@ -439,26 +439,26 @@
                                 </div>
                             @endforeach
                         </dl>
-                    @else
+                    <?php else: ?>
                         <p class="vxw-meta">No approved streamer tip assignments for this period yet.</p>
-                    @endif
+                    <?php endif; ?>
                     <p class="vxw-meta mt-2">Approved tips for the people on this run, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}. Tips in a streamer's pay formula are on their show tips line.</p>
                     <details class="mt-3">
                         <summary class="vxw-meta cursor-pointer font-semibold">Imported tips by channel and reconciliation</summary>
                         <div class="mt-2">
                             <p class="vxw-meta">{{ $run->business_id ? $run->businessLabel() . ' imported' : 'All-channel imported' }} total: {{ $money($importedTipNet / 100) }}. Verified streamer total: {{ $money($approvedTipNet / 100) }}. These are different attribution scopes; the difference is not necessarily an error.</p>
-                            @if($tipChannels)
+                            <?php if ($tipChannels): ?>
                                 <dl class="vxw-dl mt-2">
                                     @foreach($tipChannels as $channel)
                                         <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
                                     @endforeach
                                 </dl>
-                            @endif
+                            <?php endif; ?>
                         </div>
                     </details>
                 </div>
             </section>
-            @if(auth()->user()?->canSeeBusinessFinancials() && ($transfer = \App\Support\BusinessTransfer::forRun($run)))
+            <?php if (auth()->user()?->canSeeBusinessFinancials() && ($transfer = \App\Support\BusinessTransfer::forRun($run))): ?>
             @php
                 $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2);
             @endphp
@@ -478,7 +478,7 @@
                     </dl>
                 </div>
             </section>
-            @endif
+            <?php endif; ?>
             <section class="vxw-card">
                 <details class="vxw-disclose">
                     <summary class="vxw-card-head" style="border-bottom:0">

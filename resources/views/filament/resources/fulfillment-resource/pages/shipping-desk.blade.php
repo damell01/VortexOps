@@ -44,6 +44,18 @@
                 </div>
                 <button type="button" wire:click="preparePrintBatch" wire:loading.attr="disabled" wire:target="preparePrintBatch" class="min-h-11 rounded-xl bg-violet-700 px-4 font-semibold text-white hover:bg-violet-800">Prepare selected labels ({{ count($selectedShipmentIds) }})</button>
             </div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                <label class="text-xs font-semibold text-violet-950 dark:text-violet-100">Paper size
+                    <select wire:model="labelSize" class="mt-1 w-full rounded-lg border-violet-200 bg-white text-sm text-gray-900 dark:bg-gray-800 dark:text-white">
+                        <option value="4x6">4 × 6 thermal</option><option value="letter">US Letter</option>
+                    </select>
+                </label>
+                <label class="text-xs font-semibold text-violet-950 dark:text-violet-100">Printer name (reference)
+                    <input wire:model="printerName" maxlength="120" placeholder="e.g. Station 1 Rollo" class="mt-1 w-full rounded-lg border-violet-200 bg-white text-sm text-gray-900 dark:bg-gray-800 dark:text-white">
+                </label>
+                <label class="flex items-center gap-2 text-xs font-semibold text-violet-950 dark:text-violet-100"><input type="checkbox" wire:model="confirmReprints" class="rounded border-violet-300"> Confirm possible reprints</label>
+            </div>
+            <p class="mt-2 text-xs text-violet-800 dark:text-violet-200">Printer name is recorded for audit only. Select the physical printer and matching paper in your browser print dialog.</p>
             @error('selectedShipmentIds') <p class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p> @enderror
             @if(count($printDocuments))
                 <div class="mt-4 rounded-xl border border-violet-200 bg-white p-3 dark:border-violet-800 dark:bg-gray-900">
@@ -54,6 +66,7 @@
                                 <div class="flex flex-wrap items-center gap-2">
                                     <strong class="text-xs text-gray-900 dark:text-white">{{ $loop->iteration }}. {{ $document['buyer'] }}</strong>
                                     <button type="button" @click="open = !open" class="rounded-lg border border-violet-300 px-3 py-2 text-xs font-bold text-violet-800 dark:text-violet-200">Preview</button>
+                                    <button type="button" wire:click="recordPrintAttempt({{ $document['shipment_id'] }})" wire:loading.attr="disabled" wire:target="recordPrintAttempt" class="rounded-lg border border-violet-300 px-3 py-2 text-xs font-bold text-violet-800 dark:text-violet-200">Record print attempt</button>
                                     <a href="{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-violet-700 px-3 py-2 text-xs font-bold text-white">Open / print</a>
                                 </div>
                                 <template x-if="open"><iframe src="{{ $document['url'] }}" title="Prepared label for {{ $document['buyer'] }}" style="margin-top:8px;width:100%;height:400px;min-width:min(340px,75vw);border:1px solid #ddd6fe;border-radius:8px"></iframe></template>

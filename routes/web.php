@@ -215,4 +215,5 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/fulfillment/runs/{run}/print', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'print'])->name('fulfillment.run.print');
     // A package's Whatnot label, served from this site so it prints inside the app.
     Route::get('/fulfillment/labels/{package}', \App\Http\Controllers\FulfillmentLabelController::class)->whereNumber('package')->middleware('throttle:60,1')->name('fulfillment.label');
+    Route::get('/fulfillment/shipment-labels/{shipment}', [\App\Http\Controllers\FulfillmentLabelController::class, 'shipment'])->whereNumber('shipment')->middleware('throttle:60,1')->name('fulfillment.shipment-label');
 });

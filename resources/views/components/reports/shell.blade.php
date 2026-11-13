@@ -8,25 +8,27 @@
     $here = rtrim(strtok(request()->fullUrl(), '?'), '/');
     $compareUrl = \App\Filament\Pages\ReportCompare::canAccess() ? \App\Filament\Pages\ReportCompare::getUrl() : null;
 @endphp
-<div class="vxrs vxrs--wide" x-data="{ reportSearch: '', reportMenuOpen: false }">
+<div class="vxrs vxrs--wide" >
     <div class="vxrs-topnav">
         <div class="vxrs-topnav-title"><x-filament::icon icon="heroicon-o-chart-bar-square" /><span>Report library</span></div>
-        <nav class="vxrs-category-nav" aria-label="Report categories">
+        <nav class="vxrs-category-nav vxrs-hover-nav" aria-label="Report categories">
             @foreach ($catalog as $g)
                 @php $activeGroup = collect($g['items'])->contains(fn ($item) => rtrim($item['url'], '/') === $here); @endphp
-                <a href="{{ $g['items'][0]['url'] }}" @class(['vxrs-category', 'is-active' => $activeGroup])>{{ $g['group'] }}</a>
-            @endforeach
-        </nav>
-        <nav class="vxrs-report-links" aria-label="Reports in current category">
-            @foreach ($catalog as $g)
-                @if (collect($g['items'])->contains(fn ($item) => rtrim($item['url'], '/') === $here))
-                    @foreach ($g['items'] as $item)
-                        @php $on = rtrim($item['url'], '/') === $here; @endphp
-                        <a href="{{ $item['url'] }}" @class(['vxrs-report-link', 'is-on' => $on]) @if($on) aria-current="page" @endif>
-                            <span class="vxrs-ic"><x-filament::icon :icon="$item['icon']" /></span><span>{{ $item['label'] }}</span>
-                        </a>
-                    @endforeach
-                @endif
+                <div class="vxrs-nav-group" x-data="{ open: false }" x-on:mouseenter="open = true" x-on:mouseleave="open = false" x-on:keydown.escape="open = false" x-on:focusout="if (!$el.contains($event.relatedTarget)) open = false">
+                    <button type="button" @class(['vxrs-category', 'is-active' => $activeGroup]) x-on:click="open = !open" x-on:focus="open = true" :aria-expanded="open.toString()" aria-haspopup="true">
+                        {{ $g['group'] }} <x-filament::icon icon="heroicon-o-chevron-down" />
+                    </button>
+                    <div class="vxrs-hover-menu" x-show="open" x-cloak x-transition.opacity.duration.100ms>
+                        <div class="vxrs-hover-heading">{{ $g['group'] }} reports</div>
+                        @foreach ($g['items'] as $item)
+                            @php $on = rtrim($item['url'], '/') === $here; @endphp
+                            <a href="{{ $item['url'] }}" wire:navigate @class(['vxrs-link', 'is-on' => $on]) @if($on) aria-current="page" @endif>
+                                <span class="vxrs-ic"><x-filament::icon :icon="$item['icon']" /></span>
+                                <span>{{ $item['label'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
             @endforeach
         </nav>
     </div>

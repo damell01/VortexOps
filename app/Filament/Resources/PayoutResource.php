@@ -246,8 +246,8 @@ class PayoutResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->emptyStateHeading('No payouts yet')
-            ->emptyStateDescription('Payouts are generated when shows are reconciled.')
+            ->emptyStateHeading(fn ($livewire) => filled($livewire->activeTab ?? null) && ($livewire->activeTab ?? 'all') !== 'all' ? 'Nothing in this list' : 'No payouts yet')
+            ->emptyStateDescription(fn ($livewire) => filled($livewire->activeTab ?? null) && ($livewire->activeTab ?? 'all') !== 'all' ? 'No payouts match this filter right now. Tap All to see every payout.' : 'Payouts are generated when shows are reconciled.')
             ->emptyStateIcon('heroicon-o-banknotes')
             ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([

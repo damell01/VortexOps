@@ -45,7 +45,12 @@ final class TableDefaults
     private static function narrowed(HasTable $livewire): bool
     {
         try {
-            return $livewire->getTable()->isFiltered() || filled($livewire->getTableSearch());
+            // A quick-filter chip other than the first counts as narrowing too.
+            $tab = property_exists($livewire, 'activeTab') ? $livewire->activeTab : null;
+            $firstTab = method_exists($livewire, 'getCachedTabs') ? array_key_first($livewire->getCachedTabs()) : null;
+            $byTab = filled($tab) && $firstTab !== null && (string) $tab !== (string) $firstTab;
+
+            return $byTab || $livewire->getTable()->isFiltered() || filled($livewire->getTableSearch());
         } catch (\Throwable) {
             return false;
         }

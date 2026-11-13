@@ -14,6 +14,7 @@ $statusClass=fn(string $label)=>match(true){str_contains(strtolower($label),'clo
  @else
  <x-kpi-row :stats="array_slice($stats, 0, 4)" />
  @endif
+ <x-quick-tabs />
  <div class="vx-card overflow-hidden">
   <div>{{ $this->table }}</div>
  </div>

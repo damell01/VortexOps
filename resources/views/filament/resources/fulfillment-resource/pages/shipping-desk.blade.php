@@ -133,5 +133,21 @@
         @empty
             <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900">No matching buyers or shipments. Check the sync status and search filters.</div>
         @endforelse
+        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900" x-data="{ expanded: false }">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div><h3 class="font-bold text-gray-950 dark:text-white">Shipping &amp; packing audit</h3><p class="text-xs text-gray-500">Recent actions, buyer usernames and the team member responsible.</p></div>
+                <button type="button" @click="expanded = !expanded" :aria-expanded="expanded.toString()" class="rounded-lg border border-violet-300 px-3 py-2 text-sm font-semibold text-violet-700"><span x-text="expanded ? 'Hide history' : 'Show history'"></span></button>
+            </div>
+            <div x-show="expanded" x-cloak class="mt-3 space-y-2">
+                @forelse($this->shippingAudit() as $event)
+                    <div wire:key="shipping-audit-{{ $event->id }}" class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm dark:border-gray-700">
+                        <div><strong class="text-gray-900 dark:text-white">{{ \App\Models\FulfillmentEvent::label($event->type) }}</strong><span class="ml-2 text-gray-600 dark:text-gray-300">{{ $event->buyer_username ?: 'Show-level event' }}</span></div>
+                        <span class="text-xs text-gray-500">{{ $event->user?->name ?? 'System' }} · {{ $event->created_at?->format('M j, g:i A') }}</span>
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500">No shipping or packing audit events recorded for this show.</p>
+                @endforelse
+            </div>
+        </section>
     </div>
 </x-filament-panels::page>

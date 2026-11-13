@@ -95,6 +95,19 @@ class ShippingDesk extends Page
         Notification::make()->title('Label batch prepared')->body(count($documents).' labels ready to open individually. Printing is not yet confirmed.')->success()->send();
     }
 
+    /** Recent label, packing and exception events for this authorized show. */
+    public function shippingAudit(): \Illuminate\Support\Collection
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+
+        return \App\Models\FulfillmentEvent::query()
+            ->where('show_id', $show->id)
+            ->whereIn('type', ['label_previewed', 'label_print_requested', 'label_printed', 'package_packed', 'buyer_packed', 'item_verified', 'issue_flagged', 'issue_resolved', 'scan_rejected'])
+            ->with('user:id,name')
+            ->latest('id')->limit(35)->get();
+    }
+
     public function getTitle(): string
     {
         return 'Shipping & Labels';

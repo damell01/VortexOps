@@ -172,14 +172,10 @@ class WeeklyPayoutBatchResource extends Resource
             ->emptyStateDescription('Create a pay run for any dates, paying wages, profit share, or both.')
             ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
-                TextColumn::make('week_start')
-                    ->label('Starts')
-                    ->date('M j, Y')
-                    ->sortable(),
-
                 TextColumn::make('week_end')
-                    ->label('Ends')
-                    ->date('M j, Y'),
+                    ->label('Pay Period')
+                    ->state(fn (WeeklyPayoutBatch $record) => ($record->week_start?->format('M j') ?? '—') . ' – ' . ($record->week_end?->format('M j, Y') ?? '—'))
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('week_end', $direction)),
 
                 TextColumn::make('kind')
                     ->label('Pays')
@@ -251,11 +247,13 @@ class WeeklyPayoutBatchResource extends Resource
                     ->visible(fn () => ! \App\Support\BusinessContext::isScoped()),
             ])
             ->actions([
-                ViewAction::make()->iconButton(),
-                \Filament\Actions\EditAction::make()->iconButton()
-                    ->visible(fn ($record) => $record->status === 'draft'),
-                \Filament\Actions\DeleteAction::make()->iconButton()
-                    ->visible(fn ($record) => $record->status === 'draft'),
+                ViewAction::make()->label('Open')->button()->color('primary'),
+                \Filament\Actions\ActionGroup::make([
+                    \Filament\Actions\EditAction::make()
+                        ->visible(fn ($record) => $record->status === 'draft'),
+                    \Filament\Actions\DeleteAction::make()
+                        ->visible(fn ($record) => $record->status === 'draft'),
+                ])->label('More')->button()->color('gray'),
             ]);
     }
 

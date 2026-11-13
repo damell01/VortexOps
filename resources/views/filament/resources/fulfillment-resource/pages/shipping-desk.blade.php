@@ -50,7 +50,14 @@
                     <p class="mb-2 text-sm font-semibold">Prepared documents — open and print each label</p>
                     <div class="flex flex-wrap gap-2">
                         @foreach($printDocuments as $document)
-                            <a href="{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 text-sm font-semibold text-violet-800 dark:text-violet-200">{{ $loop->iteration }}. {{ $document['buyer'] }}</a>
+                            <div x-data="{ open: false }" class="rounded-xl border border-violet-200 bg-white p-2 dark:bg-gray-800">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <strong class="text-xs text-gray-900 dark:text-white">{{ $loop->iteration }}. {{ $document['buyer'] }}</strong>
+                                    <button type="button" @click="open = !open" class="rounded-lg border border-violet-300 px-3 py-2 text-xs font-bold text-violet-800 dark:text-violet-200">Preview</button>
+                                    <a href="{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-violet-700 px-3 py-2 text-xs font-bold text-white">Open / print</a>
+                                </div>
+                                <template x-if="open"><iframe src="{{ $document['url'] }}" title="Prepared label for {{ $document['buyer'] }}" style="margin-top:8px;width:100%;height:400px;min-width:min(340px,75vw);border:1px solid #ddd6fe;border-radius:8px"></iframe></template>
+                            </div>
                         @endforeach
                     </div>
                     <p class="mt-2 text-xs text-gray-500">Browser printing is manual. Preparing a batch does not mark labels as printed.</p>

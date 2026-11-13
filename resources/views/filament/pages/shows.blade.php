@@ -92,6 +92,7 @@
 .vx-d .vx-scard-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
 .vx-d .vx-scard-nums>span{display:flex;flex-direction:column;gap:2px}
 .vx-d .vx-scard-nums b{font-size:.86rem;font-variant-numeric:tabular-nums}
+.vx-ops-sync-pending{font-size:.72rem;color:#a16207;font-weight:750;padding-top:8px;border-top:1px solid #f1eaf9}
 .vx-d .vx-scard-footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1eaf9;padding-top:9px;margin-top:2px;color:#6d28d9;font-size:.72rem;font-weight:800}
 .vx-d .vx-scard-footer svg{width:15px;height:15px}
 @media(max-width:1200px){.vx-d .vx-cards-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -448,7 +449,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
             $overviewShows = collect($overviewDays)->flatMap(fn ($day) => collect($day));
             $overviewWithSales = $overviewShows->filter(fn ($p) => ($p['gross'] ?? null) !== null);
             $overviewLive = $overviewShows->where('state', 'live')->count();
-            $overviewEnded = $overviewShows->where('state', 'ended')->count();
+            $overviewEnded = $overviewShows->where('state', 'done')->count();
         @endphp
         <div class="vx-ops-summary" aria-label="Overview of shows in the displayed period">
             <div class="vx-ops-kpi"><span>Shows in view</span><strong>{{ $overviewShows->count() }}</strong><small>Across visible dates</small></div>
@@ -477,6 +478,8 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                                 <span class="vx-scard-meta"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span><span class="truncate">{{ $p['streamers'] ?? 'Unassigned' }}</span></span>
                                 @if($p['state'] !== 'upcoming' && $p['gross'] !== null)
                                     <span class="vx-scard-nums"><span><b>{{ $p['gross'] }}</b> sales</span><span><b>{{ $p['net'] }}</b> net</span><span><b>{{ $p['units'] }}</b> units</span></span>
+                                @elseif($p['state'] === 'done')
+                                    <span class="vx-ops-sync-pending">Analytics pending · Check sync status</span>
                                 @endif
                                 <span class="vx-scard-footer"><span>View show details</span><x-filament::icon icon="heroicon-m-arrow-right" /></span>
                             </span>

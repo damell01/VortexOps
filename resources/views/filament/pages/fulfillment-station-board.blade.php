@@ -251,10 +251,11 @@
                                     <li wire:key="p-{{ $package->id }}">
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
-                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
+                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span>
+                                            @if($package->shipment?->tracking_number)<span class="vxf-sub" style="display:block;overflow-wrap:anywhere">{{ $package->shipment->carrier ?: 'Carrier pending' }} · Tracking {{ $package->shipment->tracking_number }}</span>@endif</span>
                                         @php $label = $this->labels[$package->id] ?? null; @endphp
                                         @if ($label && $label['url'])
-                                            <button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-label', {{ \Illuminate\Support\Js::from(['id' => $package->id, 'src' => route('fulfillment.label', $package->id), 'url' => $label['url'], 'title' => $current->letter . ' · ' . $current->buyer_username . ' · package ' . $loop->iteration]) }})" title="Show the label here and print it{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Reprint' : 'Print label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</button>
+                                            <button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-label', {{ \Illuminate\Support\Js::from(['id' => $package->id, 'src' => route('fulfillment.label', $package->id), 'url' => $label['url'], 'title' => $current->letter . ' · ' . $current->buyer_username . ' · package ' . $loop->iteration]) }})" title="Show the label here and print it{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Preview / reprint' : 'Preview label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</button>
                                         @elseif ($package->shipment_id)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" style="opacity:.55;cursor:not-allowed" title="This shipment's label has not synced from Whatnot yet. Refresh it on Shipping & Labels.">
                                                 <x-heroicon-o-printer /> No label yet</span>
@@ -349,7 +350,8 @@
                         <button type="button" class="vxf-iconbtn" x-on:click="open = false" aria-label="Close"><x-heroicon-o-x-mark /></button>
                     </div>
                     <div class="vxf-label-frame">
-                        <p x-show="loading && !failed" class="vxf-sub">Loading the label…</p>
+                        <p x-show="loading && !failed" class="vxf-sub">Loading the Whatnot label preview…</p>
+                        <p x-show="failed" class="vxf-sub" role="alert">This label could not be previewed. Open it in a new tab or refresh the shipment in Shipping &amp; Labels.</p>
                         <template x-if="open && l"><iframe x-ref="frame" :src="l.src" title="Shipping label" x-on:load="loading = false"></iframe></template>
                     </div>
                     <div class="vxf-label-foot">

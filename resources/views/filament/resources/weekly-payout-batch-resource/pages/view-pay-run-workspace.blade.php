@@ -91,7 +91,11 @@
         default => ['title'=>$statusLabel,'detail'=>'Review this pay run.','tone'=>'info'],
     };
     $runTone = ['paid'=>'ok','finalized'=>'info','submitted_to_adp'=>'info','draft'=>count($problems) ? 'warn' : 'accent'][$run->status] ?? '';
-    $money = fn ($v) => '
+    $money = fn ($v) => '$' . number_format((float) $v, 2);
+    $reconciliationFlags = app(\App\Services\PayRunReconciliationDiagnostics::class)->for($run);
+@endphp
+
+@php
     $assistantReport = $this->assistantAndTipSummary();
     $assistantRows = collect($assistantReport['assistants']);
     // Assistants clocked hours in this period but have no pay line yet: they

@@ -72,6 +72,10 @@
         @endif
     </header>
 
+    @if (\App\Filament\Widgets\StreamerPayPeriodWidget::canView())
+        <div class="pt-3"><livewire:app.filament.widgets.streamer-pay-period-widget wire:key="streamer-pay-period" lazy /></div>
+    @endif
+
     <div class="flex flex-wrap items-center gap-3 py-2"><livewire:inventory-recent-changes wire:key="streamer-dashboard-inventory-changes" /></div>
 
     <section class="vsh-performance" aria-labelledby="vsh-performance-title">

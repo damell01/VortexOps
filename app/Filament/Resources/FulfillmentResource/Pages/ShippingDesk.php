@@ -67,6 +67,19 @@ class ShippingDesk extends Page
         }
     }
 
+    /** Select printable shipments in this show, capped at 100 for manageable batches. */
+    public function selectPrintableLabels(): void
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        $this->selectedShipmentIds = Shipment::query()->where('show_id', $show->id)
+            ->orderBy('buyer_username')->orderBy('id')->get(['id', 'raw_payload'])
+            ->filter(function (Shipment $shipment) {
+                $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
+                return (bool) self::safeDocumentUrl(($raw['documents'] ?? [])['label_url'] ?? null);
+            })->take(100)->pluck('id')->map(fn ($id) => (string) $id)->all();
+    }
+
     public function preparePrintBatch(): void
     {
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);

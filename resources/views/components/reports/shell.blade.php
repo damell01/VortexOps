@@ -8,34 +8,47 @@
     $here = rtrim(strtok(request()->fullUrl(), '?'), '/');
     $compareUrl = \App\Filament\Pages\ReportCompare::canAccess() ? \App\Filament\Pages\ReportCompare::getUrl() : null;
 @endphp
-<div class="vxrs">
-    <aside class="vxrs-lib" aria-label="Reports">
-        <label class="vxrs-pick">
-            <span class="sr-only">Go to report</span>
-            <select onchange="if (this.value) window.location = this.value">
-                @foreach ($catalog as $g)
-                    <optgroup label="{{ $g['group'] }}">
-                        @foreach ($g['items'] as $item)
-                            <option value="{{ $item['url'] }}" @selected(rtrim($item['url'], '/') === $here)>{{ $item['label'] }}</option>
+<div class="vxrs vxrs--wide" x-data="{ reportSearch: '', reportMenuOpen: false }">
+    <div class="vxrs-topnav">
+        <div class="vxrs-topnav-row">
+            <div class="vxrs-topnav-title">
+                <x-filament::icon icon="heroicon-o-chart-bar-square" />
+                <span>Report library</span>
+            </div>
+            <div class="vxrs-report-picker">
+                <button type="button" class="vxrs-picker-button" x-on:click="reportMenuOpen = !reportMenuOpen; if (reportMenuOpen) $nextTick(() => $refs.reportSearch?.focus())" :aria-expanded="reportMenuOpen.toString()" aria-controls="vxrs-report-menu">
+                    <span>Switch report</span>
+                    <strong>{{ collect($catalog)->flatMap(fn ($g) => $g['items'])->first(fn ($item) => rtrim($item['url'], '/') === $here)['label'] ?? 'Choose a report' }}</strong>
+                    <x-filament::icon icon="heroicon-o-chevron-down" />
+                </button>
+                <div id="vxrs-report-menu" class="vxrs-report-menu" x-show="reportMenuOpen" x-cloak x-on:click.outside="reportMenuOpen = false" x-on:keydown.escape.window="reportMenuOpen = false">
+                    <label class="vxrs-report-search">
+                        <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                        <input x-ref="reportSearch" type="search" x-model="reportSearch" placeholder="Find a report..." aria-label="Search reports">
+                    </label>
+                    <nav aria-label="All reports">
+                        @foreach ($catalog as $g)
+                            <div class="vxrs-menu-group" x-show="!reportSearch || {{ \Illuminate\Support\Js::from(collect($g['items'])->pluck('label')->implode(' ')) }}.toLowerCase().includes(reportSearch.toLowerCase())">
+                                <h4>{{ $g['group'] }}</h4>
+                                @foreach ($g['items'] as $item)
+                                    @php $on = rtrim($item['url'], '/') === $here; @endphp
+                                    <a href="{{ $item['url'] }}" x-show="!reportSearch || {{ \Illuminate\Support\Js::from($item['label']) }}.toLowerCase().includes(reportSearch.toLowerCase())" @class(['vxrs-link', 'is-on' => $on]) @if($on) aria-current="page" @endif>
+                                        <span class="vxrs-ic"><x-filament::icon :icon="$item['icon']" /></span>{{ $item['label'] }}
+                                    </a>
+                                @endforeach
+                            </div>
                         @endforeach
-                    </optgroup>
-                @endforeach
-            </select>
-        </label>
-        <nav class="vxrs-groups">
-            @foreach ($catalog as $g)
-                <div class="vxrs-group">
-                    <h4>{{ $g['group'] }}</h4>
-                    @foreach ($g['items'] as $item)
-                        @php $on = rtrim($item['url'], '/') === $here; @endphp
-                        <a href="{{ $item['url'] }}" @class(['vxrs-link', 'is-on' => $on]) @if($on) aria-current="page" @endif>
-                            <span class="vxrs-ic"><x-filament::icon :icon="$item['icon']" /></span>{{ $item['label'] }}
-                        </a>
-                    @endforeach
+                    </nav>
                 </div>
+            </div>
+        </div>
+        <nav class="vxrs-category-nav" aria-label="Report categories">
+            @foreach ($catalog as $g)
+                @php $activeGroup = collect($g['items'])->contains(fn ($item) => rtrim($item['url'], '/') === $here); @endphp
+                <a href="{{ $g['items'][0]['url'] }}" @class(['vxrs-category', 'is-active' => $activeGroup])>{{ $g['group'] }}</a>
             @endforeach
         </nav>
-    </aside>
+    </div>
     <div class="vxrs-main">{{ $slot }}</div>
 </div>
 

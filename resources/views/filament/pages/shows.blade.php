@@ -69,6 +69,35 @@
      x-on:keydown.escape.window="close()">
 
 <style>
+/* Shows Overview: compact operational gallery, preserving the light app theme. */
+.vx-ops-intro{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 2px 16px}
+.vx-ops-intro h1{font-size:clamp(1.35rem,2vw,1.85rem);font-weight:850;letter-spacing:-.035em;color:#201139;margin:2px 0}
+.vx-ops-intro p{font-size:.82rem;color:#64748b}
+.vx-ops-eyebrow{font-size:.65rem;letter-spacing:.14em;font-weight:850;color:#7c3aed}
+.vx-ops-intro-actions{display:flex;align-items:center;gap:7px;color:#475569;font-size:.73rem;font-weight:700}
+.vx-ops-live-dot{width:8px;height:8px;background:#16a34a;border-radius:50%}
+.vx-ops-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:14px 16px 8px}
+.vx-ops-kpi{display:flex;flex-direction:column;gap:4px;border:1px solid #e9e2f4;border-radius:14px;padding:13px 15px;background:linear-gradient(145deg,#fff,#faf7ff);min-width:0}
+.vx-ops-kpi>span{font-size:.72rem;font-weight:750;color:#64748b}
+.vx-ops-kpi strong{font-size:1.6rem;line-height:1.15;font-weight:850;color:#2e1454;font-variant-numeric:tabular-nums}
+.vx-ops-kpi small{font-size:.67rem;color:#64748b}
+.vx-ops-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 16px 0}
+.vx-ops-section-title strong{font-size:.93rem;color:#24133f}
+.vx-ops-section-title span{font-size:.72rem;color:#64748b}
+.vx-d .vx-cards-wrap{max-height:none;overflow:visible;padding:8px 16px 20px}
+.vx-d .vx-cards-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.vx-d .vx-scard-cover{aspect-ratio:16/8}
+.vx-d .vx-scard-body{padding:11px 13px 13px;gap:7px}
+.vx-d .vx-scard-title{font-size:.85rem;min-height:2.1em}
+.vx-d .vx-scard-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.vx-d .vx-scard-nums>span{display:flex;flex-direction:column;gap:2px}
+.vx-d .vx-scard-nums b{font-size:.86rem;font-variant-numeric:tabular-nums}
+.vx-d .vx-scard-footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1eaf9;padding-top:9px;margin-top:2px;color:#6d28d9;font-size:.72rem;font-weight:800}
+.vx-d .vx-scard-footer svg{width:15px;height:15px}
+@media(max-width:1200px){.vx-d .vx-cards-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:950px){.vx-d .vx-cards-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:767px){.vx-ops-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-ops-intro{display:none}}
+
 .vx-cal{--vx-bg:#fff;--vx-soft:#f8fafc;--vx-line:#e5e7eb;--vx-line2:#f1f5f9;--vx-text:#0f172a;--vx-muted:#64748b;--vx-faint:#94a3b8;--vx-p:var(--primary-600,#6d28d9);--vx-p-soft:color-mix(in srgb,var(--vx-p) 9%,transparent);min-width:0;color:var(--vx-text)}
 .dark .vx-cal{--vx-bg:#0f172a;--vx-soft:#111c2f;--vx-line:#253247;--vx-line2:#1b2638;--vx-text:#e5e7eb;--vx-muted:#94a3b8;--vx-faint:#64748b}
 .vx-mcards{display:flex;flex-direction:column;gap:6px}
@@ -385,6 +414,10 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 @php $filterCount = $this->activeFilterCount(); @endphp
 
 {{-- ── Desktop calendar ──────────────────────────────────────────── --}}
+<div class="vx-ops-intro vx-d">
+    <div><div class="vx-ops-eyebrow">WHATNOT OPERATIONS</div><h1>Shows Overview</h1><p>Manage, sync, and review your shows across all channels.</p></div>
+    <div class="vx-ops-intro-actions"><span class="vx-ops-live-dot"></span> Live operations dashboard</div>
+</div>
 <section class="vx-d vx-card" style="overflow:clip">
     <div class="vx-bar">
         <button type="button" class="vx-btn ic" wire:click="goPrevious" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" /></button>
@@ -410,6 +443,20 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     @include('filament.pages.partials.shows-channel-toggles')
 
     @if($viewMode === 'cards')
+        @php
+            $overviewDays = $this->agendaDays();
+            $overviewShows = collect($overviewDays)->flatMap(fn ($day) => collect($day));
+            $overviewWithSales = $overviewShows->filter(fn ($p) => ($p['gross'] ?? null) !== null);
+            $overviewLive = $overviewShows->where('state', 'live')->count();
+            $overviewEnded = $overviewShows->where('state', 'ended')->count();
+        @endphp
+        <div class="vx-ops-summary" aria-label="Overview of shows in the displayed period">
+            <div class="vx-ops-kpi"><span>Shows in view</span><strong>{{ $overviewShows->count() }}</strong><small>Across visible dates</small></div>
+            <div class="vx-ops-kpi"><span>Live now</span><strong>{{ $overviewLive }}</strong><small>Currently streaming</small></div>
+            <div class="vx-ops-kpi"><span>Ended</span><strong>{{ $overviewEnded }}</strong><small>Completed shows</small></div>
+            <div class="vx-ops-kpi"><span>Sales data</span><strong>{{ $overviewWithSales->count() }} / {{ $overviewShows->count() }}</strong><small>Shows with sales available</small></div>
+        </div>
+        <div class="vx-ops-section-title"><strong>Show gallery</strong><span>Choose a show to view details and actions</span></div>
         {{-- Cards: the month's shows by day, each with its Whatnot cover. Today's day scrolls into view. --}}
         <div class="vx-cards-wrap">
         @forelse($this->agendaDays() as $iso => $shows)
@@ -431,6 +478,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                                 @if($p['state'] !== 'upcoming' && $p['gross'] !== null)
                                     <span class="vx-scard-nums"><span><b>{{ $p['gross'] }}</b> sales</span><span><b>{{ $p['net'] }}</b> net</span><span><b>{{ $p['units'] }}</b> units</span></span>
                                 @endif
+                                <span class="vx-scard-footer"><span>View show details</span><x-filament::icon icon="heroicon-m-arrow-right" /></span>
                             </span>
                         </button>
                     @endforeach

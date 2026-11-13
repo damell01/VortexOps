@@ -54,6 +54,8 @@ return [
         'schedule_enabled' => filter_var(env('WHATNOT_SCHEDULE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         // Browser scraper jobs in the scheduler (off unless turned on): see routes/console.php.
         'scraper_schedule' => filter_var(env('WHATNOT_SCRAPER_SCHEDULE', false), FILTER_VALIDATE_BOOLEAN),
+        // Only the targeted post-show preliminary analytics scraper, not broad reporting scrapes.
+        'show_end_browser_enabled' => filter_var(env('WHATNOT_SHOW_END_BROWSER_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
 
         // Optional egress setting retained for the existing Node/Steel engines.
         'proxy' => env('WHATNOT_PROXY'),

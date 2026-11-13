@@ -173,10 +173,7 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : view('filament.components.inventory-page-navigation', ['scopes' => $scopes]),
             )
-            ->renderHook(
-                PanelsRenderHook::USER_MENU_BEFORE,
-                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.install-app-button'),
-            )
+
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn () => ! $isAuthenticatedAdminView()

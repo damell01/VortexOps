@@ -78,6 +78,28 @@ class ShipmentOverview extends Page
             ->get(['id', 'title', 'show_date', 'whatnot_channel_id']);
     }
 
+    /** Fetch fresh shipment data through the existing authorized Whatnot refresh service. */
+    public function refreshSelectedShow(): void
+    {
+        abort_unless(static::canAccess(), 403);
+        abort_unless($this->showId !== 'all' && ctype_digit($this->showId), 422);
+        $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail((int) $this->showId);
+        try {
+            $result = app(\App\Services\FulfillmentShipmentRefreshService::class)->refresh($show);
+            \Filament\Notifications\Notification::make()->title('Shipments refreshed')
+                ->body(($result['matched'] ?? 0).' matched; '.($result['updated'] ?? 0).' updated from Whatnot.')
+                ->success()->send();
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            \Filament\Notifications\Notification::make()->title('Whatnot refresh unavailable')
+                ->body(collect($exception->errors())->flatten()->first() ?: 'Check the Whatnot API connection.')
+                ->warning()->send();
+        } catch (\Throwable $exception) {
+            report($exception);
+            \Filament\Notifications\Notification::make()->title('Shipment refresh failed')
+                ->body('Review Whatnot API permissions and application logs.')->danger()->send();
+        }
+    }
+
     public function dashboardData(): array
     {
         abort_unless(static::canAccess(), 403);

@@ -432,6 +432,15 @@ class FulfillmentStationBoard extends Page
             'openIssues' => (clone $flags)->where('status', 'open')->count(),
             'blockingIssues' => (clone $flags)->where('status', 'open')->where('blocking', true)->count(),
             'issues' => (clone $flags)->count(),
+            'missingLabels' => \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)
+                ->whereNotNull('shipment_id')->with('shipment:id,raw_payload')->get()
+                ->filter(function ($package) {
+                    $raw = $package->shipment?->raw_payload ?? [];
+                    $docs = is_array($raw['documents'] ?? null) ? $raw['documents'] : [];
+                    return ! \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['label_url'] ?? null);
+                })->count(),
+            'unverifiedPackages' => (clone $packages)->where('status', '!=', 'packed')->count(),
+
             'seconds' => $run->activeSeconds(),
             // Whatnot orders and shipments with no packed package: shown before Finish, not only at sign-off.
             'reconcile' => app(\App\Services\FulfillmentReconciliation::class)->forRun($run),

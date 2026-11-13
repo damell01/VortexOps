@@ -62,7 +62,7 @@
                 <div class="vxs-show-list">
                     <button type="button" class="vxs-show" wire:click="$set('showId', 'all')" aria-pressed="{{ $this->showId === 'all' ? 'true' : 'false' }}"><strong>All shipments</strong><small>Search across all shows</small></button>
                     @foreach($recentShows as $recent)
-                        <button type="button" x-show="@js(mb_strtolower($recent->title ?? '')).includes(showSearch.toLowerCase())" wire:key="recent-show-{{ $recent->id }}" class="vxs-show" wire:click="$set('showId', '{{ $recent->id }}')" aria-pressed="{{ $this->showId === (string) $recent->id ? 'true' : 'false' }}">
+                        <button type="button" x-show="($el.textContent || '').toLowerCase().includes(showSearch.toLowerCase())" wire:key="recent-show-{{ $recent->id }}" class="vxs-show" wire:click="$set('showId', '{{ $recent->id }}')" aria-pressed="{{ $this->showId === (string) $recent->id ? 'true' : 'false' }}">
                             <strong>{{ $recent->title }}</strong><small>{{ $recent->show_date?->format('M j, Y') }} · {{ number_format($recent->shipments_count) }} shipments</small>
                         </button>
                     @endforeach

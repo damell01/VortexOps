@@ -41,6 +41,7 @@
         .vxs-buyer{font-weight:800;color:#27123f}
         .vxs-muted{color:#64748b;font-size:11px}
         .vxs-pill{display:inline-block;border-radius:99px;padding:4px 8px;background:#f3e8ff;color:#6b21a8;font-size:10px;font-weight:800}
+        .vxs-label-ready{display:inline-flex;align-items:center;gap:5px;color:#166534;background:#dcfce7;padding:4px 8px;border-radius:7px;font-size:10px;font-weight:800}.vxs-label-missing{display:inline-flex;align-items:center;gap:5px;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:7px;font-size:10px;font-weight:800}
         .vxs-detail{padding:18px;display:grid;gap:12px;position:fixed;right:16px;top:96px;bottom:16px;z-index:100;overflow:auto;width:min(510px,calc(100vw - 32px));box-shadow:0 14px 60px rgba(20,10,38,.25);align-content:start}
         .vxs-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
         .vxs-detail-grid dt{font-size:11px;color:#64748b}.vxs-detail-grid dd{font-size:13px;font-weight:750;overflow-wrap:anywhere}
@@ -55,12 +56,13 @@
             <span class="vxs-muted">Stored shipment data refreshes every 30 seconds</span>
         </header>
         <div class="vxs-layout">
-            <aside class="vxs-panel vxs-sidebar" aria-label="Recent shows">
+            <aside class="vxs-panel vxs-sidebar" aria-label="Recent shows" x-data="{ showSearch: '' }">
                 <div class="vxs-sidebar-title"><span>Recent shows</span><span class="vxs-muted">{{ $recentShows->count() }}</span></div>
+                <input type="search" class="vxs-field" style="margin-bottom:10px" x-model.debounce.150ms="showSearch" placeholder="Find a show…" aria-label="Search recent shows">
                 <div class="vxs-show-list">
                     <button type="button" class="vxs-show" wire:click="$set('showId', 'all')" aria-pressed="{{ $this->showId === 'all' ? 'true' : 'false' }}"><strong>All shipments</strong><small>Search across all shows</small></button>
                     @foreach($recentShows as $recent)
-                        <button type="button" wire:key="recent-show-{{ $recent->id }}" class="vxs-show" wire:click="$set('showId', '{{ $recent->id }}')" aria-pressed="{{ $this->showId === (string) $recent->id ? 'true' : 'false' }}">
+                        <button type="button" x-show="@js(mb_strtolower($recent->title ?? '')).includes(showSearch.toLowerCase())" wire:key="recent-show-{{ $recent->id }}" class="vxs-show" wire:click="$set('showId', '{{ $recent->id }}')" aria-pressed="{{ $this->showId === (string) $recent->id ? 'true' : 'false' }}">
                             <strong>{{ $recent->title }}</strong><small>{{ $recent->show_date?->format('M j, Y') }} · {{ number_format($recent->shipments_count) }} shipments</small>
                         </button>
                     @endforeach
@@ -96,7 +98,10 @@
                         @forelse($rows as $shipment)
                             <tr wire:key="shipment-{{ $shipment->id }}">
                                 <td><strong>{{ \Illuminate\Support\Str::limit($shipment->show?->title ?? 'Unknown show', 36) }}</strong><div class="vxs-muted">{{ $shipment->show?->show_date?->format('M j, Y') }}</div></td>
-                                <td><span class="vxs-buyer">{{ $shipment->buyer_username ?: 'Unknown' }}</span><div class="vxs-muted">{{ $shipment->carrier ?: 'Carrier pending' }}</div></td>
+                                <td><span class="vxs-buyer">{{ $shipment->buyer_username ?: 'Unknown' }}</span><div class="vxs-muted">{{ $shipment->carrier ?: 'Carrier pending' }}</div>
+                                    @php $shipmentPayload = is_array($shipment->raw_payload) ? $shipment->raw_payload : []; $shipmentDocs = is_array($shipmentPayload['documents'] ?? null) ? $shipmentPayload['documents'] : []; $hasLabel = (bool) \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($shipmentDocs['label_url'] ?? null); @endphp
+                                    <span class="{{ $hasLabel ? 'vxs-label-ready' : 'vxs-label-missing' }}" style="margin-top:5px">{{ $hasLabel ? 'Label ready' : 'No label' }}</span>
+                                </td>
                                 <td><span style="font-family:monospace;font-size:11px;overflow-wrap:anywhere">{{ $shipment->tracking_number ?: 'Awaiting tracking' }}</span></td>
                                 <td><span class="vxs-pill">{{ \App\Filament\Pages\ShipmentOverview::BUCKETS[\App\Filament\Pages\ShipmentOverview::bucket($shipment->status)] }}</span></td>
                                 <td><button type="button" class="vxs-btn" wire:click="selectShipment({{ $shipment->id }})">View</button></td>

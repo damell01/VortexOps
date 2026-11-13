@@ -340,8 +340,8 @@
 
         {{-- In-app label print: the label loads from this site into the window; Print prints just the label. --}}
         <div x-data="{ open: false, l: null, loading: true, failed: false,
-                show(d) { this.l = d; this.loading = true; this.failed = false; this.open = true },
-                print() { const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
+                verified: false, show(d) { this.l = d; this.loading = true; this.failed = false; this.verified = false; this.open = true },
+                print() { if (!this.verified || this.loading || this.failed) return; const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
              x-on:vxf-label.window="show($event.detail)" x-on:keydown.escape.window="open = false">
             <div x-show="open" x-cloak class="vxf-label-backdrop" x-on:click.self="open = false" role="dialog" aria-modal="true" aria-labelledby="vxf-label-title">
                 <div class="vxf-label-card">
@@ -354,9 +354,12 @@
                         <p x-show="failed" class="vxf-sub" role="alert">This label could not be previewed. Open it in a new tab or refresh the shipment in Shipping &amp; Labels.</p>
                         <template x-if="open && l"><iframe x-ref="frame" :src="l.src" title="Shipping label" x-on:load="loading = false"></iframe></template>
                     </div>
+                    <div style="padding:10px 18px;background:#faf5ff;border-top:1px solid #ede9fe">
+                        <label style="display:flex;gap:9px;align-items:center;font-size:13px;font-weight:700;color:#3b215b"><input type="checkbox" x-model="verified" style="width:18px;height:18px"> I verified the buyer, package, and tracking details before printing.</label>
+                    </div>
                     <div class="vxf-label-foot">
-                        <a class="vxf-btn" :href="l?.url" target="_blank" rel="noopener noreferrer" x-on:click="$wire.labelOpened(l.id)">Open in new tab</a>
-                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" x-on:click="print()" :disabled="loading"><x-heroicon-o-printer /> Print</button>
+                        <a class="vxf-btn" :href="l?.src" target="_blank" rel="noopener noreferrer">Open label in browser</a>
+                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" x-on:click="print()" :disabled="loading || failed || !verified"><x-heroicon-o-printer /> Print</button>
                     </div>
                 </div>
             </div>

@@ -340,7 +340,7 @@
 
         {{-- In-app label print: the label loads from this site into the window; Print prints just the label. --}}
         <div x-data="{ open: false, l: null, loading: true, failed: false,
-                verified: false, show(d) { this.l = d; this.loading = true; this.failed = false; this.verified = false; this.open = true },
+                verified: false, labelSize: localStorage.getItem('vxf-label-size') || '4x6', show(d) { this.l = d; this.loading = true; this.failed = false; this.verified = false; this.open = true; $wire.labelPreviewed(d.id) },
                 print() { if (!this.verified || this.loading || this.failed) return; const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
              x-on:vxf-label.window="show($event.detail)" x-on:keydown.escape.window="open = false">
             <div x-show="open" x-cloak class="vxf-label-backdrop" x-on:click.self="open = false" role="dialog" aria-modal="true" aria-labelledby="vxf-label-title">
@@ -356,6 +356,15 @@
                     </div>
                     <div style="padding:10px 18px;background:#faf5ff;border-top:1px solid #ede9fe">
                         <label style="display:flex;gap:9px;align-items:center;font-size:13px;font-weight:700;color:#3b215b"><input type="checkbox" x-model="verified" style="width:18px;height:18px"> I verified the buyer, package, and tracking details before printing.</label>
+                    </div>
+                    <div style="padding:9px 18px;border-top:1px solid #ede9fe;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                        <label style="font-size:12px;font-weight:700">Label paper
+                            <select x-model="labelSize" @change="localStorage.setItem('vxf-label-size', labelSize)" style="border-radius:7px;font-size:12px;margin-left:6px">
+                                <option value="4x6">4 × 6 thermal</option>
+                                <option value="letter">Letter paper</option>
+                            </select>
+                        </label>
+                        <span class="vxf-sub">Choose your printer and matching paper size in the browser print dialog. This preference is saved on this device.</span>
                     </div>
                     <div class="vxf-label-foot">
                         <a class="vxf-btn" :href="l?.src" target="_blank" rel="noopener noreferrer">Open label in browser</a>

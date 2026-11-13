@@ -49,6 +49,15 @@ function decorateTable(table) {
 
     // Dense audit/report rows need a single reading column on phones.
     const readableLog = Boolean(table.closest('[data-vx-readable-log]'));
+
+    // Filament's own tables become an app-style list on phones (see
+    // decorateList). Audit logs and tables that opt out keep the cards.
+    if (!readableLog && table.closest('.fi-ta-content-ctn') && !table.closest('[data-vx-keep-cards]')) {
+        if (table.classList.contains('vx-mobile-readable')) table.classList.remove('vx-mobile-readable');
+        decorateList(table, headers);
+        return;
+    }
+    if (table.classList.contains('vx-mlist')) table.classList.remove('vx-mlist');
     table.classList.toggle('vx-mobile-readable', readableLog || headers.filter(Boolean).length >= 6);
 
     table.querySelectorAll('tbody tr').forEach((row) => {
@@ -128,6 +137,99 @@ function decorateTable(table) {
     });
 }
 
+/*
+ * Phone list rows for Filament tables:
+ *
+ *     [☐] Title                              $791.00
+ *         Nov 12 · Parker Packer           Whatnot gross
+ *         (Reconciled) (Calculate payout)
+ *         ⌄ 4 more                         👁 ✎ ⋯
+ *
+ * The name, a muted line of short facts, the headline amount and the status
+ * badges are always visible; every other column waits behind "more".
+ */
+const ML = ['vx-ml-sel', 'vx-ml-title', 'vx-ml-money', 'vx-ml-sub', 'vx-ml-sub-next', 'vx-ml-badge', 'vx-ml-extra', 'vx-ml-empty', 'vx-ml-actions'];
+const moneyLabels = ['amount', 'total', 'net', 'payout', 'pay', 'revenue', 'gross', 'value', 'balance', 'cost', 'price', 'earnings'];
+const badgeLabels = ['status', 'next', 'type', 'role', 'stage', 'state', 'priority', 'condition', 'result'];
+const subLabels = ['date', 'when', 'created', 'updated', 'streamer', 'vendor', 'business', 'channel', 'show', 'email', 'period', 'week', 'location', 'po'];
+const MONEY = /^[-−(]?\s*\$\s?[\d,]+(\.\d+)?\)?$/;
+
+function decorateList(table, headers) {
+    if (!table.classList.contains('vx-mlist')) table.classList.add('vx-mlist');
+    table.querySelectorAll(':scope > tbody > tr.fi-ta-row').forEach((row) => {
+        const cells = [...row.querySelectorAll(':scope > td')];
+        if (!cells.length) return;
+        const meta = cells.map((cell, index) => {
+            const label = headers[index] || '';
+            const more = cell.querySelector(':scope > .vx-ml-more')?.innerText || '';
+            const text = (cell.innerText || '').replace(more, '').replace(/\s+/g, ' ').trim();
+            const isSelection = Boolean(cell.querySelector('input[type="checkbox"]'));
+            const hasControl = Boolean(cell.querySelector('button, [role="menu"], a[wire\\:click]'));
+            const isActions = !isSelection && (Boolean(cell.querySelector('.fi-ta-actions')) || (hasControl && (!label || label.includes('action'))));
+            const badge = Boolean(cell.querySelector('.fi-badge'));
+            if (cell.dataset.vxLabel !== (label || 'Details')) cell.dataset.vxLabel = label || 'Details';
+            return { cell, label, text, isSelection, isActions, badge, empty: text === '' || text === '—' || text === '-' };
+        });
+        const free = (m) => !m.role && !m.isSelection && !m.isActions;
+        meta.forEach((m) => { if (m.isSelection) m.role = 'sel'; else if (m.isActions) m.role = 'actions'; });
+
+        const title = meta.find((m) => free(m) && !m.empty && hits(m.label, titleTerms) && !hits(m.label, ['date']))
+            || meta.find((m) => free(m) && !m.empty && !m.badge && !MONEY.test(m.text) && !hits(m.label, tileTerms))
+            || meta.find((m) => free(m) && !m.empty);
+        if (title) title.role = 'title';
+
+        const monies = meta.filter((m) => free(m) && MONEY.test(m.text));
+        const money = monies.find((m) => hits(m.label, moneyLabels)) || monies[0];
+        if (money) money.role = 'money';
+
+        meta.filter((m) => free(m) && m.empty).forEach((m) => { m.role = 'empty'; });
+        meta.filter((m) => free(m) && m.badge && hits(m.label, badgeLabels)).slice(0, 3).forEach((m) => { m.role = 'badge'; });
+        meta.filter((m) => free(m) && !m.badge && m.text.length <= 36 && hits(m.label, subLabels) && !hits(m.label, tileTerms)).slice(0, 2).forEach((m) => { m.role = 'sub'; });
+        meta.filter(free).forEach((m) => { m.role = 'extra'; });
+
+        // Re-tag a cell only when its role changed: every class write is a
+        // DOM mutation, and this runs on every change anywhere on the page.
+        let subs = 0;
+        meta.forEach((m) => {
+            const want = ['vx-ml-' + m.role]; if (m.role === 'sub' && subs++ > 0) want.push('vx-ml-sub-next');
+            const key = want.join(' ');
+            if (m.cell.dataset.vxMl === key) return;
+            m.cell.classList.remove(...ML, ...CLASSES);
+            m.cell.classList.add(...want);
+            m.cell.dataset.vxMl = key;
+        });
+
+        // The "more" toggle lives in the actions cell (or, without one, the
+        // title cell) and is put back whenever Livewire re-renders the row.
+        const extras = meta.filter((m) => m.role === 'extra').length;
+        const host = extras ? (meta.find((m) => m.role === 'actions')?.cell || title?.cell) : null;
+        // Only touch the DOM when something changed: adding a node re-runs
+        // the table watcher, and an unconditional re-add would loop forever.
+        row.querySelectorAll('.vx-ml-more').forEach((b) => { if (b.parentElement !== host || b.dataset.count !== String(extras)) b.remove(); });
+        if (host && !host.querySelector(':scope > .vx-ml-more')) {
+            const open = row.classList.contains('vx-ml-open');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'vx-ml-more';
+            button.dataset.count = String(extras);
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            button.textContent = open ? 'Less' : extras + ' more';
+            host.prepend(button);
+        }
+    });
+}
+
+document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('.vx-ml-more');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const row = button.closest('tr');
+    const open = row.classList.toggle('vx-ml-open');
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    button.textContent = open ? 'Less' : button.dataset.count + ' more';
+}, true);
+
 function decorateTables(root = document) {
     // Every other table in a page or a pop-up keeps every value and its
     // column name, as a card per row on phones (no sideways scrolling). A
@@ -174,7 +276,8 @@ function start() {
 
     // Livewire replaces table markup after searches, filters, and pagination.
     const observer = new MutationObserver((mutations) => {
-        if (mutations.some((mutation) => mutation.addedNodes.length)) {
+        // The debug toolbar's ticking counter is not a table change.
+        if (mutations.some((mutation) => mutation.addedNodes.length && !mutation.target.closest?.('.phpdebugbar'))) {
             window.requestAnimationFrame(() => decorateTables());
         }
     });

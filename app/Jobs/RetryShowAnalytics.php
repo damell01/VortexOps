@@ -82,12 +82,21 @@ class RetryShowAnalytics implements ShouldQueue, ShouldBeUnique
             }
 
             $result = $applier->apply((int) $show->whatnot_channel_id, $payload, ! WhatnotApiOrderApplier::writesAllowed());
-            if (WhatnotApiOrderApplier::writesAllowed() && in_array($result['outcome'], ['not_ready', 'not_calculated'], true) && Schema::hasColumn('shows', 'analytics_sync_status')) {
+            if (WhatnotApiOrderApplier::writesAllowed() && in_array($result['outcome'], ['not_ready', 'not_calculated'], true)) {
                 $show->refresh();
-                $show->forceFill([
-                    'analytics_sync_status' => $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable',
-                    'analytics_sync_note' => $result['outcome'] === 'not_ready' ? 'Whatnot has not generated show analytics yet.' : 'Whatnot will not calculate analytics for this show.',
-                ])->save();
+                $columns = [];
+                if (Schema::hasColumn('shows', 'analytics_sync_status')) {
+                    $columns['analytics_sync_status'] = $result['outcome'] === 'not_ready' ? 'pending' : 'unavailable';
+                }
+                if (Schema::hasColumn('shows', 'analytics_sync_note')) {
+                    $apiStatus = strtoupper((string) ($payload['calculation_status'] ?? ''));
+                    $columns['analytics_sync_note'] = $result['outcome'] === 'not_ready'
+                        ? ($apiStatus === 'PENDING'
+                            ? 'Whatnot API reports PENDING. Seller Hub may already show preliminary figures; final API analytics are not generated yet. The next eligible sync will retry.'
+                            : 'Whatnot API analytics are not ready yet ('.$apiStatus.'). The next eligible sync will retry.')
+                        : 'Whatnot API reports that analytics will not be calculated for this show.';
+                }
+                if ($columns !== []) $show->forceFill($columns)->save();
             }
             Log::info('Show analytics API retry finished', [
                 'show_id' => $this->showId,

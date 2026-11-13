@@ -70,6 +70,11 @@
 
 <style>
 /* Shows Overview: compact operational gallery, preserving the light app theme. */
+.vx-ops-sync-panel{margin:10px 16px 0;border:1px solid #e9e2f4;border-radius:12px;background:#faf7ff}
+.vx-ops-sync-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;text-align:left;color:#5b21b6;font-size:.75rem;font-weight:750}
+.vx-ops-sync-toggle>svg:last-child{margin-left:auto}
+.vx-ops-sync-details{padding:0 12px 12px}
+.vx-ops-sync-details pre{white-space:pre-wrap;max-height:240px;overflow:auto;background:#fff;border:1px solid #ede9fe;border-radius:8px;padding:10px;font-size:.7rem;color:#334155}
 .vx-ops-intro{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 2px 16px}
 .vx-ops-intro h1{font-size:clamp(1.35rem,2vw,1.85rem);font-weight:850;letter-spacing:-.035em;color:#201139;margin:2px 0}
 .vx-ops-intro p{font-size:.82rem;color:#64748b}
@@ -451,6 +456,12 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
             $overviewLive = $overviewShows->where('state', 'live')->count();
             $overviewEnded = $overviewShows->where('state', 'done')->count();
         @endphp
+        @if(auth()->user()?->isOwner())
+            <div class="vx-ops-sync-panel" x-data="{ expanded: false }">
+                <button type="button" @click="expanded = !expanded" :aria-expanded="expanded.toString()" class="vx-ops-sync-toggle"><x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> Sync progress &amp; details <span wire:loading wire:target="syncTodaysWhatnotShows"> · Sync running…</span><x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4" /></button>
+                <div x-show="expanded" x-cloak class="vx-ops-sync-details"><pre wire:stream="today-whatnot-sync-progress" aria-live="polite">Run “Sync today's shows” to fetch the latest available Whatnot data.</pre></div>
+            </div>
+        @endif
         <div class="vx-ops-summary" aria-label="Overview of shows in the displayed period">
             <div class="vx-ops-kpi"><span>Shows in view</span><strong>{{ $overviewShows->count() }}</strong><small>Across visible dates</small></div>
             <div class="vx-ops-kpi"><span>Live now</span><strong>{{ $overviewLive }}</strong><small>Currently streaming</small></div>

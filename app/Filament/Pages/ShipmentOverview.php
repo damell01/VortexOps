@@ -15,6 +15,7 @@ class ShipmentOverview extends Page
     public string $search = '';
     public string $status = 'all';
     public int $days = 30;
+    public string $showId = 'all';
 
     public static function canAccess(): bool
     {
@@ -63,11 +64,29 @@ class ShipmentOverview extends Page
         };
     }
 
+    /** Recent shows are selected through the same fulfillment-scoped query as Shipping & Labels. */
+    public function recentShows(): \Illuminate\Support\Collection
+    {
+        abort_unless(static::canAccess(), 403);
+
+        return \App\Filament\Resources\FulfillmentResource::getEloquentQuery()
+            ->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString())
+            ->whereHas('shipments')
+            ->withCount('shipments')
+            ->orderByDesc('show_date')
+            ->limit(60)
+            ->get(['id', 'title', 'show_date', 'whatnot_channel_id']);
+    }
+
     public function dashboardData(): array
     {
         abort_unless(static::canAccess(), 403);
         $base = Shipment::query()->whereHas('show', fn ($query) =>
             $query->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString()));
+        if ($this->showId !== 'all') {
+            abort_unless(ctype_digit($this->showId) && $this->recentShows()->contains('id', (int) $this->showId), 403);
+            $base->where('show_id', (int) $this->showId);
+        }
         $byStatus = (clone $base)->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')->get();
         $totals = array_fill_keys(array_keys(self::BUCKETS), 0);
         $statusesIn = [];

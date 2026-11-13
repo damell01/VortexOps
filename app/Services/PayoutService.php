@@ -187,7 +187,23 @@ class PayoutService
         if (! $show || ! $streamer) {
             return null;
         }
+        $show->setRelation('streamerLogEntry', $entry);
 
+        return $this->payForShow($show, $streamer, $payouts);
+    }
+
+    /**
+     * One streamer's pay for one show: read back from the pay run when it is
+     * on one (draft, final or paid), otherwise worked out with the run's own
+     * calculation without saving anything. Null while a share-based pay is
+     * waiting on Whatnot's earnings.
+     *
+     * Expects show.streamers and show.channel loaded (and show.streamerLogEntry when there is one).
+     *
+     * @return array{amount:float, state:string, notes:string}|null  state: estimate|draft|final|paid
+     */
+    public function payForShow(Show $show, Streamer $streamer, ?\Illuminate\Support\Collection $payouts = null): ?array
+    {
         $payouts ??= Payout::where('show_id', $show->id)->where('streamer_id', $streamer->id)->get();
         if ($payouts->isNotEmpty()) {
             $state = $payouts->every(fn (Payout $p) => $p->status === 'paid') ? 'paid'
@@ -209,7 +225,6 @@ class PayoutService
         $isPrimary = $hasPrimary ? (bool) ($member?->pivot->is_primary ?? false) : $streamers->first()?->id === $streamer->id;
 
         try {
-            $show->setRelation('streamerLogEntry', $entry);
             $result = $this->computeStreamerPayout($streamer, $show, max(1, $streamers->count()), $isPrimary);
         } catch (\Throwable) {
             return null;

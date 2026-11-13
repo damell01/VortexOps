@@ -16,6 +16,23 @@ class ShipmentOverview extends Page
     public string $status = 'all';
     public int $days = 30;
     public string $showId = 'all';
+    public ?int $selectedShipmentId = null;
+
+    public function selectShipment(int $id): void
+    {
+        abort_unless(static::canAccess(), 403);
+        $this->selectedShipmentId = $id;
+    }
+
+    public function selectedShipment(): ?Shipment
+    {
+        if (! $this->selectedShipmentId) return null;
+        $shipment = Shipment::query()->with('show:id,title,show_date')->find($this->selectedShipmentId);
+        if (! $shipment) return null;
+        abort_unless(\App\Filament\Resources\FulfillmentResource::getEloquentQuery()->whereKey($shipment->show_id)->exists(), 403);
+        return $shipment;
+    }
+
 
     public static function canAccess(): bool
     {

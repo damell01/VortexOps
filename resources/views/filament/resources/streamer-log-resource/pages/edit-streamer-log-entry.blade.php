@@ -44,6 +44,12 @@
 </x-filament-panels::page>
  . number_format((float) $estimatedPay['amount'], 2) : 'Unavailable' }}</p>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $payHint }}</p>
+                    @if(!empty($estimatedPay['notes']))
+                        <details class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                            <summary class="cursor-pointer font-semibold text-primary-700 dark:text-primary-300">How this pay was calculated</summary>
+                            <p class="mt-2 whitespace-pre-line break-words leading-relaxed">{{ $estimatedPay['notes'] }}</p>
+                        </details>
+                    @endif
                 </div>
             @endif
         </div>

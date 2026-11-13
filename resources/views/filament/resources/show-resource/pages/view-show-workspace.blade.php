@@ -51,6 +51,28 @@
     $analyticsState = (string) ($show->analytics_sync_status ?? 'unknown');
     $recordedPay = round((float) $payouts->sum('calculated_payout'), 2);
     $pendingLedgerLines = $ledgerReview ? $ledgerReview['lines']->whereIn('status', ['waiting', 'pending'])->count() : 0;
+    $reconciliationFlags = [];
+    if ($canViewReconciliation) {
+        if (in_array($analyticsState, ['pending', 'failed', 'unavailable'], true)) {
+            $reconciliationFlags[] = ['label' => 'Analytics not finalized', 'detail' => 'Whatnot API status: '.ucfirst($analyticsState).'. Do not assume reported earnings are final.'];
+        }
+        if ((bool) $show->financials_revised_after_lock) {
+            $reconciliationFlags[] = ['label' => 'Financial figures revised after approval', 'detail' => 'Review show revision notes and the existing payroll records; no payouts were changed.'];
+        }
+        if ((bool) $show->channel_attribution_suspect) {
+            $reconciliationFlags[] = ['label' => 'Channel attribution needs review', 'detail' => 'Confirm the show belongs to the correct Whatnot channel before interpreting its totals.'];
+        }
+        if ($pendingLedgerLines > 0) {
+            $reconciliationFlags[] = ['label' => 'Ledger attribution incomplete', 'detail' => $pendingLedgerLines.' ledger entries are pending or unmatched; attributed totals are provisional.'];
+        }
+        if ($show->show_date?->lte(today()) && ! $report) {
+            $reconciliationFlags[] = ['label' => 'Streamer report not started', 'detail' => 'The show has no streamer report. Confirm required hours and inventory costs before payroll review.'];
+        }
+        if ($report && ! in_array($report->status, ['admin_approved'], true)) {
+            $reconciliationFlags[] = ['label' => 'Streamer report not approved', 'detail' => 'Current report status: '.str_replace('_', ' ', (string) $report->status).'. This is an informational review flag.'];
+        }
+    }
+
 
 @endphp
 <div class="vx-show-detail space-y-5" style="font-size:14px">
@@ -289,6 +311,18 @@
         @if(in_array($analyticsState, ['pending', 'unavailable', 'failed'], true))
             <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">Whatnot analytics are {{ $analyticsState }}. This comparison does not assume the figures are final.</p>
         @endif
+        <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <h3 class="text-sm font-bold">Review flags <span class="font-normal text-gray-500">({{ count($reconciliationFlags) }})</span></h3>
+            <p class="mt-1 text-xs text-gray-500">Informational only. These flags never block, change, or recalculate payroll.</p>
+            @forelse($reconciliationFlags as $flag)
+                <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/20">
+                    <p class="font-semibold text-amber-900 dark:text-amber-200">{{ $flag['label'] }}</p>
+                    <p class="mt-1 text-amber-800 dark:text-amber-300">{{ $flag['detail'] }}</p>
+                </div>
+            @empty
+                <p class="mt-2 rounded-lg bg-gray-100 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200">No review flags detected by the available checks. This is not a guarantee that all transactions reconcile.</p>
+            @endforelse
+        </div>
         <p class="mt-3 text-xs text-gray-500">Ledger net and Whatnot net may cover different fee and adjustment categories; a difference alone is not a payroll error. Saved payouts are shown for reference, not recalculated.</p>
     </section>
     @endif

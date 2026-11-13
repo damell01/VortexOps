@@ -75,7 +75,7 @@
                             </div>
                         @endforeach
                     </div>
-                    <div class="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3 dark:bg-violet-950/30" x-data="vortexLabelBatch(@js($printDocuments))">
+                    <div class="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3 dark:bg-violet-950/30" x-data="vortexLabelBatch(@js($printDocuments), @js($labelSize))">
                         <h4 class="font-bold text-violet-950 dark:text-violet-100">Combined label PDF</h4>
                         <p class="mt-1 text-xs text-violet-800 dark:text-violet-200">Merge all selected Whatnot PDF or image labels into one downloadable, printable document. The original labels are preserved as individual pages.</p>
                         <div class="mt-3 flex flex-wrap gap-2">
@@ -93,7 +93,8 @@
                                     <option value="">Select printer</option>
                                     <template x-for="name in printers" :key="name"><option :value="name" x-text="name"></option></template>
                                 </select>
-                                <button type="button" @click="directPrint()" :disabled="!pdf || !printer || busy" class="rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Print to selected printer</button>
+                                <label class="flex items-center gap-2 text-xs text-violet-900 dark:text-violet-100"><input type="checkbox" x-model="acknowledged"> I verified label orientation and printer setup</label>
+                                <button type="button" @click="directPrint()" :disabled="!pdf || !printer || busy || !acknowledged" class="rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Print to selected printer</button>
                             </div>
                         </div>
                     </div>
@@ -193,8 +194,8 @@
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js" defer></script>
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.data('vortexLabelBatch', (documents) => ({
-        documents, pdf: null, busy: false, message: '', printer: '', printers: [],
+    Alpine.data('vortexLabelBatch', (documents, paperSize) => ({
+        documents, paperSize, pdf: null, busy: false, message: '', printer: '', printers: [], acknowledged: false,
         async build() {
             if (!window.PDFLib) { this.message = 'PDF library unavailable. Check your connection and reload.'; return; }
             this.busy = true; this.pdf = null; this.message = 'Fetching and combining ' + this.documents.length + ' labels…';
@@ -242,11 +243,11 @@ document.addEventListener('alpine:init', () => {
             } catch(e) { this.message = 'QZ Tray connection failed: ' + (e.message || e); }
         },
         async directPrint() {
-            if (!this.pdf || !this.printer || !window.qz) return;
+            if (!this.pdf || !this.printer || !window.qz || !this.acknowledged) return;
             this.busy = true;
             try {
                 if (!qz.websocket.isActive()) await qz.websocket.connect();
-                const config = qz.configs.create(this.printer);
+                const config = qz.configs.create(this.printer, this.paperSize === '4x6' ? { size: { width: 4, height: 6 }, units: 'in' } : { size: { width: 8.5, height: 11 }, units: 'in' });
                 let binary = ''; const bytes = this.pdf;
                 for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
                 await qz.print(config, [{ type:'pixel', format:'pdf', flavor:'base64', data:btoa(binary) }]);

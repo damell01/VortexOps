@@ -8,6 +8,9 @@
     $viewer = auth()->user();
     $canSeePay = $viewer && ($viewer->isAdmin() || $viewer->isOwner() || $viewer->isFulfillmentAdmin() || ($viewer->streamer?->id !== null && $viewer->streamer->id === $record->streamer_id));
     $estimatedPay = $canSeePay ? \App\Filament\Resources\StreamerLogResource::payFor($record) : null;
+    $payState = $estimatedPay['state'] ?? null;
+    $payLabel = match ($payState) { 'paid' => 'Paid amount', 'final' => 'Finalized pay', 'draft' => 'Draft pay', default => 'Estimated pay' };
+    $payHint = match ($payState) { 'paid' => 'Recorded as paid in payroll', 'final' => 'Finalized in payroll', 'draft' => 'Saved in a draft pay run; subject to change', default => 'Estimate only · final amount determined in pay run' };
 @endphp
 <div class="mx-auto w-full max-w-6xl space-y-5" data-vx-page="report-review" x-data="{ tab: 'report' }">
     <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
@@ -20,7 +23,7 @@
             @foreach(['Item lines'=>$items->count(),'Units'=>$items->sum('quantity'),'Hours'=>number_format((float)$record->hours_streamed,2),'Reported product cost'=>'$' . number_format((float)$record->product_cost,2)] as $label=>$value)<div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p class="text-xs text-gray-500">{{ $label }}</p><p class="mt-1 text-xl font-bold">{{ $value }}</p></div>@endforeach
             @if($canSeePay)
                 <div class="rounded-xl bg-primary-50 p-3 ring-1 ring-primary-200 dark:bg-primary-950/30 dark:ring-primary-800">
-                    <p class="text-xs font-semibold text-primary-700 dark:text-primary-300">Estimated pay</p>
+                    <p class="text-xs font-semibold text-primary-700 dark:text-primary-300">{{ $payLabel }}</p>
                     <p class="mt-1 text-xl font-bold">{{ isset($estimatedPay['amount']) ? '
         <section class="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/20"><h3 class="font-bold">Streamer asked to reopen this report</h3><p class="mt-2 whitespace-pre-line text-sm">{{ $record->revision_reason ?: 'No reason provided.' }}</p><p class="mt-2 text-xs text-gray-500">Requested {{ $record->revision_requested_at?->diffForHumans() }}. {{ $isAdmin ? 'Use Approve Edit Request above to reopen it, or Decline Edit Request to respond with a reason.' : 'An admin will review the request. The report stays locked until reopened.' }}</p></section>
     @endif
@@ -40,7 +43,7 @@
 </div>
 </x-filament-panels::page>
  . number_format((float) $estimatedPay['amount'], 2) : 'Unavailable' }}</p>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Estimate only · final amount determined in pay run</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $payHint }}</p>
                 </div>
             @endif
         </div>

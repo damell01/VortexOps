@@ -751,3 +751,19 @@ a.vxd-row:hover { background: var(--vxw-sunken); }
 .vxrs-report-link.is-on .vxrs-ic { color: var(--vxw-accent); background: var(--vxw-surface); }
 .vxrs-report-link:focus-visible, .vxrs-category:focus-visible { outline: 2px solid var(--vxw-accent); outline-offset: 2px; }
 @media (max-width: 650px) { .vxrs-report-links { gap: 6px; } .vxrs-report-link { font-size: 12px; } }
+
+
+/* Navbar-style hover/focus report menus. Report body remains full width. */
+.vxrs--wide .vxrs-topnav { padding-bottom: 0; }
+.vxrs-hover-nav { position: relative; display: flex; flex-wrap: wrap; gap: 5px; overflow: visible; }
+.vxrs-nav-group { position: relative; }
+.vxrs-hover-nav .vxrs-category { appearance: none; border: 0; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; background: transparent; font: inherit; font-size: 13px; font-weight: 650; color: var(--vxw-muted); }
+.vxrs-hover-nav .vxrs-category.is-active { background: var(--vxw-accent-soft); color: var(--vxw-accent-ink); }
+.vxrs-hover-nav .vxrs-category svg { width: 13px; height: 13px; }
+.vxrs-hover-menu { position: absolute; z-index: 100; top: 100%; left: 0; width: 260px; max-width: calc(100vw - 32px); padding: 9px; background: var(--vxw-surface); border: 1px solid var(--vxw-border); border-radius: 0 0 13px 13px; box-shadow: 0 16px 36px rgb(0 0 0 / .16); }
+.vxrs-hover-heading { padding: 5px 8px 9px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 750; color: var(--vxw-muted); }
+.vxrs-hover-menu .vxrs-link { min-height: 37px; }
+.vxrs--wide .vxrs-main { animation: vxrs-appear .16s ease-out; }
+@keyframes vxrs-appear { from { opacity: .75; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .vxrs--wide .vxrs-main { animation: none; } }
+@media (max-width: 650px) { .vxrs-hover-menu { width: min(260px, calc(100vw - 30px)); } .vxrs-nav-group:last-child .vxrs-hover-menu { left: auto; right: 0; } }

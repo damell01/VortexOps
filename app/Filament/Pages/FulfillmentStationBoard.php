@@ -156,7 +156,7 @@ class FulfillmentStationBoard extends Page
         $packages = $this->currentPackages;
         if ($packages->isEmpty()) return [];
         $raw = \App\Models\Shipment::query()->whereIn('id', $packages->pluck('shipment_id')->filter())->pluck('raw_payload', 'id');
-        $printed = \App\Models\FulfillmentEvent::query()->where('run_id', $this->runId)->where('type', 'label_printed')
+        $printed = \App\Models\FulfillmentEvent::query()->where('run_id', $this->runId)->where('type', 'label_print_requested')
             ->whereIn('package_id', $packages->pluck('id'))->selectRaw('package_id, COUNT(*) as n')->groupBy('package_id')->pluck('n', 'package_id');
         $out = [];
         foreach ($packages as $package) {
@@ -173,11 +173,18 @@ class FulfillmentStationBoard extends Page
     }
 
     /** The label link was opened to print: kept in the show log (and counted, so reprints show). */
+    public function labelPreviewed(int $packageId): void
+    {
+        $package = $this->currentPackages->firstWhere('id', $packageId);
+        abort_unless($package, 404);
+        \App\Services\FulfillmentLog::record('label_previewed', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
+    }
+
     public function labelOpened(int $packageId): void
     {
         $package = $this->currentPackages->firstWhere('id', $packageId);
         abort_unless($package, 404);
-        \App\Services\FulfillmentLog::record('label_printed', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
+        \App\Services\FulfillmentLog::record('label_print_requested', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
         unset($this->labels);
     }
 

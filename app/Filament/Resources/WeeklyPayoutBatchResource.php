@@ -204,23 +204,6 @@ class WeeklyPayoutBatchResource extends Resource
                     ->formatStateUsing(fn ($state) => WeeklyPayoutBatch::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
 
-                TextColumn::make('next_action')
-                    ->label('Next Action')
-                    ->state(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
-                        'draft' => 'Review & finalize',
-                        'finalized' => 'Submit to ADP',
-                        'submitted_to_adp' => 'Mark paid',
-                        'paid' => 'Complete',
-                        default => 'Review',
-                    })
-                    ->badge()
-                    ->color(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
-                        'draft' => 'warning',
-                        'finalized', 'submitted_to_adp' => 'info',
-                        'paid' => 'success',
-                        default => 'gray',
-                    }),
-
                 TextColumn::make('finalizedBy.name')
                     ->label('Finalized By')
                     ->default('—')
@@ -233,6 +216,7 @@ class WeeklyPayoutBatchResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->recordUrl(fn (WeeklyPayoutBatch $record) => static::getUrl('view', ['record' => $record]))
             ->persistFiltersInSession()
             ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50]))
             ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
@@ -247,7 +231,12 @@ class WeeklyPayoutBatchResource extends Resource
                     ->visible(fn () => ! \App\Support\BusinessContext::isScoped()),
             ])
             ->actions([
-                ViewAction::make()->label('Open')->button()->color('primary'),
+                ViewAction::make()->label(fn (WeeklyPayoutBatch $record) => match ($record->status) {
+                    'draft' => 'Review & finalize',
+                    'finalized' => 'Submit to ADP',
+                    'submitted_to_adp' => 'Mark paid',
+                    default => 'View',
+                })->button()->color('primary'),
                 \Filament\Actions\ActionGroup::make([
                     \Filament\Actions\EditAction::make()
                         ->visible(fn ($record) => $record->status === 'draft'),

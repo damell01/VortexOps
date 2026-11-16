@@ -211,11 +211,11 @@ class Communications extends Page
         $people = collect();
         if ($needsPeople) {
             $search = mb_substr(trim($this->peopleSearch), 0, 100);
-            $people = User::select('id', 'name')
+            $people = TeamCommunications::previewRecipients(User::select('id', 'name'))
                 ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))
                 ->orderBy('name')->limit(60)->get();
             $chosenIds = array_slice(array_unique(array_merge($this->members, [$this->directMember], $this->announcement['user_ids'] ?? [])), 0, 500);
-            $chosenPeople = User::select('id', 'name')->whereIn('id', $chosenIds)->get();
+            $chosenPeople = TeamCommunications::previewRecipients(User::select('id', 'name'))->whereIn('id', $chosenIds)->get();
             $people = $people->merge($chosenPeople)->unique('id')->sortBy('name');
         }
 

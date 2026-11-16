@@ -62,11 +62,11 @@ class EndOfStreamPickerStagesManyItemsTest extends TestCase
         $this->user = $this->user->fresh();
     }
 
-    private function item(string $name, string $sku, float $cost): InventoryItem
+    private function item(string $name, string $sku, float $cost, ?float $target = null): InventoryItem
     {
         $item = InventoryItem::create([
             'name' => $name, 'sku' => $sku,
-            'unit_cost' => $cost, 'average_cost' => $cost, 'is_active' => true,
+            'unit_cost' => $cost, 'average_cost' => $cost, 'sale_price' => $target, 'is_active' => true,
         ]);
 
         $location = InventoryLocation::firstOrCreate(['name' => 'Main'], ['type' => 'main_storage', 'status' => 'active']);
@@ -88,8 +88,8 @@ class EndOfStreamPickerStagesManyItemsTest extends TestCase
 
     public function test_staging_writes_nothing_until_it_is_added(): void
     {
-        $first  = $this->item('Coke', 'EOS-1', 8.39);
-        $second = $this->item('Pepsi', 'EOS-2', 4.00);
+        $first  = $this->item('Coke', 'EOS-1', 8.39, 12.50);
+        $second = $this->item('Pepsi', 'EOS-2', 4.00, 6.00);
 
         $page = $this->page()
             ->call('stageItem', $first->id)
@@ -100,7 +100,9 @@ class EndOfStreamPickerStagesManyItemsTest extends TestCase
         $entry = StreamerLogEntry::firstWhere('show_id', $this->show->id);
 
         $this->assertSame(0, $entry->items()->count(), 'staging should not touch the report');
-        $this->assertSame(['items' => 2, 'units' => 3, 'cost' => 20.78], $page->instance()->stagedSummary);
+        // The basket shows a target total (sale price x quantity), not cost:
+        // cost is resolved from inventory once the lines are on the report.
+        $this->assertSame(['items' => 2, 'units' => 3, 'cost' => 31.0], $page->instance()->stagedSummary);
     }
 
     public function test_the_whole_basket_lands_in_one_action(): void

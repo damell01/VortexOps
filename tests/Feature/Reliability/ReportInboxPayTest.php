@@ -68,7 +68,7 @@ class ReportInboxPayTest extends TestCase
             ->call('loadTable')
             ->assertOk()
             ->assertSee('Inbox Pay Show')
-            ->assertSee('Ready for review')
+            ->assertSee('Needs review')
             ->assertSee('Est. pay')
             ->assertSee('$80.00')
             ->assertSee('1 ready')

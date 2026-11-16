@@ -39,7 +39,7 @@ class InventoryReportPageRenderTest extends TestCase
             ->assertSee('Stock health, movement and money tied up in inventory.')
             ->assertSee('Stock values reflect current inventory; activity uses selected period.')
             ->assertSee(['Inventory Value', '$820.00', 'Total Items', '2 in stock', 'Units On Hand', 'Avg Cost per Unit', '$54.67'])
-            ->assertSee(['Low Stock', 'Out of Stock', 'Uncategorized Items'])
+            ->assertSee(['Low Stock', 'Out of Stock', 'Uncategorized items'])
             ->assertSee(['Inventory Value Trend', 'No snapshots in this period yet'])
             ->assertSee(['Idle Inventory', '30 – 59 days', '90+ days', 'View Idle Inventory'])
             ->assertSee(['Current Inventory', 'Valuation', 'Locations', 'Recent Activity', 'Top Value', 'Top Sold', 'Idle'])

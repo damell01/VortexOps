@@ -6,7 +6,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayRunReconciliationDiagnostics;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class PayRunReconciliationDiagnosticsTest extends TestCase
 {
@@ -25,6 +25,10 @@ class PayRunReconciliationDiagnosticsTest extends TestCase
 
         $batch = new WeeklyPayoutBatch(['status' => 'paid', 'total_payout' => 125.50]);
         $batch->setRelation('payouts', collect([$payout]));
+
+        // Treat these as saved rows, so isDirty() below catches any change the diagnostics make.
+        $payout->syncOriginal();
+        $batch->syncOriginal();
 
         $flags = (new PayRunReconciliationDiagnostics())->for($batch);
 

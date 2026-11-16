@@ -20,6 +20,7 @@ class PollWhatnotShowAnalyticsApi extends Command
     public function handle(): int
     {
         $limit = min(100, max(1, (int) $this->option('limit')));
+        $browserFirst = filter_var(config('vortex.whatnot.show_end_browser_enabled', false), FILTER_VALIDATE_BOOLEAN);
         $shows = Show::query()
             ->readyForAnalytics()
             ->where(function ($query) {
@@ -36,11 +37,13 @@ class PollWhatnotShowAnalyticsApi extends Command
             ->orderByDesc('show_date')
             ->limit(min(500, $limit * 8))
             ->get()
-            ->filter(function (Show $show): bool {
+            ->filter(function (Show $show) use ($browserFirst): bool {
                 $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
                 if (! empty($meta['_analytics_api_generated_at'])) return false;
                 // Seller Hub is first for newly ended shows; API follows its first scrape.
-                if (empty($meta['_analytics_browser_finished_at']) && empty($meta['_analytics_browser_last_attempt_at'])
+                // Only while that scrape is switched on: with it off nothing would ever
+                // scrape, and new shows would wait two days for any analytics.
+                if ($browserFirst && empty($meta['_analytics_browser_finished_at']) && empty($meta['_analytics_browser_last_attempt_at'])
                     && $show->show_date && Carbon::parse($show->show_date)->gte(now()->subDays(2))) return false;
                 // A failed or hung browser scrape must never suppress API polling forever.
                 if (! empty($meta['_analytics_browser_last_attempt_at']) && empty($meta['_analytics_browser_finished_at'])) {

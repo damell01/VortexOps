@@ -55,3 +55,6 @@ tests/Browser/output/
 /storage/*.sqlite
 /storage/*.sqlite-shm
 /storage/*.sqlite-wal
+
+# Published by the deploy (php artisan vendor:publish --tag=chatify-assets)
+/public/vendor/chatify/

@@ -612,3 +612,12 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-shell .vx-chatify-attachments-selected span.is-photo img{width:100%;height:100%;object-fit:cover}
 .vx-chatify-shell .vx-chatify-attachments-selected span.is-photo button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(15,23,42,.7);color:#fff;line-height:1}
 .vx-chatify-shell .vx-chatify-body a{display:inline!important;padding:0!important;margin:0!important;background:none!important;border:0!important}
+
+/* The floating Messages button steps aside while a dialog is open, so it never covers a dialog's buttons. */
+body:has(.fi-modal-open) .vx-chatify-launch{display:none}
+/* Announcement banner: the acknowledge area sits at the end and reads as a real button. */
+.vxc-banner>div+div{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.vxc-banner>div+div button{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:999px;background:var(--vxc-banner-ink);color:#fff;font-size:12px;font-weight:700;border:0;cursor:pointer}
+.vxc-banner>div+div button:hover{filter:brightness(1.1)}
+.vxc-banner>div+div span{font-size:12px;font-weight:700}
+@media(max-width:700px){.vxc-banner{flex-wrap:wrap}.vxc-banner>div:first-of-type{flex-basis:calc(100% - 40px)}.vxc-banner>div+div{flex-direction:row;align-items:center;margin-left:33px}}

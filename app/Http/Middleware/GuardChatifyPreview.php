@@ -35,14 +35,17 @@ class GuardChatifyPreview
             && $request->isMethod('post')) {
             $path = trim($request->path(), '/');
             $ids = null;
+            $isRecipientMutation = false;
             if ($path === 'api/chatify/v1/conversations/direct') {
+                $isRecipientMutation = true;
                 $ids = [$request->input('user_id')];
             } elseif ($path === 'api/chatify/v1/conversations/group'
                 || preg_match('#^api/chatify/v1/conversations/[^/]+/participants$#', $path)) {
+                $isRecipientMutation = true;
                 $ids = $request->input('user_ids');
             }
 
-            if ($ids !== null) {
+            if ($isRecipientMutation) {
                 abort_unless(is_array($ids) && count($ids) > 0 && count($ids) <= 49, 403);
                 $ids = array_map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]), $ids);
                 abort_unless(! in_array(false, $ids, true) && count(array_unique($ids)) === count($ids), 403);

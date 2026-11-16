@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Fail closed on every Chatify endpoint until explicitly enabled for the owner.
+ * Fail closed unless the owner preview or explicit authenticated team rollout is enabled.
  * Registered globally so both package web and API routes are covered.
  */
 class GuardChatifyPreview
@@ -20,10 +20,10 @@ class GuardChatifyPreview
 
         if ($request->is('chatify', 'chatify/*', 'api/chatify', 'api/chatify/*')) {
             abort_unless(
-                config('chatify-preview.enabled', false) === true
-                    && auth()->user()?->isOwner() === true,
+                (config('chatify-preview.enabled', false) === true && auth()->user()?->isOwner() === true)
+                    || (config('chatify-preview.team_enabled', false) === true && auth()->check()),
                 403,
-                'Messaging preview is not enabled for this account.'
+                'Messaging is not enabled for this account.'
             );
         }
 

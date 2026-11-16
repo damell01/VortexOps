@@ -98,6 +98,20 @@ class CommunicationsPreviewTest extends TestCase
         Notification::assertNothingSent(); Mail::assertNothingOutgoing(); Queue::assertNothingPushed();
     }
 
+    public function test_privileged_pilot_prevents_adding_non_admin_recipients(): void
+    {
+        config(['chatify-preview.privileged_preview_enabled' => true, 'chatify-preview.team_enabled' => false]);
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$admin->id]]);
+        $this->actingAs($admin);
+        $this->service->send($admin, $chat->id, 'Pilot chat works', (string) Str::uuid());
+        $this->assertDatabaseHas('team_messages', ['conversation_id' => $chat->id, 'body' => 'Pilot chat works']);
+
+        $this->expectException(ValidationException::class);
+        $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
+    }
+
     public function test_messages_are_member_scoped_idempotent_escaped_and_private(): void
     {
         $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);

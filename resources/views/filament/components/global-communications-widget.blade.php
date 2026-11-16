@@ -14,7 +14,7 @@
                     <span class="vx-chatify-head-icon" aria-hidden="true"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span>
                     <div class="vx-chatify-head-copy"><strong>Messages</strong><small>Team conversations<span x-show="!connected"> · Offline</span></small></div>
                     <div class="vx-chatify-drawer-actions">
-                        <button type="button" x-on:click="selected=null; messages=[]; showNew=true; loadUsers(); loadGroupRoles()" title="New message" aria-label="New message"><x-filament::icon icon="heroicon-o-pencil-square" /></button>
+                        <button type="button" x-on:click="openComposer()" title="New message" aria-label="New message"><x-filament::icon icon="heroicon-o-pencil-square" /></button>
                         <button type="button" x-on:click="setExpanded(!expanded)" :title="expanded ? 'Exit full screen' : 'Full screen'" :aria-label="expanded ? 'Exit full screen' : 'Open messages full screen'" :aria-pressed="String(expanded)">
                             <span x-show="!expanded"><x-filament::icon icon="heroicon-o-arrows-pointing-out" /></span><span x-show="expanded" x-cloak><x-filament::icon icon="heroicon-o-arrows-pointing-in" /></span>
                         </button>
@@ -100,52 +100,75 @@
                 </div>
                 <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
-                    <button type="button" x-on:click="showNew=!showNew; if(showNew){loadUsers();loadGroupRoles()}">New message or group chat <span aria-hidden="true">＋</span></button>
+                    <button type="button" x-on:click="openComposer()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
             </section>
                 <div class="vx-chatify-compose-backdrop" x-show="showNew" x-cloak x-transition:enter="vxm-fade-enter" x-transition:enter-start="vxm-fade-from" x-transition:leave="vxm-fade-leave" x-transition:leave-end="vxm-fade-from" x-on:click.self="showNew=false" role="presentation">
-                <div class="vx-chatify-new-overlay vx-chat-compose" role="dialog" aria-modal="true" aria-labelledby="vx-chat-compose-title" x-trap.noscroll="showNew">
-                    <div class="vx-chatify-conversation-head"><strong id="vx-chat-compose-title">New Conversation</strong><small>Start a direct message or group conversation</small><button type="button" x-on:click="showNew=false" aria-label="Cancel new conversation">✕</button></div>
-                    <div class="vx-chat-compose-body">
-                        <div class="vx-chat-compose-mode" role="group" aria-label="Conversation type">
-                            <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="creatingGroup=false;recipients=recipients.slice(0,1)">Direct message</button>
-                            <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="creatingGroup=true">Group conversation</button>
+                    <div class="vx-chatify-new-overlay vx-chat-compose vxm-compose" role="dialog" aria-modal="true" aria-labelledby="vx-chat-compose-title" x-trap.noscroll="showNew">
+                        <header class="vxm-compose-header">
+                            <span class="vxm-compose-header-icon"><x-filament::icon icon="heroicon-o-pencil-square" /></span>
+                            <div><small>TEAM MESSAGING</small><h2 id="vx-chat-compose-title">New conversation</h2><p>Choose who you want to talk to.</p></div>
+                            <button type="button" class="vxm-compose-close" x-on:click="showNew=false" aria-label="Close new conversation"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+                        </header>
+                        <div class="vxm-compose-main">
+                            <div class="vxm-compose-picker">
+                                <div class="vxm-compose-mode" role="group" aria-label="Conversation type">
+                                    <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="setComposeMode(false)"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /><span><strong>Direct message</strong><small>One teammate</small></span></button>
+                                    <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="setComposeMode(true)"><x-filament::icon icon="heroicon-o-user-group" /><span><strong>Group chat</strong><small>Up to 49 teammates</small></span></button>
+                                </div>
+                                <div class="vxm-compose-search-heading"><label for="vx-chat-recipient-search">Find teammates</label><span x-text="usersLoading ? 'Searching…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' found'"></span></div>
+                                <div class="vxm-compose-search"><x-filament::icon icon="heroicon-o-magnifying-glass" /><input id="vx-chat-recipient-search" x-ref="peopleSearchInput" type="search" x-model="userSearch" x-on:input.debounce.350ms="loadUsers(true)" placeholder="Search by name or role…" autocomplete="off"><button type="button" x-show="userSearch" x-on:click="userSearch='';loadUsers(true);$refs.peopleSearchInput.focus()" aria-label="Clear search"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>
+                                <div class="vxm-compose-filters" role="group" aria-label="Filter by team role">
+                                    <template x-for="role in [{name:'Everyone',value:''},{name:'Fulfillment',value:'fulfillment'},{name:'Streamers',value:'stream'},{name:'Admins',value:'admin'}]" :key="role.name">
+                                        <button type="button" :class="{'is-active':peopleRoleFilter===role.value}" :aria-pressed="String(peopleRoleFilter===role.value)" x-on:click="setPeopleRoleFilter(role.value)" x-text="role.name"></button>
+                                    </template>
+                                </div>
+                                <div class="vxm-compose-results" role="group" aria-label="Teammates">
+                                    <p class="vxm-compose-status" x-show="usersLoading" role="status">Finding teammates…</p>
+                                    <template x-for="user in visibleUsers()" :key="user.id">
+                                        <button type="button" class="vxm-compose-person" :class="{'is-selected': recipients.includes(String(user.id))}" :aria-pressed="String(recipients.includes(String(user.id)))" :disabled="creatingGroup && !recipients.includes(String(user.id)) && recipients.length>=49" x-on:click="toggleRecipient(user)">
+                                            <span class="vxm-compose-avatar" x-text="initials(userName(user))"></span>
+                                            <span class="vxm-compose-person-info"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
+                                            <span class="vxm-compose-check" aria-hidden="true"><x-filament::icon icon="heroicon-o-check" /></span>
+                                        </button>
+                                    </template>
+                                    <div class="vxm-compose-empty" x-show="!usersLoading && !visibleUsers().length">
+                                        <x-filament::icon icon="heroicon-o-user-group" /><strong x-text="userSearch || peopleRoleFilter ? 'No matching teammates' : 'Nobody to message yet'"></strong><span x-text="userSearch || peopleRoleFilter ? 'Try another name or clear the role filter.' : 'Ask an administrator to confirm messaging access.'"></span>
+                                    </div>
+                                    <p class="vxm-compose-more" x-show="!usersLoading && usersHasMore">Showing the first 60 teammates. Narrow your search to find more.</p>
+                                </div>
+                            </div>
+                            <aside class="vxm-compose-summary" aria-label="Conversation details">
+                                <div class="vxm-compose-summary-top">
+                                    <span class="vxm-compose-summary-icon"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span>
+                                    <h3 x-text="creatingGroup ? 'Your group' : 'Your message'"></h3>
+                                    <p x-text="creatingGroup ? 'Bring the right teammates into one conversation.' : 'Pick a teammate to start a private conversation.'"></p>
+                                </div>
+                                <div class="vxm-compose-group-field" x-show="creatingGroup" x-cloak><label for="vx-chat-group-name">Group name <small>Optional</small></label><input id="vx-chat-group-name" type="text" x-model="groupName" maxlength="120" placeholder="e.g. Fulfillment team"></div>
+                                <div class="vxm-compose-selected-heading"><strong>Selected people</strong><span x-text="recipients.length + (creatingGroup ? ' / 49' : ' / 1')"></span></div>
+                                <div class="vxm-compose-selected-list" aria-live="polite">
+                                    <p class="vxm-compose-selected-empty" x-show="!recipients.length">No one selected yet. Choose a teammate from the list.</p>
+                                    <template x-for="person in recipientPeople()" :key="person.id">
+                                        <div class="vxm-compose-selected-person">
+                                            <span class="vxm-compose-avatar" x-text="initials(userName(person))"></span>
+                                            <strong x-text="userName(person)"></strong>
+                                            <button type="button" x-on:click="toggleRecipient(person)" :aria-label="'Remove '+userName(person)"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div x-show="canCreateGroups && creatingGroup" class="vxm-compose-role">
+                                    <label for="vx-chat-role">Add an entire role</label>
+                                    <div><select id="vx-chat-role" x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select><button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Add</button></div>
+                                </div>
+                                <p class="vxm-compose-privacy"><x-filament::icon icon="heroicon-o-lock-closed" /> Only conversation members can see messages.</p>
+                            </aside>
                         </div>
-                        <input type="text" x-show="creatingGroup" x-model="groupName" maxlength="120" placeholder="Group name (optional)" aria-label="Group name">
-                        <label class="vx-chat-compose-label" for="vx-chat-recipient-search">Add people <span x-text="recipients.length ? recipients.length + ' selected' : 'Choose teammates'"></span></label>
-                        <input id="vx-chat-recipient-search" type="search" x-model="userSearch" x-on:focus="loadUsers()" placeholder="Search people by name, role, or department…" aria-label="Search teammates by name or role" autocomplete="off">
-                        <div class="vx-chat-compose-selection" x-show="creatingGroup && recipients.length" aria-live="polite">
-                            <template x-for="user in users.filter(u => recipients.includes(String(u.id)))" :key="'selected-'+user.id">
-                                <button type="button" class="vx-chat-compose-chip" x-on:click="recipients=recipients.filter(id=>id!==String(user.id))" :aria-label="'Remove '+userName(user)"><span x-text="userName(user)"></span><span aria-hidden="true">×</span></button>
-                            </template>
-                        </div>
-                        <div class="vx-chat-compose-filters" role="group" aria-label="Filter teammates"><template x-for="role in [{name:'All',value:''},{name:'Fulfillment',value:'fulfillment'},{name:'Streamers',value:'stream'},{name:'Admin',value:'admin'}]" :key="role.name"><button type="button" x-on:click="peopleRoleFilter=role.value" :class="{'is-active':peopleRoleFilter===role.value}" x-text="role.name" :aria-pressed="String(peopleRoleFilter===role.value)"></button></template></div><div class="vx-chat-compose-list-head"><strong>Teammates</strong><span x-text="users.length + ' available'"></span><button type="button" x-on:click="loadUsers()" :disabled="usersLoading" aria-label="Refresh teammates">Refresh</button></div>
-                        <div class="vx-chatify-user-list vx-chat-compose-users" role="group" aria-label="Choose message recipients">
-                            <p x-show="usersLoading" class="vx-chat-compose-empty" role="status">Loading teammates…</p>
-                            <template x-for="user in users.filter(u=>(userName(u)+' '+(u.attributes?.role || '')+' '+(u.attributes?.department || '')).toLowerCase().includes(userSearch.trim().toLowerCase()) && (!peopleRoleFilter || String(u.attributes?.role || '').toLowerCase().includes(peopleRoleFilter)))" :key="user.id">
-                                <label class="vx-chat-compose-person">
-                                    <span class="vx-chat-compose-avatar" x-text="userName(user).trim().charAt(0).toUpperCase()"></span>
-                                    <span class="vx-chat-compose-person-name"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Team member'"></small></span>
-                                    <input type="checkbox" :value="String(user.id)" x-model="recipients" :disabled="!recipients.includes(String(user.id)) && (recipients.length >= (creatingGroup ? 49 : 1))" :aria-label="'Select '+userName(user)">
-                                </label>
-                            </template>
-                            <p x-show="!usersLoading && !users.length" class="vx-chat-compose-empty">No teammates available. Try Refresh, or ask an administrator to check messaging access.</p>
-                            <p x-show="!usersLoading && users.length && !users.some(u=>(userName(u)+' '+(u.attributes?.role || '')).toLowerCase().includes(userSearch.trim().toLowerCase()) && (!peopleRoleFilter || String(u.attributes?.role || '').toLowerCase().includes(peopleRoleFilter)))" class="vx-chat-compose-empty">No matching teammates. Try a different name.</p>
-                        </div>
-
-                        <div x-show="canCreateGroups && creatingGroup" class="vx-chat-compose-role">
-                            <label for="vx-chat-role">Add by role</label>
-                            <select id="vx-chat-role" x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select>
-                            <button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Add role members</button>
-                        </div>
-
-                        <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
+                        <p class="vxm-compose-error" x-show="error" x-text="error" role="alert"></p>
+                        <footer class="vxm-compose-footer">
+                            <span x-text="recipients.length ? (recipients.length + (recipients.length===1 ? ' person selected' : ' people selected')) : 'Choose someone to get started'"></span>
+                            <div><button type="button" class="vxm-compose-cancel" x-on:click="showNew=false">Cancel</button><button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating || usersLoading" x-text="creating ? 'Creating…' : (creatingGroup ? 'Create group' : 'Start message')"></button></div>
+                        </footer>
                     </div>
-                    <div class="vx-chat-compose-footer">
-                        <span x-text="creatingGroup ? recipients.length + ' of 49 selected' : recipients.length + ' of 1 selected'"></span>
-                        <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : (creatingGroup ? 'Create group chat' : 'Start conversation')"></button>
-                    </div>
-                </div>
                 </div>
 
         </div>
@@ -238,12 +261,99 @@
                     .vx-chat-compose-footer .vx-chatify-new-create{min-height:44px}
                     .vx-chat-compose .vx-chatify-conversation-head{min-height:48px}
                 }
+
+                /* 2026 two-pane conversation composer: a compact picker and a persistent selection summary. */
+                .vx-chatify-compose-backdrop .vxm-compose{width:min(980px,calc(100vw - 44px))!important;height:min(730px,calc(100dvh - 44px))!important;max-height:calc(100dvh - 44px)!important;background:#fff;color:#281d3c}
+                .vxm-compose-header{display:flex;align-items:center;gap:14px;padding:20px 26px;border-bottom:1px solid #eae4f4;background:linear-gradient(105deg,#faf7ff 0%,#fff 68%);flex:none}
+                .vxm-compose-header-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#eee5ff;color:#7134c2}
+                .vxm-compose-header-icon svg{width:24px;height:24px}
+                .vxm-compose-header h2{margin:2px 0;font-size:23px;line-height:1.2;font-weight:800;letter-spacing:-.6px;color:#29183e}
+                .vxm-compose-header small{font-size:10px;font-weight:800;letter-spacing:.12em;color:#7c4ebc}
+                .vxm-compose-header p{margin:3px 0 0;font-size:13px;color:#756785}
+                .vxm-compose-close{margin-left:auto;width:38px;height:38px;display:grid;place-items:center;border:1px solid #e5ddef;border-radius:12px;color:#614d78;background:#fff}
+                .vxm-compose-close:hover{background:#f3edfc;border-color:#bfa5e7}
+                .vxm-compose-close svg{width:18px;height:18px}
+                .vxm-compose-main{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(250px,.9fr);min-height:0;flex:1}
+                .vxm-compose-picker{display:flex;flex-direction:column;min-width:0;min-height:0;padding:22px 24px 16px;gap:13px}
+                .vxm-compose-mode{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+                .vxm-compose-mode button{display:flex;align-items:center;gap:11px;min-width:0;padding:13px;border:1px solid #e6e0ed;background:#fff;border-radius:13px;text-align:left;transition:background .15s,border-color .15s,box-shadow .15s}
+                .vxm-compose-mode button.is-active{border-color:#9a65f6;background:#f4edff;box-shadow:inset 0 0 0 1px #9a65f6}
+                .vxm-compose-mode button svg{flex:none;width:23px;height:23px;color:#7544b6}
+                .vxm-compose-mode button span{display:flex;flex-direction:column;gap:2px;min-width:0}
+                .vxm-compose-mode button strong{font-size:13px;color:#302044;white-space:nowrap}
+                .vxm-compose-mode button small{font-size:11px;color:#786a8a}
+                .vxm-compose-search-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+                .vxm-compose-search-heading label{font-size:13px;font-weight:750;color:#2e213f}
+                .vxm-compose-search-heading span{font-size:12px;color:#84748f}
+                .vxm-compose-search{display:flex;align-items:center;gap:9px;border:1px solid #dcd3e8;border-radius:12px;padding:0 12px;min-height:45px;background:#fff}
+                .vxm-compose-search:focus-within{border-color:#8850da;box-shadow:0 0 0 3px rgba(127,75,209,.11)}
+                .vxm-compose-search>svg{flex:none;width:19px;height:19px;color:#897c99}
+                .vxm-compose-search input{min-width:0;flex:1;min-height:42px;background:transparent;border:0!important;outline:0!important;box-shadow:none!important;font-size:13px;color:#291c3a}
+                .vxm-compose-search button svg{width:16px;height:16px;color:#80728b}
+                .vxm-compose-filters{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+                .vxm-compose-filters button{flex:none;padding:6px 12px;border:1px solid #e2d9ed;border-radius:999px;background:#fff;font-size:11px;font-weight:700;color:#62516f}
+                .vxm-compose-filters button.is-active{color:#fff;border-color:#7034c4;background:#7034c4}
+                .vxm-compose-results{flex:1;min-height:100px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cfc0e3 transparent;display:flex;flex-direction:column;gap:6px;padding:3px 4px 4px 0}
+                .vxm-compose-person{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid #eee8f3;border-radius:12px;text-align:left;background:#fff;min-height:63px;transition:background .15s,border-color .15s}
+                .vxm-compose-person:hover{background:#faf7ff;border-color:#c6a6ee}
+                .vxm-compose-person.is-selected{background:#f3ebff;border-color:#9a65f6}
+                .vxm-compose-person:disabled{opacity:.5;cursor:not-allowed}
+                .vxm-compose-avatar{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:13px;background:#ede5fc;color:#672db2;font-weight:800;font-size:12px}
+                .vxm-compose-person-info{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+                .vxm-compose-person-info strong{font-size:13px;color:#2d213d;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+                .vxm-compose-person-info small{font-size:11px;color:#80718d}
+                .vxm-compose-check{display:grid;place-items:center;flex:none;width:22px;height:22px;border:1px solid #cfc3dc;border-radius:7px;color:transparent}
+                .vxm-compose-check svg{width:15px;height:15px}
+                .vxm-compose-person.is-selected .vxm-compose-check{border-color:#753bc8;background:#753bc8;color:#fff}
+                .vxm-compose-status,.vxm-compose-more{padding:8px 4px;margin:0;color:#82718f;font-size:12px}
+                .vxm-compose-empty{display:flex;align-items:center;flex-direction:column;text-align:center;gap:8px;padding:30px 10px;color:#80708c}
+                .vxm-compose-empty svg{width:32px;height:32px;color:#a589ce}
+                .vxm-compose-empty strong{color:#3d2a52;font-size:13px}
+                .vxm-compose-empty span{font-size:12px;max-width:250px}
+                .vxm-compose-summary{display:flex;flex-direction:column;min-width:0;min-height:0;padding:26px 22px 18px;border-left:1px solid #eee8f5;background:#faf8fe;overflow-y:auto;scrollbar-width:thin}
+                .vxm-compose-summary-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:#e9dffd;color:#7035bf;margin-bottom:12px}
+                .vxm-compose-summary-icon svg{width:22px;height:22px}
+                .vxm-compose-summary-top h3{margin:0 0 5px;font-size:18px;font-weight:800;color:#2e2043}
+                .vxm-compose-summary-top p{margin:0 0 20px;color:#82738e;font-size:12px;line-height:1.5}
+                .vxm-compose-group-field{margin-bottom:20px}
+                .vxm-compose-group-field label{display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#322243;margin-bottom:7px}
+                .vxm-compose-group-field label small{font-weight:500;color:#8b7d97}
+                .vxm-compose-group-field input{width:100%;min-height:42px;border:1px solid #ded3eb;border-radius:10px;background:#fff;padding:9px 11px;font-size:13px}
+                .vxm-compose-selected-heading{display:flex;justify-content:space-between;gap:8px;padding-bottom:9px;border-bottom:1px solid #e5deec}
+                .vxm-compose-selected-heading strong{font-size:12px;color:#332544}
+                .vxm-compose-selected-heading span{font-size:12px;color:#806a97}
+                .vxm-compose-selected-list{display:flex;flex-direction:column;gap:8px;padding:12px 0;min-height:70px}
+                .vxm-compose-selected-empty{font-size:12px;line-height:1.5;color:#9589a1;margin:0}
+                .vxm-compose-selected-person{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid #e7dcef;background:#fff;border-radius:11px;padding:7px}
+                .vxm-compose-selected-person .vxm-compose-avatar{width:29px;height:29px;border-radius:9px;font-size:10px}
+                .vxm-compose-selected-person strong{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#322440}
+                .vxm-compose-selected-person button{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;color:#746387}
+                .vxm-compose-selected-person button:hover{background:#f2eafa;color:#5e2ca8}
+                .vxm-compose-selected-person button svg{width:14px;height:14px}
+                .vxm-compose-role{margin-top:auto;padding-top:15px}
+                .vxm-compose-role label{display:block;margin-bottom:7px;color:#47335b;font-size:12px;font-weight:700}
+                .vxm-compose-role>div{display:flex;gap:7px}
+                .vxm-compose-role select{flex:1;min-width:0;max-width:none!important;border:1px solid #ded2eb;border-radius:9px;padding:8px;background:#fff;font-size:12px}
+                .vxm-compose-role button{padding:8px 10px;border-radius:9px;background:#ede3fc;color:#6332a0;font-size:12px;font-weight:800}
+                .vxm-compose-role button:disabled{opacity:.5}
+                .vxm-compose-privacy{display:flex;align-items:center;gap:7px;margin:18px 0 0;color:#8b7a99;font-size:11px;line-height:1.4}
+                .vxm-compose-privacy svg{flex:none;width:15px;height:15px}
+                .vxm-compose-error{margin:0;padding:10px 26px;background:#fef2f2;color:#b42318;font-size:12px;flex:none}
+                .vxm-compose-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:77px;padding:14px 26px;border-top:1px solid #e9e1ef;background:#fff;flex:none}
+                .vxm-compose-footer>span{color:#82728f;font-size:12px}
+                .vxm-compose-footer>div{display:flex;align-items:center;gap:9px}
+                .vxm-compose-cancel{border:1px solid #e0d7ed;border-radius:10px;padding:11px 18px;color:#514063;font-size:12px;font-weight:750}
+                .vxm-compose-footer .vx-chatify-new-create{min-width:148px!important;min-height:43px;margin:0!important;padding:10px 18px!important;flex:none!important;border-radius:10px!important;font-size:12px!important}
+                .vxm-compose :is(button,input,select):focus-visible{outline:3px solid #ae84ef!important;outline-offset:2px}
+                @media(max-width:800px){.vxm-compose-main{grid-template-columns:minmax(0,1fr) minmax(210px,.8fr)}.vxm-compose-picker{padding:16px;gap:10px}.vxm-compose-summary{padding:18px 14px}.vxm-compose-mode button{padding:10px;gap:7px}.vxm-compose-mode button strong{font-size:11px}}
+                @media(max-width:650px){.vx-chatify-compose-backdrop .vxm-compose{width:100%!important;height:100dvh!important;max-height:100dvh!important;border-radius:0!important}.vxm-compose-header{padding:12px 16px;gap:10px}.vxm-compose-header-icon{width:38px;height:38px}.vxm-compose-header h2{font-size:19px}.vxm-compose-header p{display:none}.vxm-compose-main{display:flex;flex-direction:column;overflow:hidden}.vxm-compose-picker{order:2;flex:1;min-height:0;padding:12px 16px 10px}.vxm-compose-summary{order:1;flex:none;min-height:0;max-height:145px;padding:11px 16px;border-left:0;border-bottom:1px solid #e8e0f1}.vxm-compose-summary-top{display:none}.vxm-compose-summary-icon,.vxm-compose-privacy,.vxm-compose-role{display:none!important}.vxm-compose-group-field{margin-bottom:9px}.vxm-compose-selected-heading{padding-bottom:4px}.vxm-compose-selected-list{flex-direction:row;overflow-x:auto;min-height:0;padding:7px 0}.vxm-compose-selected-person{flex:none;max-width:220px}.vxm-compose-mode button small{display:none}.vxm-compose-footer{min-height:68px;padding:9px 16px}.vxm-compose-cancel{display:none}.vxm-compose-footer .vx-chatify-new-create{min-width:138px!important}.vxm-compose-footer>span{font-size:11px;max-width:140px}.vxm-compose-results{min-height:90px}.vxm-compose-error{padding:8px 16px}}
+                @media(max-width:370px){.vxm-compose-footer>span{display:none}.vxm-compose-footer{justify-content:flex-end}.vxm-compose-mode button svg{width:18px}.vxm-compose-person{min-height:53px}}
             </style>
             <script>
                 function vortexChatifyWidget() {
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -278,7 +388,7 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
-                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}window.addEventListener('online',()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}});window.addEventListener('offline',()=>{this.connected=false;});try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
+                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {const q=this.search.toLowerCase();return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && (this.kind==='all' || this.kind==='unread' || (this.kind==='group' ? t?.attributes?.conversation_type==='group' : t?.attributes?.conversation_type!=='group')) && (this.label(t).toLowerCase().includes(q) || (q.length>1 && String(t?.relationships?.last_message?.attributes?.body || '').toLowerCase().includes(q)))).sort((a,b)=>(Number(this.isPinned(b))-Number(this.isPinned(a))) || (Number(this.isSelfChat(a) && !this.isPinned(a))-Number(this.isSelfChat(b) && !this.isPinned(b))));},
@@ -355,7 +465,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -599,7 +709,8 @@
                                 this.files.push(file);
                             }
                         },
-                        removeFile(index) {this.files.splice(index,1);},
+                        releaseFile(file) {const thumb=this.thumbs.get(file);if(thumb){URL.revokeObjectURL(thumb);this.thumbs.delete(file);}},
+                        removeFile(index) {const [file]=this.files.splice(index,1);if(file)this.releaseFile(file);},
                         async loadMentionMembers(conversationId) {
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(conversationId)+'/participants?per_page=100');
@@ -665,7 +776,7 @@
                                     throw e;
                                 }
                                 this.signalChatUpdate(conversationId);
-                                if(!temp){this.draft='';this.files=[];this.replyTo=null;}
+                                if(!temp){this.draft='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.replyTo=null;}
                                 if(temp){this.pending=this.pending.map(p=>p.id===temp.id?{...p,_confirmed:true,_pending:false}:p);this.messages=this.messages.map(m=>m.id===temp.id?{...m,_pending:false}:m);}
                                 // Swap the placeholder for the saved message; refresh the inbox in the background.
                                 this.loadMessages();
@@ -678,43 +789,89 @@
                             const t={...this.threads[i]};t.relationships={...(t.relationships||{}),last_message:{attributes:{body:text||'Attachment',created_at:new Date().toISOString()}}};
                             this.threads=[t,...this.threads.filter((_,k)=>k!==i)];
                         },
+                        openComposer() {
+                            this.error='';this.recipients=[];this.userSearch='';this.peopleRoleFilter='';this.groupName='';this.selectedRole='';this.creatingGroup=false;
+                            this.showNew=true;this.loadUsers(true);
+                            this.$nextTick(()=>this.$refs.peopleSearchInput?.focus());
+                        },
+                        setComposeMode(group) {
+                            this.creatingGroup=!!group;this.error='';
+                            if(group)this.loadGroupRoles();
+                            if(!group)this.recipients=this.recipients.slice(0,1);
+                        },
+                        setPeopleRoleFilter(role) {
+                            this.peopleRoleFilter=role;this.loadUsers(true);
+                        },
+                        userRoles(user) {return (user.attributes?.roles || [user.attributes?.role || '']).join(' ');},
+                        visibleUsers() {
+                            const search=this.userSearch.trim().toLowerCase(),role=this.peopleRoleFilter;
+                            return this.users.filter(u=> (!search || (this.userName(u)+' '+this.userRoles(u)).toLowerCase().includes(search))
+                                && (!role || this.userRoles(u).toLowerCase().includes(role)));
+                        },
+                        recipientPeople() {
+                            return this.recipients.map(id=>this.userDirectory[id] || this.users.find(u=>String(u.id)===id)
+                                || {id,attributes:{name:'Teammate #'+id}}).filter(Boolean);
+                        },
+                        toggleRecipient(user) {
+                            const id=String(user.id);
+                            if(this.recipients.includes(id)){this.recipients=this.recipients.filter(entry=>entry!==id);return;}
+                            if(!this.creatingGroup){this.recipients=[id];return;}
+                            if(this.recipients.length>=49){this.error='Group chats allow up to 49 other teammates.';return;}
+                            this.recipients=[...this.recipients,id];this.error='';
+                        },
                         async loadGroupRoles() {
-                            if(!this.canCreateGroups)return;
+                            if(!this.canCreateGroups || this.groupRoles.length)return;
                             try {
                                 const response=await fetch(@json(url('/admin/communications/group-roles')),{credentials:'same-origin',headers:{Accept:'application/json'}});
                                 if(!response.ok)throw new Error('Unable to load roles');
                                 const data=await response.json();
                                 this.groupRoles=data.roles || [];this.roleUsers=data.users || [];
+                                for(const member of this.roleUsers)this.userDirectory[String(member.id)]??={id:String(member.id),attributes:{name:member.name}};
                             }catch(e){this.error=e.message;}
                         },
                         selectRoleMembers() {
                             const role=Number(this.selectedRole);
                             if(!role)return;
                             const matches=this.roleUsers.filter(u=>(u.role_ids || []).map(Number).includes(role)).map(u=>String(u.id));
-                            const selected=[...new Set([...this.recipients,...matches])];if(selected.length>49){this.error='This role includes too many teammates for one group (maximum 49). Choose fewer people.';return;}this.recipients=selected;this.creatingGroup=true;this.error='';
+                            const selected=[...new Set([...this.recipients,...matches])];
+                            if(selected.length>49){this.error='This role exceeds the 49-person group limit. Choose a smaller set.';return;}
+                            this.recipients=selected;this.creatingGroup=true;this.error='';
                             if(this.recipients.length>1 && !this.groupName.trim())this.groupName=this.groupRoles.find(r=>Number(r.id)===role)?.name || 'Team group';
                         },
-                        async loadUsers() {
-                            if(this.usersLoading)return;
+                        async loadUsers(force=false) {
+                            if(!force && this.users.length)return;
+                            const requestId=++this.userRequestId;
+                            const search=this.userSearch.trim().slice(0,80),role=this.peopleRoleFilter;
                             this.usersLoading=true;this.error='';
-                            try {const r=await fetch(@json(url('/admin/communications/team')),{credentials:'same-origin',headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Unable to load teammates');this.users=this.items(await r.json()).filter(u=>String(u.id)!==String(this.myId));}
-                            catch(e) {this.error=e.message;}
-                            finally {this.usersLoading=false;}
+                            try {
+                                const url=new URL(@json(url('/admin/communications/team')),location.origin);
+                                if(search)url.searchParams.set('search',search);
+                                if(role)url.searchParams.set('role',role);
+                                const response=await fetch(url.toString(),{credentials:'same-origin',headers:{Accept:'application/json'}});
+                                if(!response.ok)throw new Error('Unable to load teammates');
+                                const data=await response.json();
+                                if(requestId!==this.userRequestId)return;
+                                this.users=this.items(data).filter(u=>String(u.id)!==String(this.myId));
+                                this.usersHasMore=Boolean(data.has_more);
+                                for(const user of this.users)this.userDirectory[String(user.id)]=user;
+                            }catch(e){if(requestId===this.userRequestId)this.error=e.message;}
+                            finally{if(requestId===this.userRequestId)this.usersLoading=false;}
                         },
                         async createConversation() {
-                            if(!this.recipients.length || this.creating) return;
+                            if(!this.recipients.length || this.creating)return;
                             if(this.recipients.length>49){this.error='Select no more than 49 teammates for a group.';return;}
+                            if(!this.creatingGroup && this.recipients.length!==1){this.error='Choose one teammate for a direct message.';return;}
                             this.creating=true;this.error='';
                             try {
-                                const group=this.creatingGroup || this.recipients.length>1;
+                                const group=this.creatingGroup;
                                 const path=group?'/conversations/group':'/conversations/direct';
                                 const body=group?{name:this.groupName.trim() || 'Group chat',user_ids:this.recipients.map(Number)}:{user_id:Number(this.recipients[0])};
                                 const data=await this.api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
                                 this.showNew=false;this.recipients=[];this.groupName='';this.creatingGroup=false;
                                 await this.load();
-                                const t=data?.data;
-                                if(t?.id) await this.openThread(t);
-                            } catch(e) {this.error=e.message;} finally {this.creating=false;}
+                                const thread=data?.data;
+                                if(thread?.id)await this.openThread(thread);
+                            }catch(e){this.error=e.message;}finally{this.creating=false;}
                         },
                         startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},4000);},
                         toggle() {
@@ -722,11 +879,11 @@
                             this.open=true;
                             // Show the last inbox at once; the fresh one replaces it when it lands.
                             if(!this.loaded && !this.threads.length){try{const cached=JSON.parse(sessionStorage.getItem('vx-chat-inbox-'+this.myId)||'[]');if(Array.isArray(cached))this.threads=cached;}catch(e){}}
-                            if(!this.loaded)this.load();
+                            this.load();if(this.selected)this.loadMessages();
                             this.startPolling();
                         },
-                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},
-                        destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);}
+                        close() {this.open=false;this.showNew=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},
+                        destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);if(this.onOnline)window.removeEventListener('online',this.onOnline);if(this.onOffline)window.removeEventListener('offline',this.onOffline);this.files.forEach(file=>this.releaseFile(file));}
                     };
                 }
             </script>

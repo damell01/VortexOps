@@ -65,7 +65,7 @@ class Communications extends Page
         $this->reset('members', 'directMember', 'groupTitle', 'peopleSearch');
         $this->threadPage = 1;
         $this->dispatch('close-modal', id: 'communication-new-chat');
-        Notification::make()->title('Preview conversation opened')->body('Only your owner account can access this conversation during development.')->success()->send();
+        Notification::make()->title('Preview conversation opened')->body('This pilot is available only to the owner and authorized admins.')->success()->send();
     }
     public function selectConversation(int $id): void
     {
@@ -123,12 +123,12 @@ class Communications extends Page
         $this->resetAnnouncement();
         $this->announcementPage = 1;
         $this->dispatch('close-modal', id: 'communication-announcement');
-        Notification::make()->title($activate ? 'Owner preview activated' : 'Announcement draft saved')->body('Nothing was delivered to other accounts.')->success()->send();
+        Notification::make()->title($activate ? 'Admin pilot preview activated' : 'Announcement draft saved')->body('No employee email or push notifications were sent.')->success()->send();
     }
     public function publishPreview(int $id): void
     {
         app(TeamCommunications::class)->publishPreview($this->actor(), $id);
-        Notification::make()->title('Owner preview activated')->body('The banner follows its schedule and stays visible only to you.')->success()->send();
+        Notification::make()->title('Admin pilot preview activated')->body('The banner follows its schedule and is visible only to eligible pilot accounts.')->success()->send();
         $this->dispatch('announcement-preview-changed');
     }
     public function archiveAnnouncement(int $id): void
@@ -164,27 +164,62 @@ class Communications extends Page
     {
         $actor = $this->actor();
         $service = app(TeamCommunications::class);
-        $selected = $this->conversationId ? $service->conversation($actor, $this->conversationId) : null;
-        $messageSearch = mb_substr(trim($this->messageSearch), 0, 100);
-        $messages = $selected?->messages()->with(['sender:id,name', 'attachments'])->when($messageSearch !== '', fn ($q) => $q->where('body', 'like', '%'.$messageSearch.'%'))
-            ->latest('id')->paginate(40, ['*'], 'messagePage', max(1, $this->messagePage));
-        if ($selected && $messages?->count() && $this->messagePage === 1 && $messageSearch === '') {
-            $selected->members()->updateExistingPivot($actor->id, ['last_read_message_id' => $messages->getCollection()->max('id')]);
+        $previewMessages = $this->tab === 'messages' && ! config('chatify-preview.enabled', false);
+        $showAnnouncements = $this->tab === 'announcements';
+
+        // Livewire refreshes the visible tab regularly. Don't query the hidden tab.
+        $selected = $previewMessages && $this->conversationId
+            ? $service->conversation($actor, $this->conversationId) : null;
+        $messages = null;
+        if ($selected) {
+            $messageSearch = mb_substr(trim($this->messageSearch), 0, 100);
+            $messages = $selected->messages()->with(['sender:id,name', 'attachments'])
+                ->when($messageSearch !== '', fn ($q) => $q->where('body', 'like', '%'.addcslashes($messageSearch, '%_\\').'%'))
+                ->latest('id')->paginate(40, ['*'], 'messagePage', max(1, $this->messagePage));
+            if ($messages->count() && $this->messagePage === 1 && $messageSearch === '') {
+                $newestId = (int) $messages->getCollection()->max('id');
+                $lastReadId = (int) ($selected->members->firstWhere('id', $actor->id)?->pivot?->last_read_message_id ?? 0);
+                if ($newestId > $lastReadId) {
+                    $selected->members()->updateExistingPivot($actor->id, ['last_read_message_id' => $newestId]);
+                }
+            }
         }
-        $threads = $service->inbox($actor, $this->inboxSearch, $this->inboxFilter)->orderByDesc('last_message_at')->orderByDesc('id')->paginate(12, ['*'], 'threadPage', max(1, $this->threadPage));
+
+        $threads = $previewMessages ? $service->inbox($actor, $this->inboxSearch, $this->inboxFilter)
+            ->orderByDesc('last_message_at')->orderByDesc('id')
+            ->paginate(12, ['*'], 'threadPage', max(1, $this->threadPage)) : null;
         $unreadTotal = $service->inbox($actor, '', 'unread')->count();
-        $announcementSearch = mb_substr(trim($this->announcementSearch), 0, 100);
-        $announcements = TeamAnnouncement::where('is_preview', true)
-            ->when($announcementSearch !== '', fn ($q) => $q->where(fn ($s) => $s->where('title', 'like', '%'.$announcementSearch.'%')->orWhere('body', 'like', '%'.$announcementSearch.'%')))
-            ->when($this->announcementFilter === 'draft', fn ($q) => $q->where('status', 'draft'))
-            ->when($this->announcementFilter === 'scheduled', fn ($q) => $q->where('status', 'published')->where('starts_at', '>', now())->where('ends_at', '>', now()))
-            ->when($this->announcementFilter === 'active', fn ($q) => $q->where('status', 'published')->where('starts_at', '<=', now())->where('ends_at', '>', now()))
-            ->latest('id')->paginate(10, ['*'], 'announcementPage', max(1, $this->announcementPage));
-        $audienceCounts = $announcements->getCollection()->mapWithKeys(fn ($a) => [$a->id => $service->recipientCount($actor, $a)]);
-        $search = mb_substr($this->peopleSearch, 0, 100);
-        $people = User::select('id', 'name')->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))->orderBy('name')->limit(60)->get();
-        $chosenPeople = User::select('id', 'name')->whereIn('id', array_slice(array_unique(array_merge($this->members, [$this->directMember], $this->announcement['user_ids'] ?? [])), 0, 500))->get();
-        $people = $people->merge($chosenPeople)->unique('id')->sortBy('name');
-        return compact('threads', 'selected', 'messages', 'announcements', 'audienceCounts', 'people', 'unreadTotal') + ['roles' => Role::where('guard_name', 'web')->orderBy('name')->get(['id', 'name'])];
+
+        $announcements = null;
+        $audienceCounts = collect();
+        if ($showAnnouncements) {
+            $announcementSearch = mb_substr(trim($this->announcementSearch), 0, 100);
+            $announcements = TeamAnnouncement::where('is_preview', true)
+                ->when($announcementSearch !== '', fn ($q) => $q->where(fn ($s) => $s
+                    ->where('title', 'like', '%'.addcslashes($announcementSearch, '%_\\').'%')
+                    ->orWhere('body', 'like', '%'.addcslashes($announcementSearch, '%_\\').'%')))
+                ->when($this->announcementFilter === 'draft', fn ($q) => $q->where('status', 'draft'))
+                ->when($this->announcementFilter === 'scheduled', fn ($q) => $q->where('status', 'published')->where('starts_at', '>', now())->where('ends_at', '>', now()))
+                ->when($this->announcementFilter === 'active', fn ($q) => $q->where('status', 'published')->where('starts_at', '<=', now())->where('ends_at', '>', now()))
+                ->latest('id')->paginate(10, ['*'], 'announcementPage', max(1, $this->announcementPage));
+            $audienceCounts = $announcements->getCollection()
+                ->mapWithKeys(fn ($announcement) => [$announcement->id => $service->recipientCount($actor, $announcement)]);
+        }
+
+        // Only the preview chat picker or targeted announcement editor needs the people list.
+        $needsPeople = $previewMessages || ($showAnnouncements && ($this->announcement['audience'] ?? '') === 'users');
+        $people = collect();
+        if ($needsPeople) {
+            $search = mb_substr(trim($this->peopleSearch), 0, 100);
+            $people = TeamCommunications::previewRecipients(User::select('id', 'name'))
+                ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))
+                ->orderBy('name')->limit(60)->get();
+            $chosenIds = array_slice(array_unique(array_merge($this->members, [$this->directMember], $this->announcement['user_ids'] ?? [])), 0, 500);
+            $chosenPeople = TeamCommunications::previewRecipients(User::select('id', 'name'))->whereIn('id', $chosenIds)->get();
+            $people = $people->merge($chosenPeople)->unique('id')->sortBy('name');
+        }
+
+        return compact('threads', 'selected', 'messages', 'announcements', 'audienceCounts', 'people', 'unreadTotal')
+            + ['roles' => $showAnnouncements ? Role::where('guard_name', 'web')->orderBy('name')->get(['id', 'name']) : collect()];
     }
 }

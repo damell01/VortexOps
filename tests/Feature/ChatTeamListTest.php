@@ -33,4 +33,34 @@ class ChatTeamListTest extends TestCase
         config(['chatify-preview.available' => false]);
         $this->actingAs($owner)->getJson('/admin/communications/team')->assertNotFound();
     }
+
+    public function test_search_finds_teammates_by_name_or_role_and_supports_role_filters(): void
+    {
+        config(['chatify-preview.available' => true, 'chatify-preview.team_enabled' => false]);
+        Role::findOrCreate('streamer', 'web');
+        Role::findOrCreate('fulfillment_admin', 'web');
+        $owner = User::factory()->create(['email' => config('app.owner_email')]);
+        $streamer = User::factory()->create(['name' => 'Zelda Watkins']);
+        $streamer->assignRole('streamer');
+        $fulfillment = User::factory()->create(['name' => 'Crystal Rice']);
+        $fulfillment->assignRole('fulfillment_admin');
+
+        $this->actingAs($owner)->getJson('/admin/communications/team?search=Zelda')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.attributes.name', 'Zelda Watkins');
+        $this->getJson('/admin/communications/team?search=streamer')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', (string) $streamer->id);
+        $this->getJson('/admin/communications/team?role=fulfillment')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', (string) $fulfillment->id);
+        $this->getJson('/admin/communications/team?role=invalid')->assertStatus(422);
+    }
+
+    public function test_picker_returns_an_indication_when_more_than_sixty_teammates_exist(): void
+    {
+        config(['chatify-preview.available' => true]);
+        $owner = User::factory()->create(['email' => config('app.owner_email')]);
+        User::factory()->count(62)->create();
+
+        $this->actingAs($owner)->getJson('/admin/communications/team')
+            ->assertOk()->assertJsonCount(60, 'data')->assertJsonPath('has_more', true);
+    }
 }

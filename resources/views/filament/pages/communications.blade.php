@@ -1,6 +1,6 @@
 <x-filament-panels::page>
 <div class="vxc vxc-redesign vxc-2026" data-vx-page="communications">
-    <div class="vxc-preview"><span><x-filament::icon icon="heroicon-o-lock-closed" /><strong>Owner preview</strong></span><p>Only you can see this workspace. Recipient notifications, email and push are paused.</p></div>
+    <div class="vxc-preview"><span><x-filament::icon icon="heroicon-o-lock-closed" /><strong>Admin pilot</strong></span><p>Only owner, super admin and admin accounts can access this pilot. Employee email and push alerts remain off.</p></div>
     <div class="vxc-workspace">
     <div class="vxc-tabs" role="group" aria-label="Communication workspace">
         <button type="button" wire:click="changeTab('messages')" aria-pressed="{{ $tab === 'messages' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" />Messages @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</button>
@@ -29,8 +29,8 @@
             </section>
             <section class="vxc-conversation" aria-label="Message thread" x-data="{ infoOpen: false }">
                 @if ($selected)
-                    <div class="vxc-section-head vxc-chat-head"><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($selected->labelFor(auth()->user()), 0, 2)) }}</span><div><h2>{{ $selected->labelFor(auth()->user()) }}</h2><p>{{ $selected->kind === 'group' ? $selected->members->count().' members · '.$selected->members->pluck('name')->implode(', ') : 'Direct message' }}</p></div><button type="button" class="vxc-info-toggle" x-on:click="infoOpen = !infoOpen" :aria-expanded="infoOpen.toString()" aria-controls="vxc-conversation-info"><x-filament::icon icon="heroicon-o-information-circle" /> Info</button><span class="vxc-badge">Owner preview</span></div>
-                    <aside id="vxc-conversation-info" class="vxc-conversation-info" x-show="infoOpen" x-cloak><div class="vxc-info-heading"><strong>Conversation information</strong><button type="button" x-on:click="infoOpen = false" aria-label="Close conversation information"><x-filament::icon icon="heroicon-o-x-mark" /></button></div><p>{{ $selected->kind === "group" ? "Group conversation" : "Direct conversation" }} · {{ $selected->members->count() }} members</p><h3>Members</h3><ul>@foreach($selected->members as $member)<li><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($member->name, 0, 1)) }}</span><span>{{ $member->name }}</span>@if($member->id === auth()->id())<small>You</small>@endif</li>@endforeach</ul><p class="vxc-info-footnote">This conversation is a private owner preview. No employee notifications are sent.</p></aside>
+                    <div class="vxc-section-head vxc-chat-head"><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($selected->labelFor(auth()->user()), 0, 2)) }}</span><div><h2>{{ $selected->labelFor(auth()->user()) }}</h2><p>{{ $selected->kind === 'group' ? $selected->members->count().' members · '.$selected->members->pluck('name')->implode(', ') : 'Direct message' }}</p></div><button type="button" class="vxc-info-toggle" x-on:click="infoOpen = !infoOpen" :aria-expanded="infoOpen.toString()" aria-controls="vxc-conversation-info"><x-filament::icon icon="heroicon-o-information-circle" /> Info</button><span class="vxc-badge">Admin pilot</span></div>
+                    <aside id="vxc-conversation-info" class="vxc-conversation-info" x-show="infoOpen" x-cloak><div class="vxc-info-heading"><strong>Conversation information</strong><button type="button" x-on:click="infoOpen = false" aria-label="Close conversation information"><x-filament::icon icon="heroicon-o-x-mark" /></button></div><p>{{ $selected->kind === "group" ? "Group conversation" : "Direct conversation" }} · {{ $selected->members->count() }} members</p><h3>Members</h3><ul>@foreach($selected->members as $member)<li><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($member->name, 0, 1)) }}</span><span>{{ $member->name }}</span>@if($member->id === auth()->id())<small>You</small>@endif</li>@endforeach</ul><p class="vxc-info-footnote">This conversation is restricted to the admin pilot. No employee notifications are sent.</p></aside>
                     <label class="vxc-search vxc-thread-search"><x-filament::icon icon="heroicon-o-magnifying-glass" /><input type="search" wire:model.live.debounce.300ms="messageSearch" placeholder="Search this conversation…" aria-label="Search this conversation"></label>
                     <div class="vxc-history" aria-label="Messages" wire:key="history-{{ $conversationId }}-{{ $messagePage }}" x-data x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)" x-on:communication-message-saved.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)">
                         @if ($messages->hasPages())<div class="vxc-pages"><button type="button" wire:click="paginateSection('messagePage', {{ $messagePage + 1 }})" @disabled(! $messages->hasMorePages())>Older messages</button><span>{{ $messages->total() }} total</span><button type="button" wire:click="paginateSection('messagePage', {{ max(1, $messagePage - 1) }})" @disabled($messages->onFirstPage())>Newer</button></div>@endif
@@ -42,7 +42,7 @@
                                 @foreach ($message->attachments as $file)<a class="vxc-file" href="{{ route('communications.attachment', $file->id) }}"><x-filament::icon icon="heroicon-o-document-arrow-down" /><span><strong>{{ $file->name }}</strong><small>{{ $file->size >= 1048576 ? number_format($file->size / 1048576, 1).' MB' : number_format($file->size / 1024, 0).' KB' }} · Download</small></span></a>@endforeach
                             </div><time datetime="{{ $message->created_at->toIso8601String() }}">{{ \App\Support\BusinessTime::local($message->created_at)->format('g:i a') }}</time></div></article>
                         @empty
-                            <div class="vxc-empty"><h3>{{ $messageSearch ? 'No matching messages' : 'Start the conversation' }}</h3><p>Messages stay private to your owner account during this preview.</p></div>
+                            <div class="vxc-empty"><h3>{{ $messageSearch ? 'No matching messages' : 'Start the conversation' }}</h3><p>Messages are restricted to pilot accounts.</p></div>
                         @endforelse
                     </div>
                     <form wire:submit="sendMessage" class="vxc-composer">
@@ -50,7 +50,7 @@
                         @if ($attachments)<div class="vxc-pending-files">@foreach ($attachments as $index => $file)<span>{{ $file->getClientOriginalName() }}<button type="button" wire:click="removeAttachment({{ $index }})" aria-label="Remove {{ $file->getClientOriginalName() }}">×</button></span>@endforeach</div>@endif
                         <div wire:loading wire:target="attachments" role="status" class="vxc-uploading">Uploading attachments…</div>
                         @if ($errors->any())<p class="vxc-error" role="alert">{{ $errors->first() }}</p>@endif
-                        <small class="vxc-compose-note"><x-filament::icon icon="heroicon-o-lock-closed" />Preview only · Visible to your owner account · Up to 3 files, 10 MB each</small>
+                        <small class="vxc-compose-note"><x-filament::icon icon="heroicon-o-lock-closed" />Preview only · Owner and admins · Up to 3 files, 10 MB each</small>
                     </form>
                 @else
                     <div class="vxc-empty vxc-start"><span class="vxc-empty-orb"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span><h3>Your conversations, together</h3><p>Choose a conversation or start a new one. Direct messages and team groups live here.</p><x-filament::button icon="heroicon-o-plus" x-on:click="$dispatch('open-modal', {id: 'communication-new-chat'})">New conversation</x-filament::button></div>
@@ -73,7 +73,7 @@
     @endif
     </div>
     <x-filament::modal id="communication-new-chat" width="sm">
-        <x-slot name="heading">New conversation</x-slot><x-slot name="description">Private owner preview. Selected people will not be notified.</x-slot>
+        <x-slot name="heading">New conversation</x-slot><x-slot name="description">Private admin pilot. Only eligible pilot accounts can participate.</x-slot>
         <form wire:submit="startChat" class="vxc vxc-form vxc-picker">
             <div class="vxc-segments" role="group" aria-label="Conversation type">@foreach (['direct' => 'Direct message', 'group' => 'Group chat'] as $key => $label)<button type="button" wire:click="$set('kind', '{{ $key }}')" aria-pressed="{{ $kind === $key ? 'true' : 'false' }}">{{ $label }}</button>@endforeach</div>
             @if ($kind === 'group')<label>Group name<input wire:model="groupTitle" maxlength="120" placeholder="e.g. Stream team" required></label>@endif
@@ -107,7 +107,7 @@
                 </fieldset>
                 <div class="vxc-audience-summary"><x-filament::icon icon="heroicon-o-user-group" /><div><strong x-text="'Audience: '+(draft.audience === 'all' ? 'Everyone' : draft.audience === 'roles' ? draft.role_ids.length+' selected roles' : draft.user_ids.length+' selected people')"></strong><small x-text="'Visible until '+(draft.ends_at || 'an end time is selected').replace('T', ' ')+' ({{ \App\Support\BusinessTime::zone() }})'"></small></div></div>
             </aside>
-            <div class="vxc-editor-footer"><small><x-filament::icon icon="heroicon-o-lock-closed" />Saved as an owner-only draft</small><div class="vxc-actions"><x-filament::button type="submit" color="gray" wire:loading.attr="disabled" wire:target="saveAnnouncement">Save draft</x-filament::button><x-filament::button type="button" wire:click="saveAnnouncement(true)" wire:loading.attr="disabled" wire:target="saveAnnouncement">Preview announcement</x-filament::button></div></div>
+            <div class="vxc-editor-footer"><small><x-filament::icon icon="heroicon-o-lock-closed" />Saved as an admin-pilot draft</small><div class="vxc-actions"><x-filament::button type="submit" color="gray" wire:loading.attr="disabled" wire:target="saveAnnouncement">Save draft</x-filament::button><x-filament::button type="button" wire:click="saveAnnouncement(true)" wire:loading.attr="disabled" wire:target="saveAnnouncement">Preview announcement</x-filament::button></div></div>
         </form>
     </x-filament::modal>
 </div>

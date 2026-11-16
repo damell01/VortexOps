@@ -836,7 +836,16 @@ class Shows extends Page
     public function retryShowAnalytics(int $showId): void
     {
         abort_unless(auth()->user()?->isOwner(), 403);
-        $show = Show::query()->inChannelContext()->readyForAnalytics()->findOrFail($showId);
+        $show = Show::query()->inChannelContext()->find($showId);
+        if (! $show) {
+            Notification::make()->title('That show is not in the channel you are viewing')->warning()->send();
+            return;
+        }
+        if (! Show::query()->readyForAnalytics()->whereKey($show->id)->exists()) {
+            Notification::make()->title('This show has not ended yet')
+                ->body('Analytics are checked automatically once it ends. If it already ended, set its end time on the show and retry.')->warning()->send();
+            return;
+        }
         if (! $show->whatnot_show_id || ! $show->whatnot_channel_id) {
             Notification::make()->title('This show needs its Whatnot ID and channel before retrying')->warning()->send();
             return;

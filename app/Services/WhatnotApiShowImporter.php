@@ -69,7 +69,9 @@ final class WhatnotApiShowImporter
                 'detail_url' => is_string($api['url'] ?? null) ? $api['url'] : null,
                 'status' => 'draft',
                 'import_source' => 'auto_whatnot',
-                'raw_import_payload' => ['_source' => 'seller_api', 'show' => $api],
+                'raw_import_payload' => array_filter(['_source' => 'seller_api', 'show' => $api,
+                    '_whatnot_api_state' => $ended ? 'ended' : ($status !== '' ? strtolower($status) : null),
+                    '_whatnot_ended_at' => $ended?->toIso8601String()]),
                 'channel_attribution_suspect' => $twin ?: null,
             ], fn ($v) => $v !== null));
             ShowChangeLog::create(['show_id' => $show->id, 'field_name' => 'created', 'old_value' => null,
@@ -94,14 +96,29 @@ final class WhatnotApiShowImporter
                 $changes['start_time'] = $when->format('H:i:s');
             }
         }
-        if ($ended && $show->end_time === null) $changes['end_time'] = $ended->format('H:i:s');
+        // Whatnot's word on whether the stream is over beats the schedule: keep
+        // its state, and when it has ended, its real end time (a show that ran
+        // short or long no longer keeps the scheduled end). readyForAnalytics()
+        // starts analytics from this the moment Whatnot calls the show ended.
+        if ($ended && $show->end_time?->format('H:i') !== $ended->format('H:i')) $changes['end_time'] = $ended->format('H:i:s');
         if ($status === 'cancelled' && $show->status === 'draft') $changes['status'] = 'cancelled';
+        $apiState = $ended ? 'ended' : ($status !== '' ? strtolower($status) : null);
 
         if (! $dryRun) {
             $this->thumbnail($show, $api);
         }
+        // The API state is bookkeeping, not a field change worth a change-log
+        // row. Read the payload after thumbnail() so its cover is kept.
+        $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        $stateChanged = $apiState && (($meta['_whatnot_api_state'] ?? null) !== $apiState
+            || ($ended && ($meta['_whatnot_ended_at'] ?? null) !== $ended->toIso8601String()));
+        if ($stateChanged && ! $dryRun) {
+            $meta['_whatnot_api_state'] = $apiState;
+            if ($ended) $meta['_whatnot_ended_at'] = $ended->toIso8601String();
+            $show->forceFill(['raw_import_payload' => $meta])->saveQuietly();
+        }
         if ($changes === []) {
-            return ['outcome' => 'unchanged', 'show_id' => $show->id];
+            return ['outcome' => $stateChanged ? 'updated' : 'unchanged', 'show_id' => $show->id];
         }
         if (! $dryRun) {
             self::logChanges($show, $changes, isset($changes['whatnot_show_id']) ? 'Linked to Whatnot show '.$id : null);

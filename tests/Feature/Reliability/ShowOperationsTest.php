@@ -53,6 +53,18 @@ class ShowOperationsTest extends TestCase
         Livewire::test(Shows::class)->assertSee('Last API check')->call('retryShowAnalytics',$show->id)->assertHasNoErrors();
         Queue::assertPushed(RetryShowAnalytics::class,fn($job)=>$job->showId===$show->id);
     }
+    public function test_retrying_a_show_that_has_not_ended_explains_instead_of_failing(): void
+    {
+        Queue::fake();
+        $owner = User::firstWhere('email',config('app.owner_email')) ?? User::factory()->create(['email'=>config('app.owner_email')]);
+        $this->actingAs($owner);
+        $channel=WhatnotChannel::create(['name'=>'Cards','whatnot_username'=>'cards','include_in_import'=>true,'status'=>'active']);
+        $live=$this->show(['show_date'=>today(), 'whatnot_channel_id'=>$channel->id,'whatnot_show_id'=>'829c7c5c-f4d9-4401-9e06-4c053b72e99d',
+            'start_time'=>\App\Support\BusinessTime::local()->subMinutes(30)->format('H:i:s'),'end_time'=>null]);
+        Livewire::test(Shows::class)->call('retryShowAnalytics',$live->id)->assertHasNoErrors()->assertNotified('This show has not ended yet');
+        Queue::assertNothingPushed();
+    }
+
     public function test_detected_group_creates_profile_alias_and_assigns_only_reviewed_shows(): void
     {
         $this->admin();

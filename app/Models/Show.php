@@ -601,13 +601,37 @@ class Show extends Model
         // at its recorded end time or Seller Hub lists it under Past.
         $local = \App\Support\BusinessTime::local();
         $today = $local->toDateString();
-        $endedBy = $local->copy();
 
-        return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) use ($today, $endedBy) {
+        // Today's shows: Whatnot decides. The API sync polls every minute and
+        // records each show's state (_whatnot_api_state); "ended" makes a show
+        // ready at once, and while Whatnot still calls it scheduled or live it
+        // is not ready, however long it overruns. Only a show Whatnot has said
+        // nothing about (added by hand, or not synced yet) falls back to the
+        // schedule, read the way the Shows overview reads it (scheduleStateAt):
+        // end time passed, or start + its length (three hours if unknown).
+        // Worked out in PHP: a day holds a handful of shows, and TIME
+        // arithmetic differs between MySQL and SQLite.
+        $endedToday = static::query()
+            ->whereDate('show_date', $today)
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'cancelled'))
+            ->get(['id', 'show_date', 'start_time', 'end_time', 'show_duration', 'status', 'raw_import_payload'])
+            ->filter(function (self $show) use ($local) {
+                $meta = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                $apiState = $meta['_whatnot_api_state'] ?? null;
+                if ($apiState === 'ended' || ($meta['_seller_hub_state'] ?? null) === 'past') return true;
+                if ($apiState !== null) return false;
+
+                return $show->start_time !== null && $show->scheduleStateAt($local) === 'done';
+            })
+            ->modelKeys();
+
+        return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) use ($today, $local, $endedToday) {
             $eligible->whereDate('show_date', '<', $today)
-                ->orWhere(fn ($ended) => $ended->whereDate('show_date', $today)->whereNotNull('end_time')
-                    ->when($endedBy->toDateString() === $today, fn ($q) => $q->whereTime('end_time', '<=', $endedBy->format('H:i:s')), fn ($q) => $q->whereRaw('1 = 0')))
-                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past'));
+                ->orWhereIn('id', $endedToday ?: [0])
+                // No start time and nothing from Whatnot: the end time alone decides.
+                ->orWhere(fn ($ended) => $ended->whereDate('show_date', $today)->whereNull('start_time')->whereNotNull('end_time')
+                    ->whereNull('raw_import_payload->_whatnot_api_state')
+                    ->whereTime('end_time', '<=', $local->format('H:i:s')));
         });
     }
 
@@ -1235,6 +1259,11 @@ class Show extends Model
     public function scheduleStateAt(\Carbon\CarbonInterface $now): string
     {
         if ($this->status === 'cancelled') return 'cancelled';
+        // What Whatnot last said beats the schedule (recorded by the API sync).
+        $apiState = array_key_exists('raw_import_payload', $this->attributes) && is_array($this->raw_import_payload)
+            ? ($this->raw_import_payload['_whatnot_api_state'] ?? null) : null;
+        if ($apiState === 'ended') return 'done';
+        if ($apiState === 'live') return 'live';
         if (! $this->show_date) return 'upcoming';
         [$startMin, $endMin] = $this->scheduleMinutes();
         $day = \Illuminate\Support\Carbon::parse($this->show_date->toDateString(), $now->getTimezone());

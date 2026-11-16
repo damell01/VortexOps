@@ -317,7 +317,9 @@ class CommunicationsPreviewTest extends TestCase
         $this->actingAs($staff);
         \Illuminate\Support\Facades\DB::flushQueryLog();
         \Illuminate\Support\Facades\DB::enableQueryLog();
-        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertDontSee('Pilot preview banner');
+        $this->assertFalse(TeamCommunications::canAccess($staff));
+        $this->assertStringNotContainsString('vx-chatify-shell', view('filament.components.global-communications-widget')->render());
+        Livewire::test(AnnouncementPreview::class)->assertForbidden();
         $queries = \Illuminate\Support\Facades\DB::getQueryLog();
         \Illuminate\Support\Facades\DB::disableQueryLog();
         $this->assertFalse(collect($queries)->contains(fn ($q) => str_contains($q['query'], 'team_announcements')));

@@ -19,7 +19,7 @@
             </div>
             <div style="position:relative;height:10px;border-radius:999px;background:rgba(148,163,184,.25);margin-top:6px;overflow:hidden"
                  role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ min(100, $row['pct']) }}" aria-label="{{ $row['label'] }} {{ $row['scope'] }}">
-                <div style="height:100%;width:{{ min(100, $row['pct']) }}%;background:{{ $color }};border-radius:999px;transition:width .4s"></div>
+                <div class="vx-grow-x" style="height:100%;width:{{ min(100, $row['pct']) }}%;background:{{ $color }};border-radius:999px;transition:width .4s"></div>
                 @if ($row['expected'] > 0 && $row['expected'] < 100)
                     <div title="Where a steady pace would be today" style="position:absolute;top:-2px;bottom:-2px;left:{{ $row['expected'] }}%;width:2px;background:currentColor;opacity:.45"></div>
                 @endif

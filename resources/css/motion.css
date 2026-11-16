@@ -1,0 +1,68 @@
+/* ── App-wide motion ──────────────────────────────────────────────────────
+   Small and quick: things arriving ease in with a soft spring, presses give
+   a little, nothing waits on an animation. Only transform and opacity are
+   animated, and animations use `backwards` fill so no transform is left on an
+   element afterwards (a leftover transform traps position:fixed children).
+   Everything here is off under prefers-reduced-motion (bottom of file). */
+:root { --vx-spring: cubic-bezier(.2, 1.2, .32, 1); --vx-ease-out: cubic-bezier(.16, 1, .3, 1); }
+
+/* Press feedback: buttons, icon buttons, quick-filter chips and tabs give a little. */
+.fi-btn, .fi-icon-btn, .vx-qtab, .fi-tabs-item, .fi-sc-wizard-header-step-btn, .vxw-btn {
+  transition-property: transform, background-color, border-color, color, box-shadow, opacity;
+  transition-duration: .14s;
+}
+.fi-btn:active:not(:disabled), .fi-icon-btn:active:not(:disabled), .vx-qtab:active, .fi-tabs-item:active, .vxw-btn:active:not(:disabled) { transform: scale(.96); }
+
+/* Switching a form tab or wizard step: the new panel rises in. */
+.fi-sc-tabs-tab.fi-active { animation: vx-panel-in .3s var(--vx-ease-out) backwards; }
+.fi-sc-wizard-step.fi-active { animation: vx-step-in .34s var(--vx-ease-out) backwards; }
+@keyframes vx-panel-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes vx-step-in { from { opacity: 0; transform: translateX(18px); } }
+
+/* Wizard: the current step's dot pops when you reach it. */
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-icon-ctn { animation: vx-pop .4s var(--vx-spring) backwards; }
+@keyframes vx-pop { from { transform: scale(.6); } }
+
+/* Dialogs land with a little spring instead of a flat fade. */
+.fi-modal:not(.fi-modal-slide-over) .fi-modal-window.fi-transition-enter { transition-duration: .32s; transition-timing-function: var(--vx-spring); }
+.fi-modal.fi-modal-slide-over .fi-modal-window.fi-transition-enter { transition-duration: .34s; transition-timing-function: var(--vx-ease-out); }
+
+/* Toggles snap across with a spring. */
+.fi-toggle > :first-child { transition-duration: .28s; transition-timing-function: var(--vx-spring); }
+
+/* Progress bars fill from the left the first time they show. */
+.vx-grow-x { transform-origin: left center; animation: vx-grow-x .9s var(--vx-ease-out) .1s backwards; }
+@keyframes vx-grow-x { from { transform: scaleX(0); } }
+
+/* Phone list cards rise in, a beat apart; cards added by "load more" do the same. */
+@media (max-width: 767px) {
+  html body table.vx-mlist > tbody > tr.fi-ta-row { animation: vx-card-in .32s var(--vx-ease-out) backwards; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(2) { animation-delay: 30ms; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(3) { animation-delay: 60ms; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(4) { animation-delay: 90ms; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(5) { animation-delay: 120ms; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(6) { animation-delay: 150ms; }
+  html body table.vx-mlist > tbody > tr.fi-ta-row:nth-child(n+7) { animation-delay: 180ms; }
+}
+@keyframes vx-card-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* Empty states: the icon breathes gently instead of sitting dead still. */
+.fi-ta-empty-state-icon-bg, .fi-empty-state-icon-bg { animation: vx-breathe 4.5s ease-in-out infinite; }
+@keyframes vx-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* Collapsible sections open with a short rise rather than a jump. */
+.fi-section.fi-collapsible:not(.fi-collapsed) > .fi-section-content-ctn { animation: vx-panel-in .26s var(--vx-ease-out) backwards; }
+
+/* Announcement banners slide down when they arrive. */
+.vxc-banner { animation: vx-drop-in .4s var(--vx-ease-out) backwards; }
+@keyframes vx-drop-in { from { opacity: 0; transform: translateY(-8px); } }
+
+/* Quick-filter chips: the chosen one pops. */
+.vx-qtab[aria-pressed="true"], .vx-qtab.is-active { animation: vx-pop .3s var(--vx-spring) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fi-sc-tabs-tab.fi-active, .fi-sc-wizard-step.fi-active, .fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-icon-ctn,
+  .vx-grow-x, html body table.vx-mlist > tbody > tr.fi-ta-row, .fi-ta-empty-state-icon-bg, .fi-empty-state-icon-bg,
+  .fi-section.fi-collapsible:not(.fi-collapsed) > .fi-section-content-ctn, .vxc-banner, .vx-qtab[aria-pressed="true"], .vx-qtab.is-active { animation: none; }
+  .fi-btn:active, .fi-icon-btn:active, .vx-qtab:active, .fi-tabs-item:active, .vxw-btn:active { transform: none; }
+}

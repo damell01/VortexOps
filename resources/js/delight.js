@@ -29,7 +29,7 @@ function untilt(el) {
 document.addEventListener('pointerleave', () => document.querySelectorAll('.vx-tilt.is-tilting').forEach(untilt));
 
 // ── Figures count up the first time they appear ──────────────────────────
-const COUNT = '.vxr-stat-value, .vx-home-hero-stats b, .vx-home-performance strong';
+const COUNT = '.vxr-stat-value, .vx-home-hero-stats b, .vx-home-performance strong, .vx-stat-tile .vx-stat-value, .vxpp-total, .fi-wi-stats-overview-stat-value';
 const NUM = /^(-)?(\$)?([\d,]+)(\.\d+)?(%)?$/;
 function countUp(el) {
     if (el.dataset.vxCounted) return;

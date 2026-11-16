@@ -119,8 +119,9 @@ class StreamerResource extends Resource
                 ->icon('heroicon-o-trophy')
                 ->visible(fn ($record) => $record?->exists && $record->scorecard()['has_data'])
                 ->columnSpanFull()
+                ->compact()
                 ->schema([
-                    Grid::make(4)->schema([
+                    Grid::make(['default' => 2, 'lg' => 4])->schema([
                         Placeholder::make('sc_shows')->label('Shows')->content(fn ($record) => number_format($record->scorecard()['shows'])),
                         Placeholder::make('sc_gross')->label('Gross Driven')->content(fn ($record) => '$' . number_format($record->scorecard()['gross'], 2)),
                         Placeholder::make('sc_margin')->label('Margin Contributed')->content(fn ($record) => '$' . number_format($record->scorecard()['margin'], 2)),
@@ -133,22 +134,43 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Basic Information')
-                ->description('Name, contact info, and assigned channel.')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(3)->schema([
+            \App\Filament\Support\FormFlow::tabs('member', static::formParts()),
+        ]);
+    }
+
+    /**
+     * The team-member form in parts: tabs when editing (Profile, Pay, ...),
+     * steps when adding someone (see CreateStreamer).
+     */
+    public static function formParts(): array
+    {
+        return [
+            ['key' => 'profile', 'label' => 'Profile', 'icon' => 'heroicon-o-user', 'step' => 'Who they are',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
                         TextInput::make('name')->required()->maxLength(255),
                         TextInput::make('legal_name')->maxLength(255),
                         TextInput::make('email')->email()->maxLength(255),
                         TextInput::make('phone')->tel()->maxLength(50),
+                        Select::make('member_type')
+                            ->label('Role')
+                            ->helperText('Where they appear in the operations workflow.')
+                            ->options(Streamer::memberTypeLabels())
+                            ->required()
+                            ->default('streamer')
+                            ->native(false),
+                        Select::make('status')
+                            ->options(Streamer::statusLabels())
+                            ->required()
+                            ->default('active')
+                            ->native(false),
                         Select::make('streamer_type')->label('Streamer Type')->options(Streamer::streamerTypeLabels())->default('in_house')->required()->native(false)->helperText('Remote streamers use the same show/payroll workflow but can be filtered separately.'),
                         Select::make('whatnot_channel_id')
                             ->label('Channel')
                             ->relationship('channel', 'name')
                             ->searchable()
                             ->preload()
-                            ->helperText('Primary channel this team member is attributed to for stats and analytics.'),
+                            ->helperText('Main channel for their stats.'),
                         Select::make('business_id')
                             ->label('Business')
                             ->relationship('business', 'name')
@@ -157,14 +179,47 @@ class StreamerResource extends Resource
                             ->preload()
                             ->helperText('Who they work for: decides which rates and Pay Runs they\'re paid in.'),
                     ]),
-                ]),
+                    Textarea::make('notes')->rows(3)->columnSpanFull(),
+                ]],
 
-            Section::make('Login Account')
-                ->description('Optionally create a login so this person can sign in and see their own shows, payouts, and inventory.')
-                ->columnSpanFull()
-                ->visible(fn (string $operation): bool => $operation === 'create')
-                ->schema([
-                    Grid::make(3)->schema([
+            ['key' => 'pay', 'label' => 'Pay', 'icon' => 'heroicon-o-banknotes', 'step' => 'How they are paid',
+                'intro' => 'Their normal pay. Pay Runs keep the amount they worked out, so changing a rate here never rewrites past pay.',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
+                        Select::make('payout_type')->label('Pay Type')->options(Streamer::assignablePayoutTypeLabels())->native(false),
+                        TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('$')->suffix('/hr'),
+                        TextInput::make('payout_percentage')->label('Payout %')->numeric()->suffix('%'),
+                        TextInput::make('package_rate')->label('Package / Flat Rate')->numeric()->prefix('$'),
+                        Toggle::make('include_tips')->label('Include Tips')->default(true)->inline(false),
+                    ]),
+                ]],
+
+            ['key' => 'routing', 'label' => 'Bank routing', 'icon' => 'heroicon-o-arrows-right-left', 'step' => 'Optional',
+                'intro' => 'Send pay from a channel to a specific bank account. Leave empty if everything goes to one account.',
+                'schema' => [
+                    Repeater::make('channel_routing_rules')
+                        ->hiddenLabel()
+                        ->schema([
+                            TextInput::make('channel')->label('Channel Name')->placeholder('e.g. Breaks')->required()->maxLength(100),
+                            TextInput::make('bank_label')->label('Bank / Account Label')->placeholder('e.g. Chase Business x1234')->required()->maxLength(255),
+                        ])
+                        ->columns(['default' => 1, 'sm' => 2])
+                        ->reorderable()
+                        ->cloneable()
+                        ->addActionLabel('Add routing rule')
+                        ->itemLabel(fn (array $state): ?string => ($state['channel'] ?? null)
+                            ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
+                            : null)
+                        ->collapsible()
+                        ->columnSpanFull()
+                        ->defaultItems(0),
+                ]],
+
+            ['key' => 'login', 'label' => 'Login', 'icon' => 'heroicon-o-key', 'step' => 'Optional',
+                'intro' => 'Give them a sign-in so they can see their own shows, pay and inventory.',
+                'visible' => fn (string $operation): bool => $operation === 'create',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
                         Toggle::make('create_login')
                             ->label('Create a login for this team member')
                             ->live()
@@ -186,41 +241,7 @@ class StreamerResource extends Resource
                             ->visible(fn (Get $get): bool => (bool) $get('create_login'))
                             ->required(fn (Get $get): bool => (bool) $get('create_login')),
                     ]),
-                ]),
-
-            Section::make('Payroll')
-                ->description('Set the normal pay structure here. Pay Runs snapshot the calculated amount so future rate changes do not rewrite history.')
-                ->icon('heroicon-o-banknotes')->columns(3)->columnSpanFull()
-                ->schema([
-                    Select::make('payout_type')->label('Pay Type')->options(Streamer::assignablePayoutTypeLabels())->native(false),
-                    TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('$')->suffix('/hr'),
-                    TextInput::make('payout_percentage')->label('Payout %')->numeric()->suffix('%'),
-                    TextInput::make('package_rate')->label('Package Rate')->numeric()->prefix('$'),
-                    Toggle::make('include_tips')->label('Include Tips')->default(true),
-                ]),
-
-            Section::make('Channel Routing')
-                ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
-                ->collapsed()
-                ->columnSpanFull()
-                ->schema([
-                    Repeater::make('channel_routing_rules')
-                        ->label('')
-                        ->schema([
-                            TextInput::make('channel')->label('Channel Name')->placeholder('e.g. Breaks')->required()->maxLength(100),
-                            TextInput::make('bank_label')->label('Bank / Account Label')->placeholder('e.g. Chase Business x1234')->required()->maxLength(255),
-                        ])
-                        ->columns(2)
-                        ->reorderable()
-                        ->cloneable()
-                        ->addActionLabel('Add routing rule')
-                        ->itemLabel(fn (array $state): ?string => ($state['channel'] ?? null)
-                            ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
-                            : null)
-                        ->collapsible()
-                        ->columnSpanFull()
-                        ->defaultItems(0),
-                ]),
+                ]],
 
             // Read-only. This was a repeater saved through inventoryLocations(),
             // which also returns the business's shared storage: every streamer
@@ -228,14 +249,11 @@ class StreamerResource extends Resource
             // rows held a location's name, its options were keyed by id), and
             // had it saved, removing a row would have deleted shared locations.
             // Who can use a location is set on the location itself now.
-            Section::make('Inventory Access')
-                ->description('Locations this team member picks stock from. Set who can use a location on the location itself.')
-                ->collapsed()
-                ->columnSpanFull()
-                ->visible(fn (?Streamer $record) => (bool) $record)
-                ->schema([
+            ['key' => 'inventory', 'label' => 'Inventory', 'icon' => 'heroicon-o-archive-box',
+                'visible' => fn (?Streamer $record): bool => (bool) $record?->exists,
+                'schema' => [
                     Placeholder::make('inventory_access')
-                        ->hiddenLabel()
+                        ->label('Locations they pick stock from')
                         ->content(function (?Streamer $record): \Illuminate\Support\HtmlString {
                             $names = $record ? $record->inventoryLocations()->orderBy('name')->pluck('name') : collect();
                             $link = InventoryLocationResource::getUrl('index');
@@ -245,25 +263,8 @@ class StreamerResource extends Resource
                                 . ' <a href="' . e($link) . '" class="text-primary-600 underline">Manage locations</a>'
                             );
                         }),
-                ]),
-
-            Section::make('Status & Notes')->columnSpanFull()->schema([
-                Grid::make(2)->schema([
-                    Select::make('member_type')
-                        ->label('Role')
-                        ->helperText('This controls where the team member appears in the operations workflow.')
-                        ->options(Streamer::memberTypeLabels())
-                        ->required()
-                        ->default('streamer')
-                        ->native(false),
-                    Select::make('status')
-                        ->options(Streamer::statusLabels())
-                        ->required()
-                        ->default('active'),
-                ]),
-                Textarea::make('notes')->rows(3)->columnSpanFull(),
-            ]),
-        ]);
+                ]],
+        ];
     }
 
     public static function table(Table $table): Table

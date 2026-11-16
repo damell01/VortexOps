@@ -178,7 +178,19 @@ class UserResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Account Details')->columns(2)->columnSpanFull()->schema([
+            \App\Filament\Support\FormFlow::tabs('user', static::formParts()),
+        ]);
+    }
+
+    /**
+     * The user form in parts: tabs when editing (Account, Role & access, Pay),
+     * steps when adding someone (see CreateUser).
+     */
+    public static function formParts(): array
+    {
+        return [
+            ['key' => 'account', 'label' => 'Account', 'icon' => 'heroicon-o-user-circle', 'step' => 'Name and sign-in', 'columns' => ['default' => 1, 'sm' => 2],
+                'schema' => [
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -210,17 +222,10 @@ class UserResource extends Resource
                     ->dehydrated(false)
                     ->visibleOn('create')
                     ->columnSpanFull(),
-            ]),
+                ]],
 
-            Section::make('Assistant assignments')->columnSpanFull()
-                ->description('Assign this assistant to one or more streamers. Payroll and time remain on the assistant account.')
-                ->schema([
-                    Select::make('assistedStreamers')
-                        ->label('Assigned streamers')
-                        ->multiple()->relationship('assistedStreamers', 'name')
-                        ->searchable()->preload(),
-                ]),
-            Section::make('Roles & Access')->columnSpanFull()->schema([
+            ['key' => 'access', 'label' => 'Role & access', 'icon' => 'heroicon-o-shield-check', 'step' => 'What they can do',
+                'schema' => [
                 Select::make('roles')
                     ->multiple()
                     ->live()
@@ -292,13 +297,18 @@ class UserResource extends Resource
                     ->nullable()
                     ->visible(fn (string $operation): bool => $operation === 'edit' && false)
                     ->helperText('Normally created and linked automatically when the Streamer role is assigned. Use this only to repair an existing account.'),
-            ]),
 
-            Section::make('Pay')
-                ->description('This person\'s pay. Leave a box blank to use the team default from Rates & Adjustments; fill it in to set a different amount for this person.')
-                ->columns(2)->columnSpanFull()
-                ->visible(fn (Get $get): bool => static::payMemberType($get) !== null)
-                ->schema([
+                    Select::make('assistedStreamers')
+                        ->label('Assigned streamers')
+                        ->multiple()->relationship('assistedStreamers', 'name')
+                        ->searchable()->preload()
+                        ->helperText('Assistants only: the streamers they help. Payroll and time stay on the assistant account.'),
+                ]],
+
+            ['key' => 'pay', 'label' => 'Pay', 'icon' => 'heroicon-o-banknotes', 'step' => 'How they are paid', 'columns' => ['default' => 1, 'sm' => 2],
+                'intro' => 'Leave a box blank to use the team default from Rates & Adjustments; fill it in to set a different amount for this person.',
+                'visible' => fn (Get $get): bool => static::payMemberType($get) !== null,
+                'schema' => [
                     Select::make(UserPayFields::BUSINESS)
                         ->label('Business')
                         ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all())
@@ -383,8 +393,8 @@ class UserResource extends Resource
                         ->placeholder(fn (Get $get) => UserPayFields::defaultHint('fulfillment', 'package_rate', $get(UserPayFields::BUSINESS)))
                         ->dehydrated(false)
                         ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment'),
-                ]),
-        ]);
+                ]],
+        ];
     }
 
     public static function table(Table $table): Table

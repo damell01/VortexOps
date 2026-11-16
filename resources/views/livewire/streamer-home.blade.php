@@ -557,13 +557,21 @@
     .vsh-zzz i, .vsh-zzz b { display:inline-block; font-style:normal; animation: vsh-z 2.4s ease-in-out infinite; }
     .vsh-zzz i { font-size:.95rem; animation-delay:.4s; } .vsh-zzz b { font-size:1.1rem; animation-delay:.8s; }
     @keyframes vsh-z { 0%,100% { opacity:.2; transform: translateY(0); } 50% { opacity:1; transform: translateY(-4px); } }
-    .vsh-buddy-modal { width:min(40rem, calc(100vw - 2rem)); }
+    .vsh-buddy-modal { width:min(40rem, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem); overflow-y:auto; overscroll-behavior:contain; }
     .vsh-buddy-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap:.5rem; }
     .vsh-buddy-grid button { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.6rem .4rem; border:1px solid var(--vsh-line); border-radius:.85rem; font-size:.8rem; font-weight:600; transition: border-color .15s, background-color .15s, transform .15s; }
     .vsh-buddy-grid button:hover { border-color:#8b5cf6; background: color-mix(in srgb, #7c3aed 6%, var(--vsh-card)); transform: translateY(-2px); }
     .vsh-buddy-grid button.is-current { border-color:#7c3aed; background:#f1ecff; color:#6d28d9; }
     .dark .vsh-buddy-grid button.is-current { background: rgb(124 58 237 / .2); color:#ddd6fe; }
     .vsh-buddy-grid img { height:3rem; image-rendering:pixelated; }
+    @media (max-width: 640px) {
+        .vsh-buddy-modal { padding:1rem; gap:.5rem; }
+        .vsh-buddy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap:.4rem; }
+        .vsh-buddy-grid button { padding:.4rem .2rem; font-size:.7rem; }
+        .vsh-buddy-grid img { height:2.4rem; }
+    }
+    /* One popup at a time: the buddy picker waits until Inventory Updates is acknowledged. */
+    body:has([aria-labelledby="updates-title"]) .vsh-buddy-modal, body:has([aria-labelledby="updates-title"]) .vsh-buddy-modal ~ .vsh-modal-backdrop, body:has([aria-labelledby="updates-title"]) .vsh-modal-backdrop:has(+ .vsh-buddy-modal) { display:none; }
     .vsh-buddy-icon { display:grid; place-items:center; height:3rem; font-size:1.6rem; color: var(--vsh-muted); }
     @media (prefers-reduced-motion: reduce) { .vsh-ball, .vsh-zzz i, .vsh-zzz b { animation:none; } }
     .vsh-performance{display:grid;gap:12px;min-width:0}

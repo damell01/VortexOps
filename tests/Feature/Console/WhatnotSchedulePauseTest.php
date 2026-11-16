@@ -27,8 +27,28 @@ class WhatnotSchedulePauseTest extends TestCase
             // The Seller API tick has its own production-only switches (below),
             // separate from the scraper schedule this flag pauses.
             fn ($e) => str_contains((string) $e->command, 'whatnot:')
-                && ! str_contains((string) $e->command, 'whatnot:api-sync-tick'),
+                && ! str_contains((string) $e->command, 'whatnot:api-sync-tick')
+                // Seller API health alerts: production-only, behind the same API switch.
+                && ! str_contains((string) $e->command, 'whatnot:sync-health'),
         ));
+    }
+
+    /** The show-end Seller Hub scrape has its own opt-in switch (vortex.whatnot.show_end_browser_enabled). */
+    private function isShowEndScrape($event): bool
+    {
+        return str_contains((string) $event->command, 'whatnot:analytics-show-end-poll');
+    }
+
+    public function test_the_show_end_scrape_runs_only_when_its_own_switch_is_on(): void
+    {
+        $showEnd = array_filter($this->whatnotEvents(), fn ($e) => $this->isShowEndScrape($e));
+        $this->assertNotEmpty($showEnd);
+
+        config(['vortex.whatnot.schedule_enabled' => true, 'vortex.whatnot.show_end_browser_enabled' => false]);
+        foreach ($showEnd as $event) $this->assertFalse($event->filtersPass($this->app), 'the show-end scrape ran with its switch off');
+
+        config(['vortex.whatnot.show_end_browser_enabled' => true]);
+        foreach ($showEnd as $event) $this->assertTrue($event->filtersPass($this->app), 'the show-end scrape was skipped with its switch on');
     }
 
     public function test_the_seller_api_tick_stays_off_until_its_own_switches_are_on(): void
@@ -59,7 +79,7 @@ class WhatnotSchedulePauseTest extends TestCase
 
     public function test_they_run_when_the_scraper_schedule_is_on(): void
     {
-        config(['vortex.whatnot.schedule_enabled' => true, 'vortex.whatnot.scraper_schedule' => true]);
+        config(['vortex.whatnot.schedule_enabled' => true, 'vortex.whatnot.scraper_schedule' => true, 'vortex.whatnot.show_end_browser_enabled' => true]);
 
         foreach ($this->whatnotEvents() as $event) {
             $this->assertTrue($event->filtersPass($this->app), "{$event->command} was skipped while enabled");
@@ -73,6 +93,7 @@ class WhatnotSchedulePauseTest extends TestCase
         $scraper = ['whatnot:sync-reporting', 'whatnot:backfill-nightly', 'whatnot:analytics-catchup', 'whatnot:sync-tips-batch'];
         $checked = 0;
         foreach ($this->whatnotEvents() as $event) {
+            if ($this->isShowEndScrape($event)) continue; // its own switch; tested above
             $isScraper = collect($scraper)->contains(fn ($c) => str_contains((string) $event->command, $c));
             $this->assertSame(! $isScraper, $event->filtersPass($this->app), "{$event->command} " . ($isScraper ? 'ran with the scraper off' : 'was skipped though it does not use the browser'));
             $checked += (int) $isScraper;

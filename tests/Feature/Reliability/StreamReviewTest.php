@@ -101,7 +101,9 @@ class StreamReviewTest extends TestCase
         $this->assertSame($niko->id,$service->suggest($alias)['suggestion']['id']);
         $this->assertSame('high',$service->suggest($alias)['suggestion']['confidence']);
         $this->assertSame([$tyler->id],array_column($service->suggest($long)['candidates'],'id'));
-        Livewire::test(ReviewShowStreamers::class)->assertSee('Suggested: Nicholas')->assertSee('Suggested: Tyler');
+        Livewire::test(ReviewShowStreamers::class)->call('loadTable')
+            ->assertTableColumnStateSet('suggested_streamer', 'Nicholas', $alias)
+            ->assertTableColumnStateSet('suggested_streamer', 'Tyler', $long);
         $this->assertSame(0,$alias->streamers()->count());
         $this->assertNull($alias->fresh()->ai_streamer_suggestion);
         $this->assertSame(0,ShowChangeLog::count());
@@ -119,7 +121,7 @@ class StreamReviewTest extends TestCase
             $this->assertNull($service->suggest($show)['suggestion']);
             $this->assertSame(0,$show->streamers()->count());
         }
-        Livewire::test(ReviewShowStreamers::class)->assertSee('Multiple possible hosts')->assertSee('Choose a streamer manually');
+        Livewire::test(ReviewShowStreamers::class)->call('loadTable')->assertSee('Multiple matches')->assertSee('Manual selection');
     }
 
     public function test_manual_assignment_supports_multiple_hosts_and_inactive_historical_profiles(): void

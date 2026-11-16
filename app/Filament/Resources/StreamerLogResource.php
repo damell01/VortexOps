@@ -285,11 +285,20 @@ class StreamerLogResource extends Resource
                     })
                     ->money('USD')->alignEnd(),
                 TextColumn::make('inbox_status')->label('Status')
-                    ->description(fn (StreamerLogEntry $record) =>
-                        $record->hasPendingRevisionRequest() && (auth()->user()?->isAdmin() || auth()->user()?->isOwner())
-                            ? 'Reason: '.(trim((string) $record->revision_reason) ?: 'No reason provided')
-                            : null
-                    )
+                    // Staff see what a report still lacks (earnings, hours, item costs)
+                    // here, instead of finding out at pay time.
+                    ->description(function (StreamerLogEntry $record): ?string {
+                        $user = auth()->user();
+                        if ($record->hasPendingRevisionRequest() && ($user?->isAdmin() || $user?->isOwner())) {
+                            return 'Reason: '.(trim((string) $record->revision_reason) ?: 'No reason provided');
+                        }
+                        if (! ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin()) || $record->status === 'admin_approved') {
+                            return null;
+                        }
+                        $missing = static::missingInfo($record);
+
+                        return $missing ? 'Missing: '.implode(' · ', $missing) : null;
+                    })
                     ->tooltip(fn (StreamerLogEntry $record) =>
                         $record->hasPendingRevisionRequest() && (auth()->user()?->isAdmin() || auth()->user()?->isOwner())
                             ? 'Edit request: '.(trim((string) $record->revision_reason) ?: 'No reason provided')

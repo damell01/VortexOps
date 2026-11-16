@@ -56,6 +56,19 @@ class AnalyticsApiPollTest extends TestCase
         ], true));
     }
 
+    public function test_with_the_show_end_scrape_on_the_api_waits_for_it(): void
+    {
+        config(['vortex.whatnot.show_end_browser_enabled' => true]);
+        Queue::fake();
+        $fresh = $this->show();
+        $scraped = $this->show(['raw_import_payload' => ['_analytics_browser_finished_at' => now()->subHour()->toIso8601String()]]);
+
+        $this->artisan('whatnot:analytics-api-poll')->assertSuccessful();
+
+        Queue::assertPushed(RetryShowAnalytics::class, fn ($job) => $job->showId === $scraped->id);
+        Queue::assertNotPushed(RetryShowAnalytics::class, fn ($job) => $job->showId === $fresh->id);
+    }
+
     public function test_dry_run_does_not_dispatch_any_jobs(): void
     {
         Queue::fake();

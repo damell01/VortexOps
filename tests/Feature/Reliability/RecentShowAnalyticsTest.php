@@ -34,7 +34,8 @@ class RecentShowAnalyticsTest extends TestCase
         $ids = Show::readyForAnalytics()->pluck('id')->all();
         $this->assertContains($ended->id, $ids);
         $this->assertContains($completed->id, $ids);
-        $this->assertNotContains($justEnded->id, $ids);
+        // Analytics start as soon as a show ends (Seller Hub is scraped immediately on show end).
+        $this->assertContains($justEnded->id, $ids);
         $this->assertNotContains($upcoming->id, $ids);
         $this->assertNotContains($cancelled->id, $ids);
     }

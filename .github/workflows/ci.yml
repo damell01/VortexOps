@@ -68,6 +68,11 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
+      # A page whose Blade view does not compile only crashes when someone
+      # opens it, and the deploy does not pre-compile views. Stop it here.
+      - name: Every page's view compiles
+        run: php artisan views:check
+
       - name: Run tests
         run: php artisan test
         env:

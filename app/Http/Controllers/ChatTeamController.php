@@ -19,9 +19,12 @@ class ChatTeamController
             && (\App\Services\TeamCommunications::canAccess($user) || config('chatify-preview.team_enabled', false));
         abort_unless($user && $allowed, 403);
 
+        // Limit the initial payload; search by name when the picker needs more users.
+        $search = mb_substr(trim((string) $request->query('search', '')), 0, 80);
         $people = User::query()->whereKeyNot($user->id)
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.addcslashes($search, '%_\\\\').'%'))
             ->with('roles:id,name')
-            ->orderBy('name')->limit(500)->get(['id', 'name']);
+            ->orderBy('name')->limit(60)->get(['id', 'name']);
 
         return response()->json([
             'data' => $people->map(fn (User $person) => [

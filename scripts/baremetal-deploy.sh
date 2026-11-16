@@ -186,6 +186,10 @@ if [ -f app/Console/Commands/SetupWebPush.php ]; then
 fi
 
 php artisan storage:link >/dev/null 2>&1 || true
+# Chatify's built stylesheet and script live in vendor/ and are served from
+# public/vendor/chatify, which is not in git. Publish them every deploy so the
+# messenger is never served unstyled after a fresh checkout or package update.
+php artisan vendor:publish --tag=chatify-assets --force >/dev/null 2>&1 || true
 php artisan filament:clear-cached-components || true
 
 # Cache only the safe framework artifacts. Blade/Livewire views compile on

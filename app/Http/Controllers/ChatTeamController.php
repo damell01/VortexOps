@@ -24,7 +24,7 @@ class ChatTeamController
         $role = strtolower(trim((string) $request->query('role', '')));
         abort_unless(in_array($role, ['', 'fulfillment', 'stream', 'admin'], true), 422);
         $escape = fn (string $value) => addcslashes($value, '%_\\');
-        $people = User::query()->whereKeyNot($user->id)
+        $people = \App\Services\TeamCommunications::previewRecipients(User::query())->whereKeyNot($user->id)
             ->when($search !== '', fn ($query) => $query->where(fn ($matched) => $matched
                 ->where('name', 'like', '%'.$escape($search).'%')
                 ->orWhereHas('roles', fn ($roles) => $roles->where('name', 'like', '%'.$escape(str_replace(' ', '_', $search)).'%'))))

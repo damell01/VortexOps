@@ -54,6 +54,40 @@ class ChatTeamListTest extends TestCase
         $this->getJson('/admin/communications/team?role=invalid')->assertStatus(422);
     }
 
+    public function test_production_pilot_picker_lists_only_owner_and_admin_accounts(): void
+    {
+        config([
+            'chatify-preview.available' => true,
+            'chatify-preview.privileged_preview_enabled' => true,
+            'chatify-preview.enabled' => true,
+            'chatify-preview.team_enabled' => false,
+        ]);
+        foreach (['admin', 'super_admin', 'fulfillment_admin', 'streamer'] as $role) {
+            Role::findOrCreate($role, 'web');
+        }
+
+        $owner = User::factory()->create(['email' => config('app.owner_email') ?: 'dbellcreations@gmail.com']);
+        $admin = User::factory()->create(['name' => 'Admin Pilot']);
+        $admin->assignRole('admin');
+        $superAdmin = User::factory()->create(['name' => 'Super Admin Pilot']);
+        $superAdmin->assignRole('super_admin');
+        $fulfillment = User::factory()->create(['name' => 'Fulfillment Manager']);
+        $fulfillment->assignRole('fulfillment_admin');
+        $streamer = User::factory()->create(['name' => 'Streamer Pilot']);
+        $streamer->assignRole('streamer');
+        User::factory()->create(['name' => 'No Role']);
+
+        $this->actingAs($owner)->getJson('/admin/communications/team')
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.attributes.name', 'Admin Pilot')
+            ->assertJsonPath('data.1.attributes.name', 'Super Admin Pilot');
+
+        $this->actingAs($admin)->getJson('/admin/communications/team')
+            ->assertOk()->assertJsonCount(2, 'data');
+        $this->actingAs($fulfillment)->getJson('/admin/communications/team')->assertForbidden();
+        $this->actingAs($streamer)->getJson('/admin/communications/team')->assertForbidden();
+    }
+
     public function test_picker_returns_an_indication_when_more_than_sixty_teammates_exist(): void
     {
         config(['chatify-preview.available' => true]);

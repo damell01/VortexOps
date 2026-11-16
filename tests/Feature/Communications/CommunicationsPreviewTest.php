@@ -55,11 +55,19 @@ class CommunicationsPreviewTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_open_workspace_but_admins_super_admins_streamers_and_roleless_users_cannot(): void
+    public function test_owner_and_admins_can_open_pilot_but_fulfillment_admins_and_staff_cannot(): void
     {
-        Livewire::test(Communications::class)->assertSee('Owner preview')->assertSee('Messages')->assertSee('Announcements');
+        Livewire::test(Communications::class)->assertSee('Admin pilot')->assertSee('Messages')->assertSee('Announcements');
         $this->assertArrayNotHasKey(Communications::class, RoleResource::pageOptions());
-        foreach (['admin', 'super_admin', 'streamer', null] as $role) {
+        foreach (['admin', 'super_admin'] as $role) {
+            $user = User::factory()->create();
+            $user->assignRole(Role::findOrCreate($role, 'web'));
+            $this->actingAs($user);
+            $this->assertTrue(Communications::canAccess());
+            Livewire::test(Communications::class)->assertSee('Admin pilot');
+            Livewire::test(AnnouncementPreview::class)->assertOk();
+        }
+        foreach (['fulfillment_admin', 'streamer', null] as $role) {
             $user = User::factory()->create();
             if ($role) $user->assignRole(Role::findOrCreate($role, 'web'));
             $this->actingAs($user);

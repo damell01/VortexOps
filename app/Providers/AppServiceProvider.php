@@ -44,6 +44,15 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(\App\Support\RequestMetrics::class);
+        // Messenger speed: Chatify looks blocks and settings up once per person
+        // per conversation (400+ queries to list a dozen chats). These subclasses
+        // load each small table once and answer from memory.
+        if (class_exists(\Chatify\Models\UserBlock::class)) {
+            config([
+                'chatify.models.block' => \App\Models\Chat\MemoUserBlock::class,
+                'chatify.models.user_setting' => \App\Models\Chat\MemoUserSetting::class,
+            ]);
+        }
         // laravel-debugbar is a real (non-dev) dependency, so a misconfigured
         // APP_DEBUG or DEBUGBAR_ENABLED on the live server silently turns it
         // on there too — it then profiles every query with a full backtrace

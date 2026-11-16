@@ -65,7 +65,7 @@ class Communications extends Page
         $this->reset('members', 'directMember', 'groupTitle', 'peopleSearch');
         $this->threadPage = 1;
         $this->dispatch('close-modal', id: 'communication-new-chat');
-        Notification::make()->title('Preview conversation opened')->body('Only your owner account can access this conversation during development.')->success()->send();
+        Notification::make()->title('Preview conversation opened')->body('This pilot is available only to the owner and authorized admins.')->success()->send();
     }
     public function selectConversation(int $id): void
     {
@@ -123,12 +123,12 @@ class Communications extends Page
         $this->resetAnnouncement();
         $this->announcementPage = 1;
         $this->dispatch('close-modal', id: 'communication-announcement');
-        Notification::make()->title($activate ? 'Owner preview activated' : 'Announcement draft saved')->body('Nothing was delivered to other accounts.')->success()->send();
+        Notification::make()->title($activate ? 'Admin pilot preview activated' : 'Announcement draft saved')->body('No employee email or push notifications were sent.')->success()->send();
     }
     public function publishPreview(int $id): void
     {
         app(TeamCommunications::class)->publishPreview($this->actor(), $id);
-        Notification::make()->title('Owner preview activated')->body('The banner follows its schedule and stays visible only to you.')->success()->send();
+        Notification::make()->title('Admin pilot preview activated')->body('The banner follows its schedule and is visible only to eligible pilot accounts.')->success()->send();
         $this->dispatch('announcement-preview-changed');
     }
     public function archiveAnnouncement(int $id): void

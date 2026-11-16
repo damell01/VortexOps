@@ -24,6 +24,27 @@ class TeamCommunications
             && $user !== null
             && ($user->isOwner() || (! $user->isStreamerAssistant() && $user->hasAnyRole(['super_admin', 'admin'])));
     }
+    /**
+     * During the production pilot, only accounts that can actually open
+     * messaging may be selected as recipients.
+     */
+    public static function previewRecipients(Builder $query): Builder
+    {
+        if (! config('chatify-preview.privileged_preview_enabled', false) || config('chatify-preview.team_enabled', false)) {
+            return $query;
+        }
+
+        $ownerEmail = config('app.owner_email') ?: 'dbellcreations@gmail.com';
+
+        return $query->where(function (Builder $eligible) use ($ownerEmail) {
+            $eligible->where('email', $ownerEmail)
+                ->orWhere(function (Builder $admin) {
+                    $admin->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'admin']))
+                        ->whereDoesntHave('roles', fn ($roles) => $roles->where('name', \App\Support\AssistantPayrollRole::NAME));
+                });
+        });
+    }
+
     public function authorize(User $user): void { abort_unless(self::canAccess($user), 403); }
 
     public function conversations(User $user): Builder
@@ -65,6 +86,12 @@ class TeamCommunications
         $ids = collect($data['members'])->map(fn ($id) => (int) $id)->reject(fn ($id) => $id === $user->id)->unique()->values();
         if ($ids->isEmpty() || ($data['kind'] === 'direct' && $ids->count() !== 1)) {
             throw ValidationException::withMessages(['members' => 'Choose one other person for a direct chat, or one or more people for a group.']);
+        }
+        if (config('chatify-preview.privileged_preview_enabled', false) && ! config('chatify-preview.team_enabled', false)) {
+            $allowedCount = self::previewRecipients(User::query())->whereKey($ids->all())->count();
+            if ($allowedCount !== $ids->count()) {
+                throw ValidationException::withMessages(['members' => 'During the pilot, select only the owner or an admin account.']);
+            }
         }
         $ids->push($user->id);
         $key = $data['kind'] === 'direct' ? 'preview:'.$ids->sort()->implode(':') : null;

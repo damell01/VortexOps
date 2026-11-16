@@ -166,7 +166,7 @@ class CommunicationsPreviewTest extends TestCase
         $this->assertSame('2026-10-20 15:00:00', $a->starts_at->format('Y-m-d H:i:s'));
         $this->assertCount(0, $this->service->banners($this->owner));
         $this->service->publishPreview($this->owner, $a->id);
-        Livewire::test(AnnouncementPreview::class)->assertSee('Team update')->assertSee('Owner preview');
+        Livewire::test(AnnouncementPreview::class)->assertSee('Team update')->assertSee('Admin pilot');
         Carbon::setTestNow(Carbon::parse('2026-10-20 17:00:00', 'UTC'));
         $this->assertCount(0, $this->service->banners($this->owner));
         Carbon::setTestNow(Carbon::parse('2026-10-20 14:59:59', 'UTC'));

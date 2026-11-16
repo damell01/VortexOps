@@ -2,11 +2,14 @@
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if((config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false)) && (\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false)))
         <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="showNew ? showNew=false : close()">
-            <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
+            <button type="button" class="vx-chatify-launch" :class="{'is-open': open}" x-on:click="toggle()" x-effect="const n=totalUnread(); if(n>(lastUnread??n) && !open){$el.classList.remove('vxm-nudge');void $el.offsetWidth;$el.classList.add('vxm-nudge')} lastUnread=n" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-                <span>Messages</span><span class="vx-chatify-launch-unread" x-show="totalUnread()>0" x-text="totalUnread()" aria-label="Unread messages"></span>
+                <svg class="vxm-launch-x" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                <span>Messages</span><span class="vx-chatify-launch-unread" x-show="totalUnread()>0" x-text="totalUnread()" aria-label="Unread messages" x-transition:enter="vxm-pop-in" x-effect="totalUnread(); $el.classList.remove('vxm-bump'); void $el.offsetWidth; $el.classList.add('vxm-bump')"></span>
             </button>
-            <section id="vx-chatify-drawer" class="vx-chatify-drawer vx-chatify-native" :class="{'is-full': expanded, 'has-selected': !!selected}" x-show="open" x-cloak role="dialog" :aria-modal="expanded ? 'true' : 'false'" aria-label="Team messages">
+            <section id="vx-chatify-drawer" class="vx-chatify-drawer vx-chatify-native" :class="{'is-full': expanded, 'has-selected': !!selected}" x-show="open" x-cloak
+                x-transition:enter="vxm-drawer-enter" x-transition:enter-start="vxm-drawer-from" x-transition:enter-end="vxm-drawer-to"
+                x-transition:leave="vxm-drawer-leave" x-transition:leave-start="vxm-drawer-to" x-transition:leave-end="vxm-drawer-from" role="dialog" :aria-modal="expanded ? 'true' : 'false'" aria-label="Team messages">
                 <header class="vx-chatify-drawer-head">
                     <span class="vx-chatify-head-icon" aria-hidden="true"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span>
                     <div class="vx-chatify-head-copy"><strong>Messages</strong><small>Team conversations<span x-show="!connected"> · Offline</span></small></div>
@@ -24,8 +27,8 @@
                     <p class="vx-chatify-native-hint" x-show="loading">Loading conversations…</p>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
                     <p class="vx-chatify-native-hint" x-show="loaded && !loading && !threads.length">No conversations yet.</p><p class="vx-chatify-native-hint" x-show="loaded && !loading && threads.length && !visibleThreads().length">No conversations match these filters.</p>
-                    <template x-for="thread in visibleThreads()" :key="thread.id">
-                        <button type="button" class="vx-chatify-native-thread" :class="{'is-current': String(selected?.id)===String(thread.id), 'is-unread': unread(thread)>0}" x-on:click="openThread(thread)">
+                    <template x-for="(thread, ti) in visibleThreads()" :key="thread.id">
+                        <button type="button" class="vx-chatify-native-thread" :style="'--vxm-i:'+Math.min(ti,12)" :class="{'is-current': String(selected?.id)===String(thread.id), 'is-unread': unread(thread)>0}" x-on:click="openThread(thread)">
                             <span class="vx-chatify-native-avatar" :class="thread.attributes?.conversation_type==='group' ? 'is-group' : ''"><span x-show="thread.attributes?.conversation_type!=='group'" x-text="initials(label(thread))"></span><span x-show="thread.attributes?.conversation_type==='group'"><x-filament::icon icon="heroicon-o-user-group" /></span><i class="vx-chatify-online" x-show="isOnline(thread)"></i></span>
                             <span class="vx-chatify-native-thread-copy"><strong x-text="label(thread)"></strong><small x-text="snippet(thread)"></small></span>
                             <span class="vx-chatify-thread-meta"><time x-text="threadTime(thread)"></time><span class="vx-chatify-unread-count" x-show="unread(thread)>0" x-text="unread(thread)" aria-label="Unread messages"></span><span class="vx-chatify-pin" x-show="isPinned(thread)" aria-label="Pinned">📌</span></span>
@@ -33,7 +36,7 @@
                     </template>
                 </div>
                 <div class="vx-chatify-empty-pane" x-show="expanded && !selected" x-cloak><span class="vx-chatify-head-icon" aria-hidden="true"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span><strong>Pick a conversation</strong><small>Or start a new one with the pencil above.</small></div>
-                <div class="vx-chatify-conversation" x-show="selected" x-cloak>
+                <div class="vx-chatify-conversation" x-show="selected" x-cloak x-effect="selected?.id; $el.classList.remove('vxm-slide'); void $el.offsetWidth; if(selected) $el.classList.add('vxm-slide')">
                     <div class="vx-chatify-conversation-head">
                         <button type="button" class="vx-chatify-back" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations"><x-filament::icon icon="heroicon-o-arrow-left" /></button>
                         <span class="vx-chatify-native-avatar" :class="selected?.attributes?.conversation_type==='group' ? 'is-group' : ''"><span x-show="selected?.attributes?.conversation_type!=='group'" x-text="initials(selected ? label(selected) : '')"></span><span x-show="selected?.attributes?.conversation_type==='group'"><x-filament::icon icon="heroicon-o-user-group" /></span><i class="vx-chatify-online" x-show="selected && isOnline(selected)"></i></span>
@@ -49,7 +52,7 @@
                     <div class="vx-chatify-message-search" x-show="showMessageSearch || messageSearch" x-cloak><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><span x-show="historySearching">Searching history…</span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch.length>=2 && !historySearching && !filteredMessages().length">No matching messages found in the conversation.</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
-                            <div class="vx-chatify-message-group" :id="'vxm-'+message.id" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index)}"><div class="vx-chatify-new-divider" x-show="String(message.id)===String(firstUnreadId)" x-cloak><span>New messages</span></div><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
+                            <div class="vx-chatify-message-group" :id="'vxm-'+message.id" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index), 'vxm-new': freshIds.includes(String(message.id))}"><div class="vx-chatify-new-divider" x-show="String(message.id)===String(firstUnreadId)" x-cloak><span>New messages</span></div><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
                                 <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span class="vx-chatify-body" x-show="message.attributes?.body" x-html="linkify(message.attributes?.body)"></span>
                                 <template x-for="card in cardsFor(message)" :key="card.url"><a class="vx-chatify-link-card" :href="card.url"><span class="vx-chatify-link-card-img" :class="'is-'+card.icon"><template x-if="card.image"><img :src="card.image" alt="" loading="lazy"></template><template x-if="!card.image"><span x-text="card.kind.charAt(0)"></span></template></span><span class="vx-chatify-link-card-copy"><small x-text="card.kind"></small><strong x-text="card.title"></strong><span x-text="card.detail"></span></span></a></template>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
@@ -92,7 +95,7 @@
                             <div class="vx-chatify-emoji-menu" x-show="emojiOpen" x-cloak role="listbox" aria-label="Emoji"><template x-for="e in emojiSet" :key="e"><button type="button" role="option" x-on:click="insertEmoji(e)" x-text="e"></button></template></div>
                         </div>
                         <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery();notifyTyping()" :placeholder="selected && selected.attributes?.conversation_type!=='group' ? 'Message '+label(selected).split(' ')[0]+'…' : 'Write a message…'" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey && !$event.isComposing){$event.preventDefault();mentionQuery=null;send()}" x-on:keydown.escape="mentionQuery=null"></textarea>
-                        <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))"><x-filament::icon icon="heroicon-o-paper-airplane" /><span x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></span></button>
+                        <button type="submit" :class="{'vxm-whoosh': whoosh}" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))"><x-filament::icon icon="heroicon-o-paper-airplane" /><span x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></span></button>
                     </form>
                 </div>
                 <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
@@ -100,7 +103,7 @@
                     <button type="button" x-on:click="showNew=!showNew; if(showNew){loadUsers();loadGroupRoles()}">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
             </section>
-                <div class="vx-chatify-compose-backdrop" x-show="showNew" x-cloak x-on:click.self="showNew=false" role="presentation">
+                <div class="vx-chatify-compose-backdrop" x-show="showNew" x-cloak x-transition:enter="vxm-fade-enter" x-transition:enter-start="vxm-fade-from" x-transition:leave="vxm-fade-leave" x-transition:leave-end="vxm-fade-from" x-on:click.self="showNew=false" role="presentation">
                 <div class="vx-chatify-new-overlay vx-chat-compose" role="dialog" aria-modal="true" aria-labelledby="vx-chat-compose-title" x-trap.noscroll="showNew">
                     <div class="vx-chatify-conversation-head"><strong id="vx-chat-compose-title">New Conversation</strong><small>Start a direct message or group conversation</small><button type="button" x-on:click="showNew=false" aria-label="Cancel new conversation">✕</button></div>
                     <div class="vx-chat-compose-body">
@@ -239,7 +242,7 @@
             <script>
                 function vortexChatifyWidget() {
                     return {
-                        open:false, expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
+                        open:false, lastUnread:null, freshIds:[], whoosh:false, expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
                         messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
@@ -375,7 +378,10 @@
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
+                                const knownIds=new Set(this.messages.map(m=>String(m.id)));
                                 this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);this.loadReactionBatch(list);
+                                // Animate only messages that arrived while the conversation was open, never the history on first load.
+                                if(!firstLoad){const fresh=list.map(m=>String(m.id)).filter(i=>!knownIds.has(i));if(fresh.length){this.freshIds=[...this.freshIds,...fresh].slice(-20);setTimeout(()=>{this.freshIds=this.freshIds.filter(i=>!fresh.includes(i))},900);}}
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
                                 if(firstLoad && this.unreadAtOpen>0){const theirs=this.messages.filter(m=>!this.isMine(m));const first=theirs[Math.max(0,theirs.length-this.unreadAtOpen)];this.firstUnreadId=first ? first.id : null;}
                                 this.$nextTick(()=>{
@@ -633,6 +639,7 @@
                                 if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));
                                 this.files.forEach(file=>body.append('attachments[]',file,file.name));
                                 await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});this.signalChatUpdate(conversationId);
+                                this.whoosh=true;setTimeout(()=>{this.whoosh=false},600);
                                 this.draft='';this.files=[];this.replyTo=null;this.typingSentAt=0;this.local('/conversations/'+encodeURIComponent(conversationId)+'/presence',{method:'POST',body:JSON.stringify({typing:false})}).catch(()=>{});
                                 await this.loadMessages();
                                 this.load();

@@ -621,3 +621,69 @@ body:has(.fi-modal-open) .vx-chatify-launch{display:none}
 .vxc-banner>div+div button:hover{filter:brightness(1.1)}
 .vxc-banner>div+div span{font-size:12px;font-weight:700}
 @media(max-width:700px){.vxc-banner{flex-wrap:wrap}.vxc-banner>div:first-of-type{flex-basis:calc(100% - 40px)}.vxc-banner>div+div{flex-direction:row;align-items:center;margin-left:33px}}
+
+/* ── Messenger motion ─────────────────────────────────────────────────────
+   Spring curve for things arriving, a quicker ease for things leaving. Every
+   effect switches off under prefers-reduced-motion (bottom of this block). */
+.vx-chatify-shell{--vxm-spring:cubic-bezier(.2,1.25,.32,1);--vxm-out:cubic-bezier(.4,0,.8,.3)}
+
+/* Drawer springs out of the launcher (bottom-right) and tucks back into it. */
+.vx-chatify-drawer{transform-origin:calc(100% - 40px) calc(100% + 30px)}
+.vxm-drawer-enter{transition:opacity .22s ease-out,transform .42s var(--vxm-spring),filter .3s ease-out}
+.vxm-drawer-leave{transition:opacity .16s ease-in,transform .2s var(--vxm-out),filter .16s ease-in}
+.vxm-drawer-from{opacity:0;transform:translateY(18px) scale(.86);filter:blur(4px)}
+.vxm-drawer-to{opacity:1;transform:none;filter:none}
+@media(max-width:640px){
+  .vx-chatify-drawer{transform-origin:50% 100%}
+  .vxm-drawer-from{transform:translateY(60%);filter:none}
+}
+
+/* Launcher: chat icon spins into an ✕ while open; a press squish; a nudge when a message lands. */
+.vx-chatify-launch{transition:transform .25s var(--vxm-spring),background .2s,box-shadow .2s}
+.vx-chatify-launch:active{transform:scale(.94)}
+.vx-chatify-launch>svg{transition:transform .35s var(--vxm-spring),opacity .2s}
+.vx-chatify-launch .vxm-launch-x{position:absolute;left:var(--vxm-x-left,17px);opacity:0;transform:rotate(-90deg) scale(.5)}
+@media(max-width:640px){.vx-chatify-launch{--vxm-x-left:15px}}
+.vx-chatify-launch.is-open>svg:first-child{opacity:0;transform:rotate(90deg) scale(.5)}
+.vx-chatify-launch.is-open .vxm-launch-x{opacity:1;transform:none}
+.vx-chatify-launch.vxm-nudge{animation:vxm-nudge .7s var(--vxm-spring)}
+@keyframes vxm-nudge{0%{transform:none}20%{transform:translateY(-6px) rotate(-6deg)}40%{transform:translateY(0) rotate(5deg)}60%{transform:rotate(-3deg)}80%{transform:rotate(2deg)}100%{transform:none}}
+.vx-chatify-launch-unread.vxm-bump{animation:vxm-bump .45s var(--vxm-spring)}
+@keyframes vxm-bump{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+
+/* Conversations cascade in as the drawer opens. */
+.vx-chatify-shell.is-open .vx-chatify-native-thread{animation:vxm-rise .38s var(--vxm-spring) both;animation-delay:calc(var(--vxm-i,0) * 28ms + 60ms)}
+@keyframes vxm-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* An opened conversation slides in from the right. */
+.vx-chatify-conversation.vxm-slide{animation:vxm-slide-in .34s var(--vxm-spring)}
+@keyframes vxm-slide-in{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+
+/* New messages: yours pop up from your side, theirs slide in from theirs. */
+.vx-chatify-message-group.vxm-new .vx-chatify-message{animation:vxm-theirs .42s var(--vxm-spring) both;transform-origin:0 100%}
+.vx-chatify-message-group.vxm-new.is-mine .vx-chatify-message{animation-name:vxm-mine;transform-origin:100% 100%}
+@keyframes vxm-mine{0%{opacity:0;transform:translateY(14px) scale(.7)}100%{opacity:1;transform:none}}
+@keyframes vxm-theirs{0%{opacity:0;transform:translateX(-14px) scale(.85)}100%{opacity:1;transform:none}}
+
+/* Send: the paper plane takes off and lands back. */
+.vx-chatify-composer button[type=submit].vxm-whoosh svg{animation:vxm-fly .55s var(--vxm-out)}
+@keyframes vxm-fly{0%{transform:none;opacity:1}45%{transform:translate(18px,-14px) rotate(-18deg) scale(.7);opacity:0}46%{transform:translate(-14px,10px) scale(.7);opacity:0}100%{transform:none;opacity:1}}
+
+/* Reactions bounce in; typing dots bob. */
+.vx-chatify-message-reactions button{animation:vxm-bump .38s var(--vxm-spring)}
+.vx-chatify-shell .vx-chatify-typing{animation:vxm-rise .3s var(--vxm-spring)}
+
+/* New-chat panel: backdrop fades, panel rises. */
+.vxm-fade-enter{transition:opacity .2s ease-out}.vxm-fade-leave{transition:opacity .15s ease-in}.vxm-fade-from{opacity:0}
+.vx-chatify-compose-backdrop .vx-chat-compose{animation:vxm-sheet .4s var(--vxm-spring)}
+@keyframes vxm-sheet{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .vxm-drawer-enter,.vxm-drawer-leave,.vxm-fade-enter,.vxm-fade-leave{transition:opacity .01s}
+  .vxm-drawer-from{transform:none;filter:none}
+  .vx-chatify-launch,.vx-chatify-launch>svg{transition:none}
+  .vx-chatify-launch.vxm-nudge,.vx-chatify-launch-unread.vxm-bump,.vx-chatify-shell.is-open .vx-chatify-native-thread,
+  .vx-chatify-conversation.vxm-slide,.vx-chatify-message-group.vxm-new .vx-chatify-message,
+  .vx-chatify-composer button[type=submit].vxm-whoosh svg,.vx-chatify-message-reactions button,
+  .vx-chatify-shell .vx-chatify-typing,.vx-chatify-compose-backdrop .vx-chat-compose{animation:none}
+}

@@ -55,7 +55,9 @@ class StorageTrimTest extends TestCase
         $this->assertFalse(DB::table('whatnot_api_snapshots')->where('id', $oldOrders)->exists());
 
         $slim = json_decode(DB::table('whatnot_ledger_entries')->where('id', $old)->value('raw_data'), true);
-        $this->assertSame(['ledger_transaction_id' => 'L1', 'livestream_id' => 'live-9', '_source' => 'seller_api'], $slim);
+        // MySQL's JSON column reorders keys, so compare the contents, not the order.
+        $this->assertEqualsCanonicalizing(['ledger_transaction_id' => 'L1', 'livestream_id' => 'live-9', '_source' => 'seller_api'], $slim);
+        $this->assertSame(['_source', 'ledger_transaction_id', 'livestream_id'], collect(array_keys($slim))->sort()->values()->all());
         $this->assertSame(-5.0, (float) DB::table('whatnot_ledger_entries')->where('id', $old)->value('amount')); // the entry itself stays
         $this->assertStringContainsString('keep me', DB::table('whatnot_ledger_entries')->where('id', $fresh)->value('raw_data'));
 

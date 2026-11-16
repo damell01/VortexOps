@@ -36,6 +36,6 @@ class InventoryReportLocationNameTest extends TestCase
 
     public function test_location_names_are_saved_without_surrounding_spaces(): void
     {
-        $this->assertSame('Back Room', InventoryLocation::create(['name' => '  Back Room ', 'type' => 'storage', 'status' => 'active'])->fresh()->name);
+        $this->assertSame('Back Room', InventoryLocation::create(['name' => '  Back Room ', 'type' => 'other', 'status' => 'active'])->fresh()->name);
     }
 }

@@ -1749,3 +1749,19 @@ html body .fi-modal.fi-no-database .fi-modal-window .fi-no-notification{margin:0
 .vx-qtab.is-on span{background:rgba(255,255,255,.22);color:#fff}
 .dark .vx-qtab{background:#18151f;border-color:#2c2839;color:#c5bfd4}
 @media(max-width:767px){.vx-qtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-2px;padding:2px 2px 4px;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent);padding-right:24px}.vx-qtabs::-webkit-scrollbar{display:none}}
+
+/* Tabbed and step-by-step forms (App\Filament\Support\FormFlow) */
+.fi-main .vx-form-tabs .fi-tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+.vx-form-tabs .fi-tabs::-webkit-scrollbar { display: none; }
+.vx-form-tabs .fi-tabs-item { flex: 0 0 auto; white-space: nowrap; }
+.vx-form-intro { margin-bottom: .25rem; }
+@media (max-width: 767px) {
+    /* Phones see every step as a numbered dot, with the current step's name beside it. */
+    .fi-sc-wizard .fi-sc-wizard-header { display: flex; align-items: center; gap: .25rem; overflow-x: auto; padding: .5rem .75rem; scrollbar-width: none; }
+    .fi-sc-wizard .fi-sc-wizard-header .fi-sc-wizard-header-step:not(.fi-active) { display: flex; }
+    .fi-sc-wizard .fi-sc-wizard-header-step { flex: 0 0 auto; }
+    .fi-sc-wizard .fi-sc-wizard-header-step-btn { padding: .35rem .3rem; gap: .5rem; }
+    .fi-sc-wizard .fi-sc-wizard-header-step-icon-ctn { width: 2rem; height: 2rem; }
+    .fi-sc-wizard .fi-sc-wizard-header-step:not(.fi-active) .fi-sc-wizard-header-step-text { display: none; }
+    .fi-sc-wizard .fi-sc-wizard-header-step-description { font-size: .75rem; }
+}

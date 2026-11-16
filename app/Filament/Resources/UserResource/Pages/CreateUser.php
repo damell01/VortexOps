@@ -8,7 +8,15 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreateUser extends CreateRecord
 {
+    use CreateRecord\Concerns\HasWizard;
+
     protected static string $resource = UserResource::class;
+
+    /** Adding someone is three short steps: account, role, then pay if their role is paid. */
+    public function getSteps(): array
+    {
+        return \App\Filament\Support\FormFlow::steps(UserResource::formParts());
+    }
 
     /** Whether the admin typed a temporary password (it must then be changed at first sign-in). */
     private bool $temporaryPassword = false;

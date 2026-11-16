@@ -11,7 +11,15 @@ use Spatie\Permission\Models\Role;
 
 class CreateStreamer extends CreateRecord
 {
+    use CreateRecord\Concerns\HasWizard;
+
     protected static string $resource = StreamerResource::class;
+
+    /** Adding someone is a few short steps instead of one long form. */
+    public function getSteps(): array
+    {
+        return \App\Filament\Support\FormFlow::steps(StreamerResource::formParts());
+    }
 
     /** @var array{email: string, password: string}|null */
     private ?array $loginData = null;

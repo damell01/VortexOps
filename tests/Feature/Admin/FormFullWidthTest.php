@@ -96,13 +96,15 @@ class FormFullWidthTest extends TestCase
         $this->assertSectionSpansFullWidth($html, 'page-access');
     }
 
-    public function test_create_user_account_details_section_is_full_width(): void
+    public function test_create_user_is_a_full_width_step_by_step_wizard(): void
     {
         $this->actingAs($this->admin());
 
-        $html = $this->get('/admin/users/create')->getContent();
+        $html = $this->get('/admin/users/create')->assertOk()->getContent();
 
-        $this->assertSectionSpansFullWidth($html, 'account-details');
+        // Adding a user is steps now (Account, Role & access, Pay), not one long form.
+        $this->assertStringContainsString('fi-sc-wizard', $html);
+        $this->assertStringContainsString('Role &amp; access', $html);
     }
 
     public function test_create_whatnot_channel_details_section_is_full_width(): void

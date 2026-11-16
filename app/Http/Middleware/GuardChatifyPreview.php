@@ -20,7 +20,7 @@ class GuardChatifyPreview
 
         if ($request->is('chatify', 'chatify/*', 'api/chatify', 'api/chatify/*')) {
             abort_unless(
-                (config('chatify-preview.enabled', false) === true && auth()->user()?->isOwner() === true)
+                (config('chatify-preview.enabled', false) === true && \App\Services\TeamCommunications::canAccess(auth()->user()))
                     || (config('chatify-preview.team_enabled', false) === true && auth()->check()),
                 403,
                 'Messaging is not enabled for this account.'

@@ -5,7 +5,7 @@
 @endphp
 <ul class="vx-goal-bars" style="list-style:none;margin:0;padding:0;display:grid;gap:14px">
     @foreach ($progress as $row)
-        @php([$color, $word] = $tone[$row['status']])
+        @php [$color, $word] = $tone[$row['status']]; @endphp
         <li wire:key="goal-{{ $row['id'] }}">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">
                 <span style="font-weight:600">{{ $row['label'] }} <span class="vxw-meta" style="font-weight:400">· {{ $row['scope'] }}</span></span>

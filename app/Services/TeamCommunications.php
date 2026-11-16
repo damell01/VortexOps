@@ -162,13 +162,13 @@ class TeamCommunications
     public function banners(User $user)
     {
         $this->authorize($user);
+        $roleIds = $user->roles()->pluck('roles.id');
         return TeamAnnouncement::where('is_preview', true)->where('status', 'published')->where('show_banner', true)
             ->where('starts_at', '<=', now())->where('ends_at', '>', now())
-            ->where(function ($q) use ($user) {
+            ->where(function ($q) use ($user, $roleIds) {
                 $q->where('audience', 'all')
                     ->orWhere(fn ($target) => $target->where('audience', 'users')->whereJsonContains('user_ids', $user->id))
-                    ->when($user->roles()->exists(), function ($audience) use ($user) {
-                        $roleIds = $user->roles()->pluck('roles.id');
+                    ->when($roleIds->isNotEmpty(), function ($audience) use ($roleIds) {
                         $audience->orWhere(function ($target) use ($roleIds) {
                             $target->where('audience', 'roles')->where(function ($roles) use ($roleIds) {
                                 foreach ($roleIds as $roleId) {

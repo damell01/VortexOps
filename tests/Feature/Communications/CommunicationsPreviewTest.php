@@ -302,15 +302,22 @@ class CommunicationsPreviewTest extends TestCase
         Livewire::test(AnnouncementPreview::class)->call('dismiss', $a->id)->assertForbidden();
     }
 
-    public function test_preview_banner_is_not_rendered_or_queried_on_non_owner_dashboard(): void
+    public function test_preview_banner_is_visible_to_admin_but_not_queried_for_staff(): void
     {
-        $a = $this->draft(['title' => 'Hidden preview banner']);
+        $a = $this->draft(['title' => 'Pilot preview banner']);
         $this->service->publishPreview($this->owner, $a->id);
-        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Hidden preview banner')->assertSee('Messages &amp; Announcements', false);
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Pilot preview banner');
+
         $this->person->assignRole(Role::findOrCreate('admin', 'web'));
         $this->actingAs($this->person);
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Pilot preview banner');
+
+        $staff = User::factory()->create();
+        $staff->assignRole(Role::findOrCreate('fulfillment_admin', 'web'));
+        $this->actingAs($staff);
+        \Illuminate\Support\Facades\DB::flushQueryLog();
         \Illuminate\Support\Facades\DB::enableQueryLog();
-        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertDontSee('Hidden preview banner')->assertDontSee('Messages &amp; Announcements', false);
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertDontSee('Pilot preview banner');
         $queries = \Illuminate\Support\Facades\DB::getQueryLog();
         \Illuminate\Support\Facades\DB::disableQueryLog();
         $this->assertFalse(collect($queries)->contains(fn ($q) => str_contains($q['query'], 'team_announcements')));

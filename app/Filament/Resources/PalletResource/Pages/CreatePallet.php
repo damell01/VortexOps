@@ -8,7 +8,15 @@ use Illuminate\Support\Facades\Auth;
 
 class CreatePallet extends CreateRecord
 {
+    use CreateRecord\Concerns\HasWizard;
+
     protected static string $resource = PalletResource::class;
+
+    /** A new pallet is a few short steps; the manifest comes right after saving. */
+    public function getSteps(): array
+    {
+        return \App\Filament\Support\FormFlow::steps(PalletResource::formParts());
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

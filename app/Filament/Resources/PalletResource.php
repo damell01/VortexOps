@@ -92,38 +92,59 @@ class PalletResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pallet Details')
-                ->description('Vendor, purchase order, and shipment information')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(3)->schema([
+            \App\Filament\Support\FormFlow::tabs('pallet', static::formParts()),
+        ]);
+    }
+
+    /** The pallet form in parts: steps to add one (CreatePallet), tabs to edit it. */
+    public static function formParts(): array
+    {
+        return [
+            ['key' => 'pallet', 'label' => 'Pallet', 'icon' => 'heroicon-o-cube', 'step' => 'Who it is from',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
                         TextInput::make('name')->label('Pallet Name')->placeholder('e.g. Topps Chrome — August')->helperText('What you would call it out loud. Optional.')->maxLength(255),
                         Select::make('vendor_id')->label('Vendor')->options(fn () => Vendor::activeOptions())->searchable()->required(),
                         TextInput::make('reference')->label('PO / Reference #')->helperText("The vendor's number, so it keeps matching their paperwork.")->maxLength(255),
-                        DatePicker::make('received_date')->label('Received Date'),
+                        Select::make('status')->options(Pallet::statusLabels())->default('staged')->required(),
+                    ]),
+                ]],
+
+            ['key' => 'costs', 'label' => 'Costs', 'icon' => 'heroicon-o-currency-dollar', 'step' => 'What it cost',
+                'intro' => 'Shipping and payment fees are spread across the items by quantity when the pallet is received.',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
                         TextInput::make('total_cost')->label('Total Invoice Cost ($)')->numeric()->prefix('$')->minValue(0),
                         TextInput::make('shipping_cost')->label('Shipping Cost ($)')->numeric()->prefix('$')->minValue(0)->helperText('Spread across the items by quantity when the pallet is received'),
                         TextInput::make('payment_fees')->label('Payment Fees ($)')->numeric()->prefix('$')->minValue(0)->default(0)->helperText('Card, PayPal or wire charges — spread across the items the same way'),
-                        Select::make('status')->options(Pallet::statusLabels())->default('staged')->required(),
                     ]),
-                    Grid::make(3)->schema([
+                ]],
+
+            ['key' => 'delivery', 'label' => 'Delivery', 'icon' => 'heroicon-o-truck', 'step' => 'Tracking and dates',
+                'schema' => [
+                    Grid::make(['default' => 1, 'sm' => 2, 'lg' => 3])->schema([
                         TextInput::make('carrier')->maxLength(255),
                         TextInput::make('tracking_number')->maxLength(255)->copyable(),
                         DatePicker::make('expected_delivery_date')->label('Expected Delivery'),
+                        DatePicker::make('received_date')->label('Received Date'),
+                        TextInput::make('received_by_name')->label('Received By (Name)')->maxLength(255),
                     ]),
                     Textarea::make('notes')->rows(2)->columnSpanFull(),
-                ]),
-            Section::make('Manifest Lines')->description('One line per thing on the pallet.')->columnSpanFull()->schema([
-                \Filament\Schemas\Components\View::make('filament.components.manifest-lines-link')->columnSpanFull(),
-            ]),
-            Section::make('Media & Attachments')->description('Upload photos, documents, and other evidence tied to this pallet')->columnSpanFull()->schema([
-                FileUpload::make('new_attachments')->label('Upload Files')->multiple()->disk(\App\Services\PalletAttachmentService::DISK)->directory('pallets')->visibility('public')->maxSize(5120)->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
-                View::make('filament.components.photo-capture-button'),
-            ]),
-            Section::make('Receiving Details')->description('Captured during the receiving workflow')->columnSpanFull()->columns(2)->schema([
-                TextInput::make('received_by_name')->label('Received By (Name)')->maxLength(255)->columnSpan(2),
-            ]),
-        ]);
+                ]],
+
+            ['key' => 'manifest', 'label' => 'Manifest', 'icon' => 'heroicon-o-list-bullet',
+                'visible' => fn (?Pallet $record): bool => (bool) $record?->exists,
+                'schema' => [
+                    \Filament\Schemas\Components\View::make('filament.components.manifest-lines-link')->columnSpanFull(),
+                ]],
+
+            ['key' => 'files', 'label' => 'Photos & files', 'icon' => 'heroicon-o-photo', 'step' => 'Optional',
+                'intro' => 'Photos, invoices and other paperwork for this pallet.',
+                'schema' => [
+                    FileUpload::make('new_attachments')->label('Upload Files')->multiple()->disk(\App\Services\PalletAttachmentService::DISK)->directory('pallets')->visibility('public')->maxSize(5120)->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
+                    View::make('filament.components.photo-capture-button'),
+                ]],
+        ];
     }
 
     public static function table(Table $table): Table

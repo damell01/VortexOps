@@ -850,7 +850,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
      x-on:livewire:navigating.window="open=false"
      x-cloak>
     <template x-teleport="body">
-        <div x-show="open" x-transition.opacity class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="vx-sync-title">
+        <div x-show="open" x-cloak x-transition.opacity class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="vx-sync-title">
             <div class="absolute inset-0 bg-slate-950/70"></div>
             <section class="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" style="max-height:min(85dvh,850px)">
                 <header class="flex items-center justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">

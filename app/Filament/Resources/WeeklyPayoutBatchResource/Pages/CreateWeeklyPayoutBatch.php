@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class CreateWeeklyPayoutBatch extends CreateRecord
 {
+    use CreateRecord\Concerns\HasWizard;
+
     protected static string $resource = WeeklyPayoutBatchResource::class;
 
     public function getTitle(): string
@@ -24,11 +26,15 @@ class CreateWeeklyPayoutBatch extends CreateRecord
         return 'New Pay Run';
     }
 
-    public function form(Schema $schema): Schema
+    /**
+     * A pay run is set up one short screen at a time: what to pay, the dates,
+     * who gets a one-time payment (Other payments only), then a note and a
+     * check before the draft is made.
+     */
+    public function getSteps(): array
     {
-        return $schema->columns(1)->components([
-            Grid::make(['default' => 1, 'xl' => 3])->schema([
-                Grid::make(1)->columnSpan(['default' => 1, 'xl' => 2])->schema([
+        return [
+            \Filament\Schemas\Components\Wizard\Step::make('What to pay')->icon('heroicon-o-banknotes')->description('Business and kind')->schema([
             Section::make('Choose your pay run')->description('Start with normal payroll or a standalone one-time payment.')->schema([
                 \Filament\Forms\Components\Radio::make('run_mode')
                     ->label('Pay run')
@@ -40,11 +46,11 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         $set('dates_mode', 'custom');
                     }),
             ]),
-            Section::make('1. Set up the run')->description('Choose the business and what to pay. This creates a draft for review.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
+            Section::make('Set up the run')->description('Choose the business and what to pay. This creates a draft for review.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Select::make('business_id')
                     ->label('Business')
                     ->options(fn () => \App\Support\BusinessContext::available()->pluck('name', 'id')->all())
-                    ->placeholder('All businesses (one run for everyone)')
+                    ->placeholder(fn () => \App\Support\BusinessContext::inUse() ? 'Choose a business' : 'All businesses (one run for everyone)')
                     ->default(fn () => \App\Support\BusinessContext::currentId())
                     ->required(fn () => \App\Support\BusinessContext::inUse())
                     ->helperText('Each business runs its own payroll. Only people in this business are paid in this run.')
@@ -90,7 +96,9 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->dehydrated()
                     ->helperText('Select Other Payment (one-off) to enter individual recipients, amounts, and descriptions without generating regular wages.'),
             ]),
-            Section::make('2. Choose the dates')->description('Use any start and end dates, or your saved type’s optional schedule.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
+            ]),
+            \Filament\Schemas\Components\Wizard\Step::make('Dates')->icon('heroicon-o-calendar-days')->description('The period it covers')->schema([
+            Section::make('Choose the dates')->description('Use any start and end dates, or your saved type’s optional schedule.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Radio::make('dates_mode')
                     ->label('Dates')
                     ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
@@ -109,7 +117,11 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. Recipients and payment amounts')
+            ]),
+            \Filament\Schemas\Components\Wizard\Step::make('Recipients')->icon('heroicon-o-users')->description('One-time amounts')
+                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')
+                ->schema([
+            Section::make('Recipients and payment amounts')
                 ->description('Search any team member, add one-time amounts, and give each payment a reason.')
                 ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')
                 ->schema([
@@ -131,17 +143,17 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         ->defaultItems(1)->minItems(1)->addActionLabel('Add recipient')
                         ->reorderable(false)->cloneable(false),
                 ]),
-            Section::make('4. Add a note')->columnSpanFull()->schema([
+            ]),
+            \Filament\Schemas\Components\Wizard\Step::make('Review')->icon('heroicon-o-check-circle')->description('Note and create')->schema([
+            Section::make('Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->label('Notes (optional)')
                     ->rows(2)
                     ->placeholder('e.g. Holiday week, bonus included…')
                     ->columnSpanFull(),
             ]),
-
-                ]),
                 Section::make('Pay run summary')
-                    ->columnSpan(['default' => 1, 'xl' => 1])
+                    ->columnSpanFull()
                     ->description('Draft preview — no payments are sent')
                     ->schema([
                         \Filament\Forms\Components\Placeholder::make('payment_count')
@@ -153,9 +165,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                             ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
                                 '$'.number_format(collect($get('other_payments') ?? [])
                                     ->sum(fn ($row) => (float) ($row['amount'] ?? 0)), 2)),
-                    ]),
+                    ])
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other'),
             ]),
-        ]);
+        ];
     }
 
     private static function presetType(): ?\App\Models\PayRunType

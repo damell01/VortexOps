@@ -27,6 +27,31 @@ class GuardChatifyPreview
             );
         }
 
+        // In the privileged pilot, never create a Chatify conversation with a
+        // teammate who cannot access it. Enforce this server-side as well as in
+        // the people picker, including when the API is called directly.
+        if (config('chatify-preview.privileged_preview_enabled', false)
+            && ! config('chatify-preview.team_enabled', false)
+            && $request->isMethod('post')) {
+            $path = trim($request->path(), '/');
+            $ids = null;
+            if ($path === 'api/chatify/v1/conversations/direct') {
+                $ids = [$request->input('user_id')];
+            } elseif ($path === 'api/chatify/v1/conversations/group'
+                || preg_match('#^api/chatify/v1/conversations/[^/]+/participants$#', $path)) {
+                $ids = $request->input('user_ids');
+            }
+
+            if ($ids !== null) {
+                abort_unless(is_array($ids) && count($ids) > 0 && count($ids) <= 49, 403);
+                $ids = array_map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]), $ids);
+                abort_unless(! in_array(false, $ids, true) && count(array_unique($ids)) === count($ids), 403);
+                $allowed = \App\Services\TeamCommunications::previewRecipients(\App\Models\User::query())
+                    ->whereKey($ids)->count();
+                abort_unless($allowed === count($ids), 403, 'Only owner and admin accounts may join pilot conversations.');
+            }
+        }
+
         return $next($request);
     }
 }

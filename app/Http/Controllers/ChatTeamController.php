@@ -19,20 +19,30 @@ class ChatTeamController
             && (\App\Services\TeamCommunications::canAccess($user) || config('chatify-preview.team_enabled', false));
         abort_unless($user && $allowed, 403);
 
-        // Limit the initial payload; search by name when the picker needs more users.
+        // Fetch only a page at a time and search roles as well as names.
         $search = mb_substr(trim((string) $request->query('search', '')), 0, 80);
+        $role = strtolower(trim((string) $request->query('role', '')));
+        abort_unless(in_array($role, ['', 'fulfillment', 'stream', 'admin'], true), 422);
+        $escape = fn (string $value) => addcslashes($value, '%_\\');
         $people = User::query()->whereKeyNot($user->id)
-            ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.addcslashes($search, '%_\\\\').'%'))
+            ->when($search !== '', fn ($query) => $query->where(fn ($matched) => $matched
+                ->where('name', 'like', '%'.$escape($search).'%')
+                ->orWhereHas('roles', fn ($roles) => $roles->where('name', 'like', '%'.$escape(str_replace(' ', '_', $search)).'%'))))
+            ->when($role !== '', fn ($query) => $query->whereHas('roles', fn ($roles) => $roles->where('name', 'like', '%'.$role.'%')))
             ->with('roles:id,name')
-            ->orderBy('name')->limit(60)->get(['id', 'name']);
+            ->orderBy('name')->limit(61)->get(['id', 'name']);
+        $hasMore = $people->count() > 60;
+        $people = $people->take(60);
 
         return response()->json([
+            'has_more' => $hasMore,
             'data' => $people->map(fn (User $person) => [
                 'id' => (string) $person->id,
                 'type' => 'user',
                 'attributes' => [
                     'name' => $person->name,
                     'role' => $person->roles->pluck('name')->map(fn ($r) => ucwords(str_replace('_', ' ', $r)))->first(),
+                    'roles' => $person->roles->pluck('name')->map(fn ($r) => ucwords(str_replace('_', ' ', $r)))->values(),
                 ],
             ])->values(),
         ])->header('Cache-Control', 'private, no-store');

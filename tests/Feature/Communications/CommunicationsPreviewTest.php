@@ -65,7 +65,7 @@ class CommunicationsPreviewTest extends TestCase
             $this->actingAs($user);
             $this->assertTrue(Communications::canAccess());
             Livewire::test(Communications::class)->assertSee('Admin pilot');
-            Livewire::test(AnnouncementPreview::class)->assertOk();
+            Livewire::test(AnnouncementPreview::class)->assertStatus(200);
         }
         foreach (['fulfillment_admin', 'streamer', null] as $role) {
             $user = User::factory()->create();

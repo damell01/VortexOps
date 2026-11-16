@@ -52,7 +52,7 @@
                     <div class="vx-chatify-message-search" x-show="showMessageSearch || messageSearch" x-cloak><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><span x-show="historySearching">Searching history…</span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch.length>=2 && !historySearching && !filteredMessages().length">No matching messages found in the conversation.</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
-                            <div class="vx-chatify-message-group" :id="'vxm-'+message.id" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index), 'vxm-new': freshIds.includes(String(message.id))}"><div class="vx-chatify-new-divider" x-show="String(message.id)===String(firstUnreadId)" x-cloak><span>New messages</span></div><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
+                            <div class="vx-chatify-message-group" :id="'vxm-'+message.id" :class="{'is-mine': isMine(message), 'is-cont': isCont(index), 'is-run-end': isRunEnd(index), 'vxm-new': freshIds.includes(String(message.id)), 'is-pending': message._pending, 'is-failed': message._failed}"><div class="vx-chatify-new-divider" x-show="String(message.id)===String(firstUnreadId)" x-cloak><span>New messages</span></div><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message-row"><span class="vx-chatify-msg-avatar" x-show="!isMine(message)" x-text="initials(senderName(message))" :title="senderName(message)"></span><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''"><small class="vx-chatify-sender" x-show="!isMine(message) && !isCont(index) && selected?.attributes?.conversation_type==='group'" x-text="senderName(message)"></small>
                                 <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span class="vx-chatify-body" x-show="message.attributes?.body" x-html="linkify(message.attributes?.body)"></span>
                                 <template x-for="card in cardsFor(message)" :key="card.url"><a class="vx-chatify-link-card" :href="card.url"><span class="vx-chatify-link-card-img" :class="'is-'+card.icon"><template x-if="card.image"><img :src="card.image" alt="" loading="lazy"></template><template x-if="!card.image"><span x-text="card.kind.charAt(0)"></span></template></span><span class="vx-chatify-link-card-copy"><small x-text="card.kind"></small><strong x-text="card.title"></strong><span x-text="card.detail"></span></span></a></template>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
@@ -242,7 +242,7 @@
             <script>
                 function vortexChatifyWidget() {
                     return {
-                        open:false, lastUnread:null, freshIds:[], whoosh:false, expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
+                        open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
                         messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
@@ -352,7 +352,7 @@
                         async load() {
                             if(this.loading) return;
                             this.loading=true;this.error='';
-                            try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
+                            try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
                         async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
@@ -379,7 +379,13 @@
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
                                 const knownIds=new Set(this.messages.map(m=>String(m.id)));
-                                this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);this.loadReactionBatch(list);
+                                // A placeholder stays until the server's copy of it is in the list.
+                                const landed=p=>p._confirmed && list.some(m=>this.isMine(m) && (m.attributes?.body||'')===p.attributes.body && new Date(m.attributes?.created_at||0).getTime()>=new Date(p.attributes.created_at).getTime()-120000);
+                                this.pending=this.pending.filter(p=>!landed(p));
+                                this.messages=[...this.mergeMessages(this.olderPage>1?this.messages:[],list),...this.pending.filter(p=>p.conversationId===id)];
+                                // Reactions: new messages now, everything again every ~30 seconds.
+                                this.pollCount++;const fullReactions=firstLoad || this.pollCount%6===0;
+                                this.loadReactionBatch(fullReactions ? list : list.filter(m=>!this.reactionIds[m.id]));
                                 // Animate only messages that arrived while the conversation was open, never the history on first load.
                                 if(!firstLoad){const fresh=list.map(m=>String(m.id)).filter(i=>!knownIds.has(i));if(fresh.length){this.freshIds=[...this.freshIds,...fresh].slice(-20);setTimeout(()=>{this.freshIds=this.freshIds.filter(i=>!fresh.includes(i))},900);}}
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
@@ -391,9 +397,10 @@
                                     else if(pane && (firstLoad || nearBottom))pane.scrollTop=pane.scrollHeight;
                                     this.lastMessageId=this.messages.at(-1)?.id;
                                 });
-                                this.loadPresence(id);
+                                if(firstLoad)this.loadPresence(id);
                                 this.error='';
-                                if(document.visibilityState==='visible')this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{});
+                                const newest=String(this.messages.at(-1)?.id || '');
+                                if(document.visibilityState==='visible' && newest && this.lastReadId!==id+':'+newest){this.lastReadId=id+':'+newest;this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{this.lastReadId=null});}
                             } catch(e) {
                                 if(requestId===this.messageRequestId)this.error=e.message;
                             } finally {
@@ -557,7 +564,7 @@
                                 const response=await fetch(@json(url('/admin/communications/reactions/batch'))+'?'+params,{credentials:'same-origin',headers:{Accept:'application/json'}});
                                 if(!response.ok)return;
                                 const data=await response.json();
-                                for(const id of ids)this.reactions[id]=data.reactions?.[id] || [];
+                                for(const id of ids){this.reactions[id]=data.reactions?.[id] || [];this.reactionIds[id]=true;}
                             }catch(e){}
                         },
                         async loadReactions(id) {
@@ -634,16 +641,42 @@
                                     this.editingMessage=null;this.draft='';this.signalChatUpdate(conversationId);
                                     await this.loadMessages();this.load();return;
                                 }
+                                const text=this.draft.trim(), files=[...this.files], replyTo=this.replyTo;
                                 const body=new FormData();
-                                if(this.draft.trim()) body.append('body',this.draft.trim());
-                                if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));
-                                this.files.forEach(file=>body.append('attachments[]',file,file.name));
-                                await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});this.signalChatUpdate(conversationId);
+                                if(text) body.append('body',text);
+                                if(replyTo?.id) body.append('reply_to_message_id',String(replyTo.id));
+                                files.forEach(file=>body.append('attachments[]',file,file.name));
+                                // Text shows straight away and is confirmed when the server answers;
+                                // attachments still wait for their upload.
+                                let temp=null;
+                                if(!files.length){
+                                    temp={id:'tmp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),type:'message',_pending:true,conversationId:String(conversationId),
+                                        attributes:{body:text,created_at:new Date().toISOString(),user_id:this.myId},relationships:{sender:{data:{id:String(this.myId)}}}};
+                                    this.pending=[...this.pending,temp];this.messages=[...this.messages,temp];this.freshIds=[...this.freshIds,temp.id];
+                                    this.draft='';this.replyTo=null;this.sending=false;
+                                    this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane)pane.scrollTop=pane.scrollHeight;});
+                                }
                                 this.whoosh=true;setTimeout(()=>{this.whoosh=false},600);
-                                this.draft='';this.files=[];this.replyTo=null;this.typingSentAt=0;this.local('/conversations/'+encodeURIComponent(conversationId)+'/presence',{method:'POST',body:JSON.stringify({typing:false})}).catch(()=>{});
-                                await this.loadMessages();
-                                this.load();
+                                this.typingSentAt=0;this.local('/conversations/'+encodeURIComponent(conversationId)+'/presence',{method:'POST',body:JSON.stringify({typing:false})}).catch(()=>{});
+                                try {
+                                    await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});
+                                } catch(e) {
+                                    if(temp){this.pending=this.pending.filter(p=>p.id!==temp.id);this.messages=this.messages.map(m=>m.id===temp.id?{...m,_pending:false,_failed:true}:m);if(!this.draft)this.draft=text;}
+                                    throw e;
+                                }
+                                this.signalChatUpdate(conversationId);
+                                if(!temp){this.draft='';this.files=[];this.replyTo=null;}
+                                if(temp){this.pending=this.pending.map(p=>p.id===temp.id?{...p,_confirmed:true,_pending:false}:p);this.messages=this.messages.map(m=>m.id===temp.id?{...m,_pending:false}:m);}
+                                // Swap the placeholder for the saved message; refresh the inbox in the background.
+                                this.loadMessages();
+                                this.bumpThread(conversationId,text);
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}
+                        },
+                        bumpThread(conversationId,text) {
+                            const i=this.threads.findIndex(t=>String(t.id)===String(conversationId));
+                            if(i<0){this.load();return;}
+                            const t={...this.threads[i]};t.relationships={...(t.relationships||{}),last_message:{attributes:{body:text||'Attachment',created_at:new Date().toISOString()}}};
+                            this.threads=[t,...this.threads.filter((_,k)=>k!==i)];
                         },
                         async loadGroupRoles() {
                             if(!this.canCreateGroups)return;
@@ -683,10 +716,13 @@
                                 if(t?.id) await this.openThread(t);
                             } catch(e) {this.error=e.message;} finally {this.creating=false;}
                         },
-                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},2500);},
+                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},4000);},
                         toggle() {
                             if(this.open) {this.close();return;}
-                            this.open=true;if(!this.loaded)this.load();
+                            this.open=true;
+                            // Show the last inbox at once; the fresh one replaces it when it lands.
+                            if(!this.loaded && !this.threads.length){try{const cached=JSON.parse(sessionStorage.getItem('vx-chat-inbox-'+this.myId)||'[]');if(Array.isArray(cached))this.threads=cached;}catch(e){}}
+                            if(!this.loaded)this.load();
                             this.startPolling();
                         },
                         close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},

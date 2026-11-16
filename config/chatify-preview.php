@@ -4,7 +4,7 @@
 // employee rollout switch, so a previously disabled team rollout stays off.
 // Set VORTEX_PRIVILEGED_COMMUNICATIONS_PREVIEW=false to turn off the pilot.
 $teamMaster = (bool) env('VORTEX_COMMUNICATIONS_ENABLED', false);
-$privilegedPreview = (bool) env('VORTEX_PRIVILEGED_COMMUNICATIONS_PREVIEW', app()->environment('production'));
+$privilegedPreview = (bool) env('VORTEX_PRIVILEGED_COMMUNICATIONS_PREVIEW', env('APP_ENV', 'local') === 'production');
 $teamEnabled = $teamMaster && ! $privilegedPreview && (bool) env('VORTEX_CHATIFY_TEAM_ENABLED', false);
 $available = $teamMaster || $privilegedPreview;
 

@@ -34,6 +34,10 @@ class ImportInventorySheet extends Page
     public array $rows = [];
     public array $summary = [];
     public string $filter = 'all';
+    /** Search box over the preview (name or SKU) and the page of rows shown. */
+    public string $search = '';
+    public int $page = 1;
+    public const PER_PAGE = 25;
     public ?string $error = null;
     public ?array $result = null;
 
@@ -45,6 +49,10 @@ class ImportInventorySheet extends Page
 
     /** Possible duplicates start as "don't import" once per file and sheet. */
     public bool $defaultsApplied = false;
+    /** line => the existing items a row looks like, remembered once it is matched (a matched row stops reporting look-alikes). */
+    public array $lookAlikes = [];
+    /** After reading a sheet, open on the rows that need a decision (if any). */
+    public bool $openOnDecisions = false;
 
     public ?int $editingLine = null;
     public array $editForm = [];
@@ -68,7 +76,7 @@ class ImportInventorySheet extends Page
 
     public function updatedUpload(): void
     {
-        $this->reset(['rows', 'summary', 'error', 'result', 'sheets', 'sheet', 'storedPath', 'fileName', 'filter', 'edits', 'decisions', 'defaultsApplied', 'editingLine', 'editForm']);
+        $this->reset(['rows', 'summary', 'error', 'result', 'sheets', 'sheet', 'storedPath', 'fileName', 'filter', 'edits', 'decisions', 'lookAlikes', 'defaultsApplied', 'editingLine', 'editForm']);
         $this->validate(['upload' => ['required', 'file', 'max:20480', 'mimes:xlsx,xls,csv,txt']], [], ['upload' => 'sheet']);
 
         $this->storedPath = $this->upload->store('imports', 'local');
@@ -87,7 +95,7 @@ class ImportInventorySheet extends Page
         $this->analyse();
     }
 
-    public function updatedSheet(): void { $this->reset(['edits', 'decisions', 'defaultsApplied', 'editingLine', 'editForm']); $this->filter = 'all'; $this->analyse(); }
+    public function updatedSheet(): void { $this->reset(['edits', 'decisions', 'lookAlikes', 'defaultsApplied', 'editingLine', 'editForm']); $this->filter = 'all'; $this->analyse(); }
     public function updatedOverwrite(): void { $this->filter = 'all'; $this->analyse(); }
 
     /** The sheet's rows with the edits made on this screen laid over them. */
@@ -177,6 +185,7 @@ class ImportInventorySheet extends Page
                 }
             }
             $this->defaultsApplied = true;
+            $this->openOnDecisions = true;
         }
 
         $plan = $importer->plan($this->prepared($sourceRows), $this->overwrite);
@@ -221,6 +230,17 @@ class ImportInventorySheet extends Page
             'duplicates' => collect($this->rows)->where('duplicate', true)->count(),
         ];
         $this->summary['total'] = count($this->rows);
+        $this->summary['attention'] = collect($this->rows)->filter(fn ($r) => $this->needsDecision($r))->count();
+        $this->summary['ready'] = collect($this->rows)->filter(fn ($r) => ! $this->needsDecision($r) && in_array($r['action'], ['create', 'update'], true))->count();
+        foreach ($this->rows as $r) {
+            if (($r['similar'] ?? []) !== []) $this->lookAlikes[$r['line']] = array_column($r['similar'], 'id');
+        }
+        $this->summary['similar'] = count($this->lookAlikes);
+        if ($this->openOnDecisions) {
+            $this->filter = $this->summary['attention'] > 0 ? 'attention' : 'all';
+            $this->openOnDecisions = false;
+        }
+        $this->page = max(1, min($this->page, $this->pageCount()));
         unset($this->visibleRows, $this->hiddenRowCount);
     }
 
@@ -284,16 +304,88 @@ class ImportInventorySheet extends Page
         $this->analyse();
     }
 
+    /** One page of the preview: the current tab, the search box, PER_PAGE rows at a time. */
     #[Computed]
     public function visibleRows(): array
     {
-        return array_slice($this->filteredRows(), 0, ProductSheetImporter::PREVIEW_LIMIT);
+        return array_slice($this->searchedRows(), ($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
     }
 
+    /** Rows in this tab and search beyond the current page. */
     #[Computed]
     public function hiddenRowCount(): int
     {
-        return max(count($this->filteredRows()) - count($this->visibleRows), 0);
+        return max(count($this->searchedRows()) - $this->page * self::PER_PAGE, 0);
+    }
+
+    public function pageCount(): int
+    {
+        return max(1, (int) ceil(count($this->searchedRows()) / self::PER_PAGE));
+    }
+
+    public function matchingCount(): int
+    {
+        return count($this->searchedRows());
+    }
+
+    private function searchedRows(): array
+    {
+        $rows = $this->filteredRows();
+        $term = mb_strtolower(trim($this->search));
+        if ($term === '') return $rows;
+
+        return array_values(array_filter($rows, fn (array $row) => str_contains(mb_strtolower((string) $row['name']), $term)
+            || str_contains(mb_strtolower((string) ($row['sku'] ?? '')), $term)
+            || (string) $row['line'] === $term));
+    }
+
+    /** A row someone has to look at: a warning, or it may already be in the catalogue / on the sheet twice. */
+    private function needsDecision(array $row): bool
+    {
+        return ! empty($row['warnings']) || ! empty($row['duplicate']);
+    }
+
+    public function setPage(int $page): void
+    {
+        $this->page = max(1, min($page, $this->pageCount()));
+        unset($this->visibleRows, $this->hiddenRowCount);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->page = 1;
+        unset($this->visibleRows, $this->hiddenRowCount);
+    }
+
+    /**
+     * One choice for every row that looks like something already in the
+     * catalogue: leave them all out, import them all as new items, or update
+     * the existing item each one resembles most.
+     */
+    public function decideAllSimilar(string $how): void
+    {
+        if (! in_array($how, ['skip', 'new', 'update'], true)) return;
+        foreach ($this->lookAlikes as $line => $ids) {
+            $this->decisions[$line] = match ($how) {
+                'skip' => 'skip',
+                'new' => 'new',
+                'update' => 'match:'.$ids[0],
+            };
+        }
+        $this->analyse();
+    }
+
+    /** Import or leave out every row in the current tab and search. */
+    public function decideAllShown(string $how): void
+    {
+        if (! in_array($how, ['import', 'skip'], true)) return;
+        foreach ($this->searchedRows() as $row) {
+            // A row that resembles an existing item keeps its own choice on "import"
+            // unless it was left out; "import" never silently turns a match into a new item.
+            if ($how === 'import' && ($this->decisions[$row['line']] ?? 'import') !== 'skip') continue;
+            $this->decisions[$row['line']] = $how === 'skip' ? 'skip' : (($row['similar'] ?? []) !== [] ? 'new' : 'import');
+        }
+        $this->analyse();
     }
 
     private function filteredRows(): array
@@ -303,6 +395,7 @@ class ImportInventorySheet extends Page
         return array_values(array_filter($this->rows, function (array $row): bool {
             return match ($this->filter) {
                 'warnings' => ! empty($row['warnings']),
+                'attention' => $this->needsDecision($row),
                 'duplicates' => ! empty($row['duplicate']),
                 default => ($row['action'] ?? null) === $this->filter,
             };
@@ -311,8 +404,9 @@ class ImportInventorySheet extends Page
 
     public function setFilter(string $filter): void
     {
-        if (! in_array($filter, ['all', 'create', 'update', 'unchanged', 'warnings', 'skip', 'duplicates'], true)) return;
+        if (! in_array($filter, ['all', 'attention', 'create', 'update', 'unchanged', 'warnings', 'skip', 'duplicates'], true)) return;
         $this->filter = $filter;
+        $this->page = 1;
         unset($this->visibleRows, $this->hiddenRowCount);
     }
 
@@ -346,6 +440,6 @@ class ImportInventorySheet extends Page
     public function startOver(): void
     {
         if ($this->storedPath) Storage::disk('local')->delete($this->storedPath);
-        $this->reset(['upload', 'storedPath', 'fileName', 'sheets', 'sheet', 'rows', 'summary', 'error', 'result', 'filter', 'overwrite', 'edits', 'decisions', 'defaultsApplied', 'editingLine', 'editForm']);
+        $this->reset(['upload', 'storedPath', 'fileName', 'sheets', 'sheet', 'rows', 'summary', 'error', 'result', 'filter', 'overwrite', 'edits', 'decisions', 'lookAlikes', 'defaultsApplied', 'editingLine', 'editForm']);
     }
 }

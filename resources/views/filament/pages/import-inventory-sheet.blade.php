@@ -56,32 +56,75 @@
 
     @if ($rows !== [])
         <section class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex items-start gap-3 border-b border-gray-200 p-5 dark:border-gray-700">
+            @php $toWrite = $summary['create'] + $summary['update']; @endphp
+            {{-- At a glance: what this sheet will do, and the one button that does it. --}}
+            <div class="flex flex-wrap items-start gap-4 border-b border-gray-200 p-5 dark:border-gray-700" x-intersect:enter="$dispatch('vx-import-top', true)" x-intersect:leave="$dispatch('vx-import-top', false)">
                 <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">2</span>
                 <div class="min-w-0 flex-1">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">Preview before import</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review what is new, what already exists, the sheet cost/target, and the expected margin. Fix any row with <b>Edit</b>, or set it to <b>Don't import</b>. Rows that look like something already in the catalogue start as <b>Don't import</b> — choose to update the existing item, import as new, or leave it out. Nothing is written yet.</p>
-
+                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">Check and import</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                        <b>{{ number_format($summary['total']) }}</b> rows read ·
+                        <span class="text-green-700 dark:text-green-300"><b>{{ number_format($summary['create']) }}</b> new</span> ·
+                        <span class="text-amber-700 dark:text-amber-300"><b>{{ number_format($summary['update']) }}</b> {{ \Illuminate\Support\Str::plural('update', $summary['update']) }}</span> ·
+                        <b>{{ number_format($summary['unchanged']) }}</b> already up to date
+                        @if ($summary['skipped']) · <b>{{ number_format($summary['skipped']) }}</b> left out @endif
+                    </p>
+                    <p class="mt-1 text-sm {{ $summary['attention'] ? 'text-violet-700 dark:text-violet-300' : 'text-green-700 dark:text-green-300' }}">
+                        @if ($summary['attention'])
+                            <b>{{ number_format($summary['attention']) }}</b> {{ $summary['attention'] === 1 ? 'row needs' : 'rows need' }} a decision (a warning, or it may already exist). Everything else is ready.
+                        @else
+                            Nothing needs a decision: every row is ready.
+                        @endif
+                    </p>
                 </div>
+                <button type="button" wire:click="import" wire:loading.attr="disabled" wire:target="import" @disabled($toWrite === 0)
+                        class="vx-plain shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50">
+                    <span wire:loading.remove wire:target="import">{{ $toWrite === 0 ? 'Nothing to import' : 'Import '.number_format($toWrite).' '.\Illuminate\Support\Str::plural('row', $toWrite) }}</span><span wire:loading wire:target="import">Importing…</span>
+                </button>
             </div>
 
-            <div class="flex gap-1.5 overflow-x-auto border-b border-gray-200 p-3 dark:border-gray-700">
-                @foreach ([
-                    'all'       => ['Everything', $summary['total']],
-                    'create'    => ['New items',  $summary['create']],
-                    'update'    => ['Updates',    $summary['update']],
-                    'unchanged' => ['Existing / no change',  $summary['unchanged']],
-                    'warnings'  => ['Need a look', $summary['warnings']],
-                    'duplicates' => ['Possible duplicates', $summary['duplicates']],
-                    'skip'      => ['Not importing', $summary['skipped']],
-                ] as $key => [$label, $count])
-                    <button type="button" wire:click="setFilter('{{ $key }}')" wire:key="import-filter-{{ $key }}"
-                            class="vx-plain flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $key ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' }}">
-                        {{ $label }}
-                        <span class="rounded px-1 text-[11px] {{ $filter === $key ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800' }}">{{ $count }}</span>
-                    </button>
-                @endforeach
+            @if ($summary['similar'] > 0)
+                <div class="flex flex-wrap items-center gap-2 border-b border-violet-200 bg-violet-50 px-5 py-3 text-sm text-violet-900 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">
+                    <span class="mr-1"><b>{{ number_format($summary['similar']) }}</b> {{ $summary['similar'] === 1 ? 'row looks' : 'rows look' }} like something already in the catalogue. For all of them:</span>
+                    <button type="button" wire:click="decideAllSimilar('update')" class="vx-plain rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-100 dark:border-violet-500/40 dark:bg-transparent dark:text-violet-200">Update the existing item</button>
+                    <button type="button" wire:click="decideAllSimilar('new')" class="vx-plain rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-100 dark:border-violet-500/40 dark:bg-transparent dark:text-violet-200">Import as new items</button>
+                    <button type="button" wire:click="decideAllSimilar('skip')" class="vx-plain rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-100 dark:border-violet-500/40 dark:bg-transparent dark:text-violet-200">Leave them out</button>
+                </div>
+            @endif
+
+            <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 p-3 dark:border-gray-700">
+                <div class="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                    @foreach (array_filter([
+                        'attention' => $summary['attention'] ? ['Needs a decision', $summary['attention']] : null,
+                        'all'       => ['Everything', $summary['total']],
+                        'create'    => ['New', $summary['create']],
+                        'update'    => ['Updates', $summary['update']],
+                        'unchanged' => ['Up to date', $summary['unchanged']],
+                        'skip'      => ['Left out', $summary['skipped']],
+                    ]) as $key => [$label, $count])
+                        <button type="button" wire:click="setFilter('{{ $key }}')" wire:key="import-filter-{{ $key }}"
+                                class="vx-plain flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $key ? 'bg-primary-600 text-white' : ($key === 'attention' ? 'bg-violet-50 text-violet-800 hover:bg-violet-100 dark:bg-violet-500/10 dark:text-violet-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800') }}">
+                            {{ $label }}
+                            <span class="rounded px-1 text-[11px] {{ $filter === $key ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800' }}">{{ number_format($count) }}</span>
+                        </button>
+                    @endforeach
+                </div>
+                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Find a row: name, SKU or row number" aria-label="Find a row"
+                       class="vxw-input" style="min-height:36px;width:min(100%,18rem);font-size:13px">
+                @if ($this->matchingCount() > 0)
+                    <div class="flex gap-1.5 text-xs">
+                        <button type="button" wire:click="decideAllShown('import')" class="vx-plain rounded-lg border border-gray-300 px-2.5 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200" title="Include every row in this list">Include these {{ number_format($this->matchingCount()) }}</button>
+                        <button type="button" wire:click="decideAllShown('skip')" class="vx-plain rounded-lg border border-gray-300 px-2.5 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200" title="Leave out every row in this list">Leave these out</button>
+                    </div>
+                @endif
             </div>
+
+            @if ($filter === 'attention' && $summary['ready'] > 0)
+                <div class="border-b border-gray-200 bg-green-50/70 px-5 py-2.5 text-sm text-green-800 dark:border-gray-700 dark:bg-green-500/10 dark:text-green-300">
+                    <b>{{ number_format($summary['ready']) }}</b> other {{ $summary['ready'] === 1 ? 'row is' : 'rows are' }} ready to import with nothing to check.
+                    <button type="button" wire:click="setFilter('all')" class="vx-plain ml-1 font-semibold underline">Show them</button>
+                </div>
+            @endif
 
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[1050px] text-sm">
@@ -116,7 +159,7 @@
                                 <td class="px-4 py-3 align-top font-semibold">{{ $row['sheet_target'] !== null ? '$'.number_format($row['sheet_target'],2) : '—' }}</td>
                                 <td class="px-4 py-3 align-top">@if($row['sheet_margin'] !== null)<div class="font-semibold {{ $row['sheet_margin'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">${{ number_format($row['sheet_margin'],2) }}</div><div class="text-[10px] text-gray-500">{{ $row['sheet_margin_pct'] !== null ? number_format($row['sheet_margin_pct'],1).'%' : '' }}</div>@else — @endif</td>
                                 <td class="px-4 py-3 align-top"><span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $classes }}">{{ $label }}</span>@if ($row['match'] && $row['action'] !== 'skip')<div class="mt-1 text-xs text-gray-500 dark:text-gray-400">matched on {{ $row['matched_by'] }} → {{ $row['match']['name'] }}</div>@endif</td>
-                                <td class="px-4 py-3 align-top">@if ($row['changes'] === [] || $row['action'] === 'skip')<span class="text-xs text-gray-500">—</span>@else<ul class="space-y-0.5">@foreach ($row['changes'] as $change)<li class="text-xs text-gray-600 dark:text-gray-300"><span class="font-medium">{{ $change['field'] }}</span> @if ($change['from'] !== null)<span class="text-gray-500">{{ $change['from'] }} →</span>@endif {{ $change['to'] }}</li>@endforeach</ul>@endif</td>
+                                <td class="px-4 py-3 align-top">@if ($row['changes'] === [] || $row['action'] === 'skip')<span class="text-xs text-gray-500">—</span>@else<ul class="space-y-0.5">@foreach ($row['changes'] as $change)<li class="text-xs text-gray-600 dark:text-gray-300"><span class="text-gray-500">{{ $change['field'] }}</span> @if ($change['from'] !== null)<span class="text-gray-400 line-through">{{ $change['from'] }}</span> <span class="text-gray-400">→</span>@endif <b class="text-gray-900 dark:text-white">{{ $change['to'] }}</b></li>@endforeach</ul>@endif</td>
                                 <td class="px-4 py-3 align-top">
                                     <select aria-label="Import row {{ $row['line'] }}?" wire:change="decide({{ $row['line'] }}, $event.target.value)" class="vxw-select" style="min-width:12rem;font-size:12.5px">
                                         <option value="import" @selected($row['decision'] === 'import')>{{ $row['similar'] !== [] ? 'Import as a new item' : 'Import' }}</option>
@@ -149,15 +192,24 @@
                                 </tr>
                             @endif
                         @endforeach
-                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-5 text-center text-sm text-gray-500">Nothing in this group.</td></tr>@endif
+                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-5 text-center text-sm text-gray-500">{{ trim($search) !== '' ? 'No row matches “'.$search.'”.' : 'Nothing in this group.' }}</td></tr>@endif
                     </tbody>
                 </table>
             </div>
 
-            @if ($this->hiddenRowCount > 0)<div class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700">… and {{ $this->hiddenRowCount }} more rows not shown. They are included in the import as they stand — filter to find them.</div>@endif
+            @if ($this->pageCount() > 1)
+                <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-3 text-sm dark:border-gray-700">
+                    <span class="text-gray-500">Rows {{ number_format(($page - 1) * \App\Filament\Pages\ImportInventorySheet::PER_PAGE + 1) }}–{{ number_format(min($page * \App\Filament\Pages\ImportInventorySheet::PER_PAGE, $this->matchingCount())) }} of {{ number_format($this->matchingCount()) }}</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" wire:click="setPage({{ $page - 1 }})" @disabled($page <= 1) class="vx-plain rounded-lg border border-gray-300 px-3 py-1.5 font-semibold disabled:opacity-40 dark:border-gray-600">Previous</button>
+                        <span class="px-2 text-gray-500">Page {{ $page }} of {{ $this->pageCount() }}</span>
+                        <button type="button" wire:click="setPage({{ $page + 1 }})" @disabled($page >= $this->pageCount()) class="vx-plain rounded-lg border border-gray-300 px-3 py-1.5 font-semibold disabled:opacity-40 dark:border-gray-600">Next</button>
+                    </div>
+                </div>
+            @endif
         </section>
 
-        <section class="vx-import-go sticky bottom-3 z-10 rounded-xl border border-primary-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-primary-500/30 dark:bg-gray-900/95 dark:border-gray-700 dark:bg-gray-900">
+        <section x-data="{ topInView: true }" x-on:vx-import-top.window="topInView = $event.detail" x-show="! topInView" x-cloak x-transition.opacity class="vx-import-go sticky bottom-3 z-10 rounded-xl border border-primary-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-primary-500/30 dark:bg-gray-900/95 dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-start gap-3"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">3</span><div><h2 class="text-base font-semibold text-gray-950 dark:text-white">Import it</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Writes {{ $summary['create'] + $summary['update'] }} rows that actually change something. Existing no-change rows are left alone{{ $summary['skipped'] ? ', and the '.$summary['skipped'].' marked “Don\'t import” are left out' : '' }}.</p></div></div>
                 @php $toWrite = $summary['create'] + $summary['update']; @endphp<button type="button" wire:click="import" wire:loading.attr="disabled" wire:target="import" @disabled($toWrite === 0) class="vx-plain shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"><span wire:loading.remove wire:target="import">{{ $toWrite === 0 ? 'Nothing to import' : 'Import '.$toWrite.' '.\Illuminate\Support\Str::plural('row', $toWrite) }}</span><span wire:loading wire:target="import">Importing…</span></button>

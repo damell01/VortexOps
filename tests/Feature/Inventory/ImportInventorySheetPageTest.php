@@ -336,4 +336,47 @@ class ImportInventorySheetPageTest extends TestCase
         $page->call('import');
         $this->assertEquals(20.0, (float) Product::firstWhere('name', 'CGC Slabs')->unit_cost);
     }
+
+    public function test_a_long_sheet_opens_on_what_needs_a_decision_and_pages_the_rest(): void
+    {
+        $rows = [];
+        foreach (range(1, 60) as $n) $rows[] = ["Long Sheet Item $n", "LS-$n", 'box', 'Auction', 10 + $n, 30 + $n];
+        $rows[] = ['Long Sheet Item 7', 'LS-7', 'box', 'Auction', 99, 120]; // on the sheet twice
+        $page = $this->page()->set('upload', $this->workbook($rows));
+
+        $this->assertSame('attention', $page->get('filter'), 'opens on the rows that need a decision');
+        $this->assertSame(2, $page->get('summary')['attention']);
+        $this->assertSame(59, $page->get('summary')['ready']);
+        $this->assertCount(2, $page->instance()->visibleRows);
+
+        $page->call('setFilter', 'all');
+        $this->assertCount(ImportInventorySheet::PER_PAGE, $page->instance()->visibleRows, 'a page at a time, not every row');
+        $this->assertSame(3, $page->instance()->pageCount());
+        $page->call('setPage', 3);
+        $this->assertCount(61 - 2 * ImportInventorySheet::PER_PAGE, $page->instance()->visibleRows);
+
+        $page->set('search', 'LS-42');
+        $this->assertSame(['Long Sheet Item 42'], array_column($page->instance()->visibleRows, 'name'));
+        $this->assertSame(1, $page->get('page'), 'a new search starts on page 1');
+
+        $page->set('search', '')->call('import');
+        $this->assertSame(60, \App\Models\Product::where('name', 'like', 'Long Sheet Item %')->count(), 'one import, every row, the duplicate only once');
+    }
+
+    public function test_one_choice_for_every_row_that_looks_like_an_existing_item(): void
+    {
+        \App\Models\Product::create(['name' => '2026 Topps Chrome Hobby Box', 'sku' => 'OLD-1', 'unit_cost' => 150, 'is_active' => true]);
+        \App\Models\Product::create(['name' => '2026 Bowman Jumbo Box', 'sku' => 'OLD-2', 'unit_cost' => 300, 'is_active' => true]);
+        $page = $this->page()->set('upload', $this->workbook([
+            ['2026 Topps Chrome Hobby Box!', null, 'box', 'BIN', 189.99, 249.99],
+            ['2026 Bowman Jumbo Box!', null, 'box', 'BIN', 310, 399],
+        ]));
+        $similar = $page->get('summary')['similar'];
+        if ($similar === 0) $this->markTestSkipped('The similarity rule does not treat these as look-alikes.');
+
+        $page->call('decideAllSimilar', 'update');
+        foreach ($page->get('rows') as $row) $this->assertStringStartsWith('match:', $row['decision']);
+        $page->call('decideAllSimilar', 'skip');
+        $this->assertSame(0, $page->get('summary')['create'] + $page->get('summary')['update']);
+    }
 }

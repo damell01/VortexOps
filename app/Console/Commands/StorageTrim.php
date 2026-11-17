@@ -37,7 +37,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class StorageTrim extends Command
 {
-    protected $signature = 'storage:trim {--apply : Remove it (otherwise only report)} {--optimize : Rebuild trimmed tables afterwards so MySQL returns the space}';
+    protected $signature = 'storage:trim {--apply : Remove it (otherwise only report)} {--optimize : Rebuild trimmed tables afterwards so MySQL returns the space} {--snapshots-only : Only the saved Whatnot API responses (run hourly; they pile up fast)}';
 
     protected $description = 'Trim saved API responses, old raw copies, logs and no-op history (dry run unless --apply)';
 
@@ -58,6 +58,11 @@ class StorageTrim extends Command
 
         $rows = [];
         $rows[] = $this->snapshots();
+        if ($this->option('snapshots-only')) {
+            $this->table(['What', 'Table', $this->apply ? 'Removed / slimmed' : 'Would remove / slim'], array_values(array_filter($rows)));
+
+            return self::SUCCESS;
+        }
         $rows[] = $this->slimRaw('whatnot_ledger_entries', 'raw_data', self::LEDGER_KEEP, 30);
         $rows[] = $this->slimRaw('whatnot_show_orders', 'raw_data', self::ORDER_KEEP, 30);
         $rows[] = $this->deleteWhere('ledger_attribution_events', 'automatic match history older than 30 days',
@@ -98,6 +103,16 @@ class StorageTrim extends Command
      * them) and the newest few are shown on the API status page. Keep the
      * newest 20 of each channel's feed plus anything from the last day.
      */
+    /**
+     * Whatnot API responses are saved whole (encrypted) every time a sync sees
+     * a change, which is all day: kept a day with 20 per feed, they reached
+     * 2.4 GB and most of every backup. They are only for looking into a sync,
+     * so the newest few and the last couple of hours are plenty. Runs hourly.
+     */
+    private const SNAPSHOT_KEEP = 5;
+
+    private const SNAPSHOT_MIN_AGE_HOURS = 2;
+
     private function snapshots(): ?array
     {
         if (! Schema::hasTable('whatnot_api_snapshots')) return null;
@@ -105,10 +120,10 @@ class StorageTrim extends Command
         $count = 0;
         foreach ($groups as $group) {
             $keepFrom = DB::table('whatnot_api_snapshots')->where('whatnot_channel_id', $group->whatnot_channel_id)->where('resource', $group->resource)
-                ->orderByDesc('id')->skip(19)->value('id');
+                ->orderByDesc('id')->skip(self::SNAPSHOT_KEEP - 1)->value('id');
             if ($keepFrom === null) continue;
             $query = fn () => DB::table('whatnot_api_snapshots')->where('whatnot_channel_id', $group->whatnot_channel_id)->where('resource', $group->resource)
-                ->where('id', '<', $keepFrom)->where('fetched_at', '<', now()->subDay());
+                ->where('id', '<', $keepFrom)->where('fetched_at', '<', now()->subHours(self::SNAPSHOT_MIN_AGE_HOURS));
             $count += $query()->count();
             if ($this->apply) {
                 do {
@@ -119,7 +134,7 @@ class StorageTrim extends Command
         }
         if ($this->apply && $count) $this->touched['whatnot_api_snapshots'] = true;
 
-        return ['Saved Whatnot API responses older than a day (newest 20 of each feed kept)', 'whatnot_api_snapshots', number_format($count)];
+        return ['Saved Whatnot API responses older than '.self::SNAPSHOT_MIN_AGE_HOURS.' hours (newest '.self::SNAPSHOT_KEEP.' of each feed kept)', 'whatnot_api_snapshots', number_format($count)];
     }
 
     /** Old raw copies: keep only the keys the app reads, plus every "_"-prefixed evidence key. */

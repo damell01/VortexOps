@@ -71,4 +71,19 @@ class StorageRetentionTest extends TestCase
 
         $this->assertSame(['live'], DB::table('cache')->pluck('key')->all());
     }
+
+    public function test_saved_whatnot_responses_keep_only_the_newest_few_and_the_last_two_hours(): void
+    {
+        $channel = DB::table('whatnot_channels')->insertGetId(['name' => 'VortexBreaks', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        $snap = fn (string $resource, int $minutesAgo, int $n) => DB::table('whatnot_api_snapshots')->insertGetId([
+            'whatnot_channel_id' => $channel, 'resource' => $resource, 'payload_sha256' => hash('sha256', $resource.$n), 'payload' => 'x',
+            'fetched_at' => now()->subMinutes($minutesAgo), 'created_at' => now(), 'updated_at' => now()]);
+        $old = []; foreach (range(1, 10) as $n) $old[] = $snap('sync', 600 - $n, $n);   // ten from ~10 hours ago, oldest first
+        $recent = []; foreach (range(1, 3) as $n) $recent[] = $snap('backfill', 30, $n); // three from half an hour ago
+
+        $this->artisan('storage:trim', ['--apply' => true, '--snapshots-only' => true])->assertSuccessful();
+
+        $left = DB::table('whatnot_api_snapshots')->pluck('id')->all();
+        $this->assertEqualsCanonicalizing(array_merge(array_slice($old, -5), $recent), $left, 'the newest 5 of an old feed stay, recent ones all stay');
+    }
 }

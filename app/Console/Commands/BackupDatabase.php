@@ -31,6 +31,9 @@ class BackupDatabase extends Command
         return self::SUCCESS;
     }
 
+    /** Backed up without their rows (the table is still created on restore). */
+    private const STRUCTURE_ONLY = ['whatnot_api_snapshots'];
+
     private function dumpMysql(): string
     {
         $db   = config('database.connections.mysql.database');
@@ -53,13 +56,16 @@ class BackupDatabase extends Command
             // command-line option after mysqldump. When it appears later,
             // some client versions parse it as a server variable and fail
             // with "unknown variable 'defaults-extra-file=...'".
+            // Raw Whatnot API copies are backed up as structure only: they can
+            // always be fetched again and were most of every backup (1.5 GB+).
+            $base = sprintf('mysqldump --defaults-extra-file=%s --single-transaction --quick -h %s -P %s -u %s',
+                escapeshellarg($cnfFile), escapeshellarg($host), escapeshellarg($port), escapeshellarg($user));
+            $skip = array_values(array_filter(self::STRUCTURE_ONLY, fn ($t) => \Illuminate\Support\Facades\Schema::hasTable($t)));
+            $ignore = implode(' ', array_map(fn ($t) => '--ignore-table='.escapeshellarg($db.'.'.$t), $skip));
             $cmd = sprintf(
-                'set -o pipefail; mysqldump --defaults-extra-file=%s --single-transaction --quick --routines --triggers -h %s -P %s -u %s %s | gzip -1 > %s',
-                escapeshellarg($cnfFile),
-                escapeshellarg($host),
-                escapeshellarg($port),
-                escapeshellarg($user),
-                escapeshellarg($db),
+                'set -o pipefail; { %s --routines --triggers %s %s%s; } | gzip -1 > %s',
+                $base, $ignore, escapeshellarg($db),
+                $skip ? sprintf('; %s --no-data %s %s', $base, escapeshellarg($db), implode(' ', array_map('escapeshellarg', $skip))) : '',
                 escapeshellarg($fullPath),
             );
 

@@ -29,7 +29,7 @@ class StorageTrimTest extends TestCase
     {
         $oldOrders = $this->snapshot('orders', 'a', 20);
         $kept = [];
-        foreach (range(1, 20) as $i) $kept[] = $this->snapshot('orders', 'b' . $i, 5); // old, but the newest 20 of the feed
+        foreach (range(1, 20) as $i) $kept[] = $this->snapshot('orders', 'b' . $i, 5); // old: only the newest 5 of the feed stay
         $recent = $this->snapshot('ledger', 'c', 0);                                // from today
 
         $old = DB::table('whatnot_ledger_entries')->insertGetId(['whatnot_channel_id' => $this->channel, 'amount' => -5, 'transaction_type' => 'Shipping charge',
@@ -51,7 +51,7 @@ class StorageTrimTest extends TestCase
 
         $this->artisan('storage:trim', ['--apply' => true])->assertSuccessful();
 
-        $this->assertSame([...$kept, $recent], DB::table('whatnot_api_snapshots')->orderBy('id')->pluck('id')->all());
+        $this->assertSame([...array_slice($kept, -5), $recent], DB::table('whatnot_api_snapshots')->orderBy('id')->pluck('id')->all());
         $this->assertFalse(DB::table('whatnot_api_snapshots')->where('id', $oldOrders)->exists());
 
         $slim = json_decode(DB::table('whatnot_ledger_entries')->where('id', $old)->value('raw_data'), true);

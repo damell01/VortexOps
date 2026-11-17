@@ -81,7 +81,7 @@
   .vxf .vxf-status-filters .vxf-tab{flex:0 0 auto}
 }
 </style>
-<div class="vxf" x-data="{ guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
+<div class="vxf" x-data="{ sec: @js($section), show(v) { this.sec = v; try { const u = new URL(location.href); u.searchParams.set('view', v); history.replaceState(history.state, '', u) } catch (e) {} }, guide: (() => { try { return localStorage.getItem('vxf-guide-home') === 'shown' } catch (e) { return true } })(),
         toggleGuide() { this.guide = ! this.guide; try { localStorage.setItem('vxf-guide-home', this.guide ? 'shown' : 'hidden') } catch (e) {} } }">
     @if (! $manager)
         @include('filament.pages.partials.fulfillment-my-station')
@@ -107,7 +107,7 @@
     <nav class="vxf-home-tabs" aria-label="Fulfillment sections">
         <a href="{{ \App\Filament\Pages\FulfillmentHome::getUrl() }}" aria-current="page" class="is-active">Overview</a>
         <a href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl() }}">Station Board</a>
-        <a href="#vxf-queue">Shows</a>
+        <a href="?view=queue" x-on:click.prevent="show('queue')">Shows</a>
         @if (\App\Filament\Pages\ShipmentOverview::canAccess())<a href="{{ \App\Filament\Pages\ShipmentOverview::getUrl() }}">Orders</a>@endif
         <a href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues']) }}">Issues</a>
         <a href="{{ \App\Filament\Pages\FulfillmentReports::getUrl() }}">Reports</a>
@@ -146,7 +146,7 @@
         <section class="vxf-needs is-clear"><h2><x-heroicon-o-check-circle /> Nothing needs you right now</h2><span class="vxf-sub">Sign-offs, issues, unassigned shows and long pauses show up here.</span></section>
     @endif
 
-    @island(name: 'floor')
+    @island(name: 'stats')
     @php
         $manager = $this->isManager();
         $stats = $this->stats;
@@ -174,6 +174,29 @@
             @if ($href)</a>@else</div>@endif
         @endforeach
     </section>
+    </div>
+    @endisland
+
+    @include('filament.pages.partials.fulfillment-package-search')
+
+    <div class="vxf-sections" role="tablist" aria-label="Fulfillment home sections">
+        @foreach (['queue' => ['Queue', 'heroicon-o-inbox-stack', $this->queueTotal], 'stations' => ['Stations', 'heroicon-o-squares-2x2', null], 'today' => ['Today', 'heroicon-o-calendar-days', $this->signoffQueue->count() ?: null]] as $key => [$label, $icon, $count])
+            <button type="button" role="tab" class="vxf-sections__tab" id="vxf-sec-{{ $key }}" aria-controls="vxf-pane-{{ $key }}"
+                x-on:click="show(@js($key))" x-bind:aria-selected="sec === @js($key) ? 'true' : 'false'" aria-selected="{{ $section === $key ? 'true' : 'false' }}">
+                <x-dynamic-component :component="$icon" /> {{ $label }}@if ($count)<span class="vxf-sections__count">{{ $count }}</span>@endif
+            </button>
+        @endforeach
+    </div>
+
+    <div class="vxf-pane" id="vxf-pane-stations" role="tabpanel" aria-labelledby="vxf-sec-stations" x-show="sec === 'stations'" @if ($section !== 'stations') x-cloak @endif>
+    @island(name: 'floor', lazy: $section !== 'stations')
+    @php
+        $manager = $this->isManager();
+        $stats = $this->stats;
+        $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
+        $tz = \App\Support\BusinessTime::zone();
+    @endphp
+    <div class="vxf-island" wire:poll.visible.20s>
 
     <section class="vxf-card vxf-floor" aria-labelledby="vxf-stations" x-data="{ status: 'all' }">
         <div class="vxf-card__head">
@@ -254,8 +277,9 @@
 
     </div>
     @endisland
+    </div>
 
-    <div class="vxf-cols vxf-cols--full-queue">
+    <div class="vxf-pane" id="vxf-pane-queue" role="tabpanel" aria-labelledby="vxf-sec-queue" x-show="sec === 'queue'" @if ($section !== 'queue') x-cloak @endif>
         <div class="vxf-shows-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
         @island(name: 'queue')
         @php
@@ -374,9 +398,11 @@
         @endisland
 
         </div>
-        <div class="vxf-operations-heading"><h2>Operations at a Glance</h2><span class="vxf-sub"><span class="vxf-live"><i aria-hidden="true"></i> Live</span></span></div>
+    </div>
+
+    <div class="vxf-pane vxf-today-grid" id="vxf-pane-today" role="tabpanel" aria-labelledby="vxf-sec-today" x-show="sec === 'today'" @if ($section !== 'today') x-cloak @endif>
         <div class="vxf-activity-col">
-        @island(name: 'feed')
+        @island(name: 'feed', lazy: $section !== 'today')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
         <div class="vxf-island" wire:poll.visible.30s>
         <section class="vxf-card" aria-labelledby="vxf-activity">
@@ -403,7 +429,7 @@
         </div>
 
         <aside class="vxf-summary-col" style="display:flex;flex-direction:column;gap:10px;min-width:0">
-            @island(name: 'side')
+            @island(name: 'side', lazy: $section !== 'today')
             @php
                 $manager = $this->isManager();
                 $stats = $this->stats;

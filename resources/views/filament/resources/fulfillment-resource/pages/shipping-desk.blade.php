@@ -1,5 +1,6 @@
 <x-filament-panels::page>
     @php ['show' => $show, 'buyers' => $buyers, 'statusCounts' => $statusCounts, 'lastSynced' => $lastSynced] = $this->shippingData(); @endphp
+    <x-fulfillment-show-tabs :show="$show" active="labels" />
     <div class="space-y-5" wire:poll.visible.30s>
         <header class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <p class="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Fulfillment Center · Shipping workspace</p>

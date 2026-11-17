@@ -13,6 +13,7 @@
 
 <x-filament-panels::page>
     <div class="mx-auto max-w-[1500px] space-y-4">
+        <x-fulfillment-show-tabs :show="$record" active="orders" />
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="p-4 sm:p-5">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

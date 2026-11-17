@@ -58,6 +58,21 @@ class InlineAssetsTest extends TestCase
         $this->get('/admin/inline-assets/'.$m[1])->assertRedirect();
     }
 
+    public function test_wire_navigate_visits_keep_scripts_inline(): void
+    {
+        ExternalizeInlineAssets::$enabledInTests = true;
+        try {
+            $big = '<script>'.str_repeat('window.vxNav = 1; ', 120).'</script>';
+            $page = fn () => response('<html><body>'.$big.'</body></html>', 200, ['Content-Type' => 'text/html']);
+            $run = fn (array $headers = []) => (new ExternalizeInlineAssets)->handle(tap(\Illuminate\Http\Request::create('/admin', 'GET', server: $headers), fn ($r) => $r->setUserResolver(fn () => auth()->user())), $page)->getContent();
+            foreach (range(1, 3) as $i) $run();
+            $this->assertStringNotContainsString($big, $run(), 'a full page load uses the cached file');
+            $this->assertStringContainsString($big, $run(['HTTP_X_LIVEWIRE_NAVIGATE' => '1']), 'a navigate visit keeps it inline so it runs before Alpine starts');
+        } finally {
+            ExternalizeInlineAssets::$enabledInTests = false;
+        }
+    }
+
     public function test_repeated_icons_are_drawn_once_and_special_icons_stay(): void
     {
         $path = '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12"/>';

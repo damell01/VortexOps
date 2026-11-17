@@ -1328,3 +1328,19 @@ html.dark .vxf-full{background:#0b1020}
 body:has(.vxsd-printbar) .vx-chatify-shell .vx-chatify-launch{bottom:96px}
 @media(max-width:640px){body:has(.vxsd-printbar) .vx-chatify-shell .vx-chatify-launch{bottom:calc(220px + env(safe-area-inset-bottom))}}
 body:has(.vxsd-printbar) .vx-to-top{display:none!important}
+
+/* One show workspace: Orders · Labels · Packing · Activity. */
+.vxf-showtabs{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #e7e8f0;border-radius:14px;background:#fff;margin-bottom:12px}
+.dark .vxf-showtabs{background:#121733;border-color:#262c47}
+.vxf-showtabs__title{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;font-weight:800;font-size:14px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dark .vxf-showtabs__title{color:#eef0f8}
+.vxf-showtabs__state{flex:none;padding:2px 8px;border-radius:99px;background:#f3e8ff;color:#6d28d9;font-size:11px;font-weight:700}
+.vxf-showtabs__links{display:flex;gap:3px;padding:3px;border-radius:11px;background:#f6f5fe;overflow-x:auto;max-width:100%}
+.dark .vxf-showtabs__links{background:#191f40}
+.vxf-showtabs__tab{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 13px;border-radius:9px;font-size:13px;font-weight:700;color:#0f172a;text-decoration:none;white-space:nowrap}
+.dark .vxf-showtabs__tab{color:#eef0f8}
+.vxf-showtabs__tab svg{width:16px;height:16px}
+.vxf-showtabs__tab:hover{background:rgba(255,255,255,.7)}
+.vxf-showtabs__tab.is-active{background:#7c3aed;color:#fff}
+.vxf-showtabs__tab.is-off{opacity:.45;cursor:not-allowed}
+@media(max-width:640px){.vxf-showtabs__links{width:100%}.vxf-showtabs__tab{flex:1 1 0;min-width:0;justify-content:center;gap:4px;padding:0 4px;font-size:12px}.vxf-showtabs__tab svg{width:14px;height:14px;flex:none}}

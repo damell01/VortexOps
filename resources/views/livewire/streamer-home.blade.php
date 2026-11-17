@@ -122,7 +122,7 @@
                         $filed => ['Submitted', 'blue', 'View report', false],
                         ! ShowReportingGoLive::covers($show->show_date) => ['Previous show', 'gray', 'View show', false],
                         $entry && ($items > 0 || $entry->draft_saved_at) => ['Draft', 'amber', 'Continue report', false],
-                        default => ['Not started', 'rose', 'Log sold items', true],
+                        default => ['Not started', 'rose', 'Log hours & items', true],
                     };
                     $saved = $entry && ! $filed ? ($entry->draft_saved_at ?? ($items > 0 ? $entry->updated_at : null)) : null;
                 @endphp

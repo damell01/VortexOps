@@ -55,7 +55,7 @@ class StreamerHomeTest extends TestCase
 
         $page = Livewire::test(StreamerHome::class)
             ->assertSee('My Dashboard')->assertDontSee('Welcome back')
-            ->assertSeeHtml($this->card($unlogged))->assertSee('Not started')->assertSee('Log sold items')
+            ->assertSeeHtml($this->card($unlogged))->assertSee('Not started')->assertSee('Log hours & items')
             ->assertDontSeeHtml($this->card($filed));
 
         $page->call('setTab', 'changes')->assertSeeHtml($this->card($sentBack))->assertSee('Fix report')->assertDontSeeHtml($this->card($unlogged));

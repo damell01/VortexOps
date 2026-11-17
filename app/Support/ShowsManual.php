@@ -74,7 +74,7 @@ class ShowsManual
                             ['Shows / Gross sales / Recorded paid / Approved unpaid', 'Their numbers for the period picked on the right: this month, last month or this year.'],
                             ['Time clock', 'Add a show or reason, then Clock in; clock out when done.'],
                             ['To complete / Needs changes / Submitted / Upcoming / All shows', 'Their shows by what each report needs.'],
-                            ['Log sold items / Continue report / Fix report / View report', 'Opens the show\'s report at the right step.'],
+                            ['Log hours & items / Continue report / Fix report / View report', 'Opens the show\'s report at the right step.'],
                             ['Items logged / Giveaways / Your pay', 'What the report holds so far, and their pay once it is on a pay run.'],
                             ['Need to change something?', 'On a filed report: asks an admin to reopen it, with a reason.'],
                         ],

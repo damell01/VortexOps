@@ -89,7 +89,7 @@ class StreamerHomeTabsTest extends TestCase
         $show = $this->show();
 
         $this->assertSame([$show->id], $this->tab('to_complete'));
-        Livewire::test(StreamerHome::class)->assertSee('Log sold items');
+        Livewire::test(StreamerHome::class)->assertSee('Log hours & items');
     }
 
     public function test_a_saved_draft_still_counts_as_waiting_on_the_streamer(): void
@@ -137,7 +137,7 @@ class StreamerHomeTabsTest extends TestCase
         $this->assertSame([], $this->tab('to_complete'));
         $this->assertSame([$show->id], $this->tab('upcoming'));
         Livewire::test(StreamerHome::class)->call('setTab', 'upcoming')
-            ->assertSee('Your report opens once the show airs.')->assertDontSee('Log sold items');
+            ->assertSee('Your report opens once the show airs.')->assertDontSee('Log hours & items');
     }
 
     public function test_upcoming_shows_read_forwards(): void

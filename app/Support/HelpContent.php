@@ -138,7 +138,7 @@ class HelpContent
                 'title' => 'Your dashboard',
                 'intro' => 'Your next show, your numbers, your time clock, and every show you need to report.',
                 'steps' => [
-                    'To complete: shows waiting for your report. "Log sold items" starts one.',
+                    'To complete: shows waiting for your report. "Log hours & items" starts one.',
                     'Needs changes: an admin sent it back. Fix it and submit again.',
                     'Submitted and Upcoming show what\'s in review and what\'s next.',
                     'Clock in and out from the time clock strip.',

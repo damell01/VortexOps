@@ -34,7 +34,7 @@ final class GuidedHelp
             $definitions['my-shows'] = [Pages\DashboardImproved::class, 'Find and report your shows', 'Your dashboard lists every show you were on and what each report needs.', [
                 ['.vsh-hero', 'Your next show', 'The banner counts down to your next show. Upcoming shows lists everything you are scheduled for.'],
                 ['.vsh-tabs', 'Find the right status', 'To complete needs a report from you. Needs changes was sent back by an admin. Submitted reports are in review or approved; All shows has everything, including previous shows.'],
-                ['.vsh-grid', 'Open your show', 'Log sold items starts a report, Continue report picks up a draft, and View report opens one you filed. Need to change something? asks an admin to reopen it.'],
+                ['.vsh-grid', 'Open your show', 'Log hours & items starts a report, Continue report picks up a draft, and View report opens one you filed. Need to change something? asks an admin to reopen it.'],
                 [null, 'Finish in the report', 'Add every item used, check Sold / Giveaway / Promo / Other and quantities, then check hours and notes. Review everything before submitting. The report has its own walkthrough.'],
             ]];
         }

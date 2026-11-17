@@ -318,7 +318,7 @@
                 <p class="vxf-empty">{{ $jobs !== 'all' ? 'No ' . ($jobs === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>
             @else
                 <div class="vxf-table-wrap" wire:loading.class="vxf-dim" wire:target="jobs, setQueuePage">
-                    <table class="vxf-table">
+                    <table class="vxf-table vxf-queue-table">
                         <thead><tr><th scope="col">Show</th><th scope="col">Streamed</th><th scope="col">Orders · Pkgs</th><th scope="col">Station · Packer</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
                         <tbody>
                             @foreach ($this->queue as $run)
@@ -334,7 +334,7 @@
                                         x-on:dragleave="over = false"
                                         x-on:drop.prevent="over = false; window.vxfDnd.dropOnRun($event, $wire, {{ \Illuminate\Support\Js::from($dndRun) }})"
                                     @endif>
-                                    <td style="min-width:200px"><span style="display:flex;gap:10px;align-items:flex-start"><x-show-cover :show="$show" :size="36" /><span style="min-width:0"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></span></span></td>
+                                    <td class="vxf-q-show"><span style="display:flex;gap:10px;align-items:flex-start"><x-show-cover :show="$show" :size="36" /><span style="min-width:0"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></span></span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
                                     <td class="vxf-num" style="white-space:nowrap">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">—</span>' !!} · {!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown" title="Counted once packing starts">pending</span>' !!}</td>
                                     <td>{{ $run->station?->name ?? '—' }}<span class="vxf-sub">
@@ -343,15 +343,15 @@
                                         <span class="vxf-pill vxf-pill--{{ $this->statusPill($state) }}">{{ $this->stateLabel($state) }}</span>
                                         @if ($needsReport)<span class="vxf-sub">Waiting on report approval</span>@endif
                                     </td>
-                                    <td style="text-align:right;white-space:nowrap">
+                                    <td class="vxf-q-actions"><span class="vxf-q-actions__row">
                                         @if ($ordersLink)<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
                                         @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-assign', {{ \Illuminate\Support\Js::from(['runId' => $run->id, 'title' => $show->title, 'users' => $show->fulfillmentUsers->pluck('id')->all(), 'station' => $run->station_id]) }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
                                         @if ($needsReport)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" title="Packing starts once the streamer report is approved" style="opacity:.55;cursor:not-allowed">Start</span>
                                         @else
-                                            <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open packing' : 'Open to start' }}</a>
+                                            <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Continue' : 'Start' }}</a>
                                         @endif
-                                    </td>
+                                    </span></td>
                                 </tr>
                             @endforeach
                         </tbody>

@@ -163,7 +163,10 @@ class ShippingDesk extends Page
     {
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
+        // Only what this page shows: an order's raw Whatnot copy is large and is
+        // never read here, and the page re-renders every 30 seconds.
         $orders = WhatnotShowOrder::query()->where('show_id', $show->id)
+            ->select(['id', 'show_id', 'buyer_username', 'item_name', 'quantity', 'whatnot_order_id', 'tracking_number', 'whatnot_shipment_url', 'shipping_status', 'shipment_synced_at'])
             ->orderBy('buyer_username')->orderBy('id')->get();
         $shipments = Shipment::query()->where('show_id', $show->id)
             ->orderBy('buyer_username')->orderBy('id')->get();

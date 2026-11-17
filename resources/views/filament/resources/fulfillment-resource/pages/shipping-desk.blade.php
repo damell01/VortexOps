@@ -104,73 +104,92 @@
         </section>
         <p class="text-xs text-gray-500">Last shipment sync: {{ $lastSynced ? \Illuminate\Support\Carbon::parse($lastSynced)->diffForHumans() : 'Unknown' }} · Screen refreshes every 30 seconds; actual updates depend on Whatnot synchronization.</p>
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ $buyers->count() }} matching buyers · data from existing synced orders and shipments</p>
+        {{-- One compact row per buyer: pick for the batch, print, preview. The order lines and
+             each shipment's details open under the row only when asked for. --}}
+        <div class="vxsd-list" role="list">
         @forelse($buyers as $buyer)
-            <section wire:key="shipping-buyer-{{ $loop->index }}" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-700">
-                    <div><h3 class="text-lg font-bold text-gray-950 dark:text-white">{{ $buyer['username'] }}</h3><p class="text-sm text-gray-500 dark:text-gray-400">{{ $buyer['orders']->count() }} order lines · {{ $buyer['items'] }} items · {{ $buyer['shipments']->count() }} shipment records</p></div>
-                    <span class="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200">{{ str_replace('_', ' ', ucfirst($buyer['status'])) }}</span>
+            @php
+                $docsFor = function ($shipment) {
+                    $payload = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
+                    $docs = is_array($payload['documents'] ?? null) ? $payload['documents'] : [];
+                    return [
+                        'label' => \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['label_url'] ?? null),
+                        'bundle' => \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['bundled_url'] ?? null),
+                        'dashboard' => \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($payload['shipment_url'] ?? null),
+                    ];
+                };
+                $labelled = $buyer['shipments']->filter(fn ($s) => $docsFor($s)['label']);
+                $first = $labelled->first();
+                $tracking = $buyer['shipments']->pluck('tracking_number')->filter()->first() ?? $buyer['orders']->pluck('tracking_number')->filter()->first();
+                $status = str_replace('_', ' ', ucfirst($buyer['status']));
+                $tone = match (true) {
+                    in_array($buyer['status'], ['delivered'], true) => 'is-ok',
+                    in_array($buyer['status'], ['in_transit', 'shipped', 'dropped_off'], true) => 'is-moving',
+                    in_array($buyer['status'], ['failed', 'returned', 'cancelled'], true) || str_starts_with((string) $buyer['status'], 'cancelled') => 'is-bad',
+                    default => 'is-wait',
+                };
+            @endphp
+            <div class="vxsd-row" role="listitem" wire:key="shipping-buyer-{{ $loop->index }}" x-data="{ open: false, preview: false }" :class="{ 'is-open': open }">
+                <div class="vxsd-main">
+                    <span class="vxsd-pick">
+                        @foreach($labelled as $shipment)
+                            <label title="Include this shipment in label batch"><input type="checkbox" wire:model.live="selectedShipmentIds" value="{{ $shipment->id }}" /><span class="sr-only">Include this shipment in label batch</span></label>
+                        @endforeach
+                    </span>
+                    <button type="button" class="vxsd-who" @click="open = !open" :aria-expanded="open.toString()">
+                        <strong>{{ $buyer['username'] }}</strong>
+                        <small>{{ $buyer['items'] }} {{ \Illuminate\Support\Str::plural('item', $buyer['items']) }} · {{ $buyer['orders']->count() }} {{ \Illuminate\Support\Str::plural('order', $buyer['orders']->count()) }}@if($buyer['shipments']->count() > 1) · {{ $buyer['shipments']->count() }} shipments @endif</small>
+                    </button>
+                    <span class="vxsd-status {{ $tone }}">{{ $status }}</span>
+                    <span class="vxsd-track">{{ $tracking ?: 'No tracking yet' }}</span>
+                    <span class="vxsd-actions">
+                        @if($first)
+                            <button type="button" class="vxsd-btn" @click="preview = !preview; open = true" :aria-pressed="preview.toString()">Preview</button>
+                            <a class="vxsd-btn is-primary" href="{{ route('fulfillment.shipment-label', ['shipment' => $first->id]) }}" target="_blank" rel="noopener noreferrer">Print{{ $labelled->count() > 1 ? ' (1 of '.$labelled->count().')' : '' }}</a>
+                        @else
+                            <span class="vxsd-none">No label yet</span>
+                        @endif
+                        <button type="button" class="vxsd-chev" @click="open = !open" :aria-expanded="open.toString()" aria-label="Details for {{ $buyer['username'] }}"><x-heroicon-m-chevron-down /></button>
+                    </span>
                 </div>
-                <div class="grid gap-4 p-4 lg:grid-cols-2">
-                    <div>
-                        <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Order items</h4>
-                        @forelse($buyer['orders'] as $order)
-                            <div class="mb-2 rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
-                                <p class="font-semibold text-gray-950 dark:text-white">{{ $order->item_name ?: 'Order item' }} <span class="font-normal text-gray-500">× {{ $order->quantity ?: 1 }}</span></p>
-                                <p class="mt-1 break-all text-xs text-gray-500">Order {{ $order->whatnot_order_id ?: 'ID unavailable' }}</p>
-                                @if($order->tracking_number)<p class="mt-1 break-all text-xs text-gray-600 dark:text-gray-300">Tracking {{ $order->tracking_number }}</p>@endif
-                                @if(\App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($order->whatnot_shipment_url))
-                                    <a class="mt-2 inline-block text-sm font-semibold text-violet-700 underline dark:text-violet-300" target="_blank" rel="noopener noreferrer" href="{{ $order->whatnot_shipment_url }}">View shipment on Whatnot</a>
-                                @endif
-                            </div>
-                        @empty
-                            <p class="text-sm text-gray-500">Order details have not synced for this buyer.</p>
-                        @endforelse
-                    </div>
-                    <div>
-                        <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Shipments & labels</h4>
-                        @forelse($buyer['shipments'] as $shipment)
-                            @php
-                                $payload = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
-                                $docs = is_array($payload['documents'] ?? null) ? $payload['documents'] : [];
-                                $label = \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['label_url'] ?? null);
-                                $bundle = \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['bundled_url'] ?? null);
-                                $dashboard = \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($payload['shipment_url'] ?? null);
-                            @endphp
-                            @if($label)
-                                <label class="mb-2 flex cursor-pointer items-center gap-3 rounded-lg bg-violet-50 p-2 text-sm font-medium text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
-                                    <input type="checkbox" wire:model.live="selectedShipmentIds" value="{{ $shipment->id }}" class="rounded border-violet-300 text-violet-700" />
-                                    Include this shipment in label batch
-                                </label>
-                            @endif
-                            <div class="mb-2 rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
-                                <div class="flex flex-wrap justify-between gap-2"><span class="font-semibold text-gray-950 dark:text-white">{{ $shipment->carrier ?: 'Carrier pending' }}</span><span class="text-gray-500">{{ str_replace('_', ' ', $shipment->status ?: 'Pending') }}</span></div>
-                                <p class="mt-1 break-all text-xs text-gray-600 dark:text-gray-300">Tracking: {{ $shipment->tracking_number ?: 'Not available' }}</p>
-                                <p class="mt-1 text-xs text-gray-500">{{ $shipment->weight_oz !== null ? $shipment->weight_oz.' oz' : 'Weight pending' }} · {{ $shipment->item_count ?? 0 }} items</p>
-                                <div class="mt-3 flex flex-wrap gap-2">
-                                    @if($label)
-                                        <div x-data="{ open: false }" class="w-full" wire:key="shipping-label-{{ $shipment->id }}">
-                                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" class="inline-flex min-h-10 items-center rounded-lg bg-violet-600 px-3 font-semibold text-white hover:bg-violet-700">Preview label</button>
-                                            <a href="{{ route('fulfillment.shipment-label', ['shipment' => $shipment->id]) }}" target="_blank" rel="noopener noreferrer" class="ml-2 inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 font-semibold text-violet-700">Open / print</a>
-                                            <div x-show="open" x-cloak class="mt-3 rounded-xl border border-violet-200 bg-white p-2">
-                                                <div class="mb-2 flex items-center justify-between gap-2"><strong class="text-sm text-gray-900">Label for {{ $buyer['username'] }}</strong><button type="button" @click="open = false" class="rounded-lg border px-3 py-2 text-xs font-semibold">Close preview</button></div>
-                                                <template x-if="open"><iframe src="{{ route('fulfillment.shipment-label', ['shipment' => $shipment->id]) }}" title="Whatnot shipping label for {{ $buyer['username'] }}" style="display:block;width:100%;height:460px;border:0;background:#f8fafc"></iframe></template>
-                                            </div>
-                                        </div>
-                                    @endif
-                                    @if($bundle)<a href="{{ $bundle }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 font-semibold text-violet-700 dark:text-violet-300">Open bundled document</a>@endif
-                                    @if($dashboard)<a href="{{ $dashboard }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 px-3 font-medium dark:border-gray-600">Open in Whatnot</a>@endif
-                                    @if(!$label && !$bundle)<span class="text-xs text-amber-700 dark:text-amber-300">No printable document currently synced</span>@endif
+                <div class="vxsd-detail" x-show="open" x-cloak x-collapse.duration.200ms>
+                    @if($first)
+                        <template x-if="preview"><iframe class="vxsd-frame" src="{{ route('fulfillment.shipment-label', ['shipment' => $first->id]) }}" title="Whatnot shipping label for {{ $buyer['username'] }}"></iframe></template>
+                    @endif
+                    <div class="vxsd-cols">
+                        <div>
+                            <h4>Order items</h4>
+                            @forelse($buyer['orders'] as $order)
+                                <p class="vxsd-line"><strong>{{ $order->item_name ?: 'Order item' }}</strong> × {{ $order->quantity ?: 1 }}<small>Order {{ $order->whatnot_order_id ?: 'ID unavailable' }}@if($order->tracking_number) · Tracking {{ $order->tracking_number }}@endif
+                                    @if(\App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($order->whatnot_shipment_url)) · <a target="_blank" rel="noopener noreferrer" href="{{ $order->whatnot_shipment_url }}">View on Whatnot</a>@endif</small></p>
+                            @empty
+                                <p class="vxsd-muted">Order details have not synced for this buyer.</p>
+                            @endforelse
+                        </div>
+                        <div>
+                            <h4>Shipments &amp; labels</h4>
+                            @forelse($buyer['shipments'] as $shipment)
+                                @php $d = $docsFor($shipment); @endphp
+                                <div class="vxsd-ship">
+                                    <p><strong>{{ $shipment->carrier ?: 'Carrier pending' }}</strong> · {{ str_replace('_', ' ', $shipment->status ?: 'Pending') }}<small>Tracking: {{ $shipment->tracking_number ?: 'Not available' }} · {{ $shipment->weight_oz !== null ? $shipment->weight_oz.' oz' : 'Weight pending' }} · {{ $shipment->item_count ?? 0 }} items</small></p>
+                                    <span class="vxsd-links">
+                                        @if($d['label'])<a href="{{ route('fulfillment.shipment-label', ['shipment' => $shipment->id]) }}" target="_blank" rel="noopener noreferrer">Open / print</a>@endif
+                                        @if($d['bundle'])<a href="{{ $d['bundle'] }}" target="_blank" rel="noopener noreferrer">Bundled document</a>@endif
+                                        @if($d['dashboard'])<a href="{{ $d['dashboard'] }}" target="_blank" rel="noopener noreferrer">Open in Whatnot</a>@endif
+                                        @if(!$d['label'] && !$d['bundle'])<span class="vxsd-muted">No printable document synced</span>@endif
+                                    </span>
                                 </div>
-                            </div>
-                        @empty
-                            <p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700">No shipment records synced. Use Whatnot until shipment data becomes available.</p>
-                        @endforelse
+                            @empty
+                                <p class="vxsd-muted">No shipment records synced. Use Whatnot until shipment data becomes available.</p>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
         @empty
             <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900">No matching buyers or shipments. Check the sync status and search filters.</div>
         @endforelse
+        </div>
         <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900" x-data="{ expanded: false }">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div><h3 class="font-bold text-gray-950 dark:text-white">Shipping &amp; packing audit</h3><p class="text-xs text-gray-500">Recent actions, buyer usernames and the team member responsible.</p></div>

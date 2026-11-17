@@ -109,6 +109,16 @@
     const svg = (tag, attrs) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
     const set = (node, text) => { const t = text === undefined || text === null ? '' : String(text); if (node.textContent !== t) node.textContent = t; };
     const fmt = (sec) => { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
+    const duration = (sec) => { const minutes = Math.ceil(Math.max(0, sec) / 60); const h = Math.floor(minutes / 60), m = minutes % 60; return h ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + 'm'; };
+    const ago = (iso) => {
+        if (!iso) return '—';
+        const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 1000));
+        if (!Number.isFinite(seconds)) return '—';
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+        return Math.floor(seconds / 86400) + 'd ago';
+    };
 
     // ── Summary numbers count up to their new value ──────────────────────
     function countTo(node, value) {
@@ -148,7 +158,8 @@
         const main = el('div', 'vxtv__main');
         const who = el('div', 'vxtv__who');
         refs.letter = el('span', 'vxtv__letter'); refs.buyer = el('em', 'vxtv__buyer'); refs.whoLabel = el('small', 'vxtv__who-label');
-        const whoText = el('div', 'vxtv__who-text'); whoText.append(refs.whoLabel, refs.buyer);
+        refs.currentPackages = el('span', 'vxtv__current-pkgs');
+        const whoText = el('div', 'vxtv__who-text'); whoText.append(refs.whoLabel, refs.buyer, refs.currentPackages);
         who.append(refs.letter, whoText);
         const ring = svg('svg', { viewBox: '0 0 120 120', class: 'vxtv__ring', role: 'img' });
         ring.append(svg('circle', { cx: 60, cy: 60, r: R, class: 'vxtv__ring-bg' }));
@@ -162,9 +173,29 @@
         main.append(who, ringWrap); c.append(main);
 
         refs.nextWrap = el('div', 'vxtv__next');
-        refs.nextWrap.append(el('span', 'vxtv__next-label', 'Next'));
+        refs.nextWrap.append(el('span', 'vxtv__next-label', 'Up next'));
         refs.nextList = el('div', 'vxtv__next-list'); refs.nextWrap.append(refs.nextList);
         c.append(refs.nextWrap);
+
+        const metrics = el('dl', 'vxtv__metrics');
+        const addMetric = (label, cls) => {
+            const row = el('div', 'vxtv__metric ' + cls);
+            const value = el('dd', null, '—');
+            row.append(el('dt', null, label), value);
+            metrics.append(row);
+            return value;
+        };
+        refs.remaining = addMetric('Remaining', 'vxtv__metric--remaining');
+        refs.pace = addMetric('Packing pace', 'vxtv__metric--pace');
+        refs.eta = addMetric('Est. time left', 'vxtv__metric--eta');
+        refs.wall = addMetric('Since start', 'vxtv__metric--wall');
+        refs.lastActivity = addMetric('Last activity', 'vxtv__metric--last');
+        c.append(metrics);
+
+        refs.alert = el('div', 'vxtv__alert');
+        refs.alert.append(el('strong', null, 'Needs attention'), refs.alertDetail = el('span'));
+        refs.alert.hidden = true;
+        c.append(refs.alert);
 
         const foot = el('div', 'vxtv__foot');
         refs.timer = el('span', 'vxtv__timer'); refs.buyers = el('span', 'vxtv__buyers');
@@ -182,6 +213,7 @@
         refs.pill.className = 'vxtv__pill vxtv__pill--' + (s.issue && s.status !== 'idle' ? 'issue' : s.status);
         if (s.status === 'idle') return;
         set(refs.show, s.show);
+        refs.show.title = s.show || '';
         set(refs.stream, s.stream ? 'Stream ' + s.stream : '');
         set(refs.started, s.started ? 'Started ' + s.started : 'Not started');
         refs.people.replaceChildren(...(s.initials || []).map(i => el('i', null, i)), el('span', null, s.packer || 'Unassigned'));
@@ -195,24 +227,46 @@
         }
         set(refs.buyer, s.buyer || (upNext ? upNext.buyer : (s.status === 'ready' ? 'Waiting to start' : '')));
         set(refs.whoLabel, s.buyer ? (s.status === 'paused' ? 'Paused on' : 'Now packing') : upNext ? 'Up next' : '');
+        const currentPackages = s.buyer ? s.current_packages : (upNext ? upNext.packages : null);
+        set(refs.currentPackages, currentPackages === null || currentPackages === undefined ? '' : currentPackages + (currentPackages === 1 ? ' package' : ' packages'));
         const pct = s.pct || 0;
         refs.arc.setAttribute('stroke-dashoffset', String(C * (1 - pct / 100)));
         refs.ring.setAttribute('aria-label', pct + '% packed');
         set(refs.pct, s.total ? pct + '%' : '—');
         set(refs.count, (s.done ?? 0) + ' / ' + (s.total ?? '?') + ' ' + (s.unit || ''));
         refs.fill.style.width = pct + '%';
-        refs.nextList.replaceChildren(...(s.next || []).slice(upNext ? 1 : 0).map(n => { const chip = el('span', 'vxtv__chip'); chip.append(el('b', null, n.letter), el('span', null, n.buyer)); return chip; }));
-        refs.nextWrap.hidden = !((s.next || []).slice(upNext ? 1 : 0).length);
+        const waiting = (s.next || []).slice(upNext ? 1 : 0);
+        refs.nextList.replaceChildren(...waiting.map((n, index) => {
+            const chip = el('span', 'vxtv__chip');
+            chip.append(el('span', 'vxtv__queue-pos', String(index + 1)), el('b', null, n.letter), el('span', 'vxtv__queue-name', n.buyer));
+            if (n.packages !== null && n.packages !== undefined) chip.append(el('small', 'vxtv__queue-count', n.packages + (n.packages === 1 ? ' pkg' : ' pkgs')));
+            return chip;
+        }));
+        if (single && !waiting.length) refs.nextList.append(el('span', 'vxtv__next-empty', s.status === 'ready' ? 'Waiting for the show to start' : 'Queue clear'));
+        refs.nextWrap.hidden = !waiting.length && !single;
         set(refs.buyers, s.buyers_total ? s.buyers_done + ' / ' + s.buyers_total + ' buyers' : '');
-        entry.elapsed = s.elapsed; entry.ticking = !!s.ticking; entry.received = received; entry.pause = s.pause_reason || '';
+        set(refs.remaining, s.remaining === null || s.remaining === undefined ? '—' : s.remaining + ' ' + (s.unit || 'packages'));
+        set(refs.pace, s.pace === null || s.pace === undefined ? 'Calculating…' : s.pace + ' ' + (s.unit || 'packages') + '/hr');
+        set(refs.eta, s.status === 'paused' ? 'On hold' : s.eta_seconds === null || s.eta_seconds === undefined ? '—' : '≈ ' + duration(s.eta_seconds));
+        refs.alert.hidden = !s.issue;
+        set(refs.alertDetail, s.issue ? (s.issue_count || 1) + ' open · ' + (s.issue_label || 'Review in Fulfillment Issues') : '');
+        entry.elapsed = s.elapsed; entry.wall = s.wall_seconds; entry.lastActivityAt = s.last_activity_at;
+        entry.ticking = !!s.ticking; entry.received = received; entry.pause = s.pause_reason || '';
         paintTimer(entry);
     }
 
     function paintTimer(entry) {
         if (!entry.refs.timer) return;
-        if (entry.elapsed === null || entry.elapsed === undefined) { set(entry.refs.timer, ''); return; }
+        if (entry.elapsed === null || entry.elapsed === undefined) {
+            set(entry.refs.timer, 'Not started');
+            set(entry.refs.wall, '—');
+            set(entry.refs.lastActivity, ago(entry.lastActivityAt));
+            return;
+        }
         const live = entry.ticking ? (Date.now() - entry.received) / 1000 : 0;
-        set(entry.refs.timer, (entry.ticking ? '⏱ ' : 'Paused' + (entry.pause ? ' (' + entry.pause + ')' : '') + ' · ') + fmt(entry.elapsed + live));
+        set(entry.refs.timer, (entry.ticking ? 'Active packing · ' : 'Paused' + (entry.pause ? ' (' + entry.pause + ')' : '') + ' · Active ') + fmt(entry.elapsed + live));
+        set(entry.refs.wall, entry.wall === null || entry.wall === undefined ? '—' : duration(entry.wall + (Date.now() - entry.received) / 1000));
+        set(entry.refs.lastActivity, ago(entry.lastActivityAt));
     }
 
     // ── Pages rotate when there are more stations than fit ───────────────
@@ -249,7 +303,7 @@
             updateCard(entry, s, received);
         });
         board.replaceChildren(...ids.map(id => cards.get(id).c));
-        const cols = single || density === 'rows' ? 1 : Math.min(density === 'large' ? 2 : 4, Math.max(1, Math.min(list.length, perPage)));
+        const cols = single || density === 'rows' ? 1 : Math.min(density === 'compact' ? 4 : 2, Math.max(1, Math.min(list.length, perPage)));
         board.style.setProperty('--cols', cols);
         const changed = order.join() !== ids.join();
         order = ids;

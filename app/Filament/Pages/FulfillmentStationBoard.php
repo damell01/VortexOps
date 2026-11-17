@@ -156,7 +156,7 @@ class FulfillmentStationBoard extends Page
         $packages = $this->currentPackages;
         if ($packages->isEmpty()) return [];
         $raw = \App\Models\Shipment::query()->whereIn('id', $packages->pluck('shipment_id')->filter())->pluck('raw_payload', 'id');
-        $printed = \App\Models\FulfillmentEvent::query()->where('run_id', $this->runId)->where('type', 'label_printed')
+        $printed = \App\Models\FulfillmentEvent::query()->where('run_id', $this->runId)->where('type', 'label_print_requested')
             ->whereIn('package_id', $packages->pluck('id'))->selectRaw('package_id, COUNT(*) as n')->groupBy('package_id')->pluck('n', 'package_id');
         $out = [];
         foreach ($packages as $package) {
@@ -173,11 +173,18 @@ class FulfillmentStationBoard extends Page
     }
 
     /** The label link was opened to print: kept in the show log (and counted, so reprints show). */
+    public function labelPreviewed(int $packageId): void
+    {
+        $package = $this->currentPackages->firstWhere('id', $packageId);
+        abort_unless($package, 404);
+        \App\Services\FulfillmentLog::record('label_previewed', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
+    }
+
     public function labelOpened(int $packageId): void
     {
         $package = $this->currentPackages->firstWhere('id', $packageId);
         abort_unless($package, 404);
-        \App\Services\FulfillmentLog::record('label_printed', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
+        \App\Services\FulfillmentLog::record('label_print_requested', $this->runId, auth()->id(), array_filter(['shipment_id' => $package->shipment_id]), $package->buyer_id, $package->id);
         unset($this->labels);
     }
 
@@ -432,6 +439,15 @@ class FulfillmentStationBoard extends Page
             'openIssues' => (clone $flags)->where('status', 'open')->count(),
             'blockingIssues' => (clone $flags)->where('status', 'open')->where('blocking', true)->count(),
             'issues' => (clone $flags)->count(),
+            'missingLabels' => \App\Models\FulfillmentRunPackage::query()->where('run_id', $run->id)
+                ->whereNotNull('shipment_id')->with('shipment:id,raw_payload')->get()
+                ->filter(function ($package) {
+                    $raw = $package->shipment?->raw_payload ?? [];
+                    $docs = is_array($raw['documents'] ?? null) ? $raw['documents'] : [];
+                    return ! \App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::safeDocumentUrl($docs['label_url'] ?? null);
+                })->count(),
+            'unverifiedPackages' => (clone $packages)->where('status', '!=', 'packed')->count(),
+
             'seconds' => $run->activeSeconds(),
             // Whatnot orders and shipments with no packed package: shown before Finish, not only at sign-off.
             'reconcile' => app(\App\Services\FulfillmentReconciliation::class)->forRun($run),

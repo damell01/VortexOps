@@ -251,10 +251,11 @@
                                     <li wire:key="p-{{ $package->id }}">
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
-                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span></span>
+                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}</span>
+                                            @if($package->shipment?->tracking_number)<span class="vxf-sub" style="display:block;overflow-wrap:anywhere">{{ $package->shipment->carrier ?: 'Carrier pending' }} · Tracking {{ $package->shipment->tracking_number }}</span>@endif</span>
                                         @php $label = $this->labels[$package->id] ?? null; @endphp
                                         @if ($label && $label['url'])
-                                            <button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-label', {{ \Illuminate\Support\Js::from(['id' => $package->id, 'src' => route('fulfillment.label', $package->id), 'url' => $label['url'], 'title' => $current->letter . ' · ' . $current->buyer_username . ' · package ' . $loop->iteration]) }})" title="Show the label here and print it{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Reprint' : 'Print label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</button>
+                                            <button type="button" class="vxf-btn vxf-btn--sm" x-on:click="$dispatch('vxf-label', {{ \Illuminate\Support\Js::from(['id' => $package->id, 'src' => route('fulfillment.label', $package->id), 'url' => $label['url'], 'title' => $current->letter . ' · ' . $current->buyer_username . ' · package ' . $loop->iteration]) }})" title="Show the label here and print it{{ $label['printed'] ? ' · printed ' . $label['printed'] . '× already' : '' }}"><x-heroicon-o-printer /> {{ $label['printed'] ? 'Preview / reprint' : 'Preview label' }}@if ($label['printed'])<span class="vxf-pill" style="margin-left:4px">{{ $label['printed'] }}×</span>@endif</button>
                                         @elseif ($package->shipment_id)
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" style="opacity:.55;cursor:not-allowed" title="This shipment's label has not synced from Whatnot yet. Refresh it on Shipping & Labels.">
                                                 <x-heroicon-o-printer /> No label yet</span>
@@ -339,8 +340,8 @@
 
         {{-- In-app label print: the label loads from this site into the window; Print prints just the label. --}}
         <div x-data="{ open: false, l: null, loading: true, failed: false,
-                show(d) { this.l = d; this.loading = true; this.failed = false; this.open = true },
-                print() { const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
+                verified: false, labelSize: localStorage.getItem('vxf-label-size') || '4x6', show(d) { this.l = d; this.loading = true; this.failed = false; this.verified = false; this.open = true; $wire.labelPreviewed(d.id) },
+                print() { if (!this.verified || this.loading || this.failed) return; const f = this.$refs.frame; try { f.contentWindow.focus(); f.contentWindow.print(); $wire.labelOpened(this.l.id) } catch (e) { window.open(this.l.url, '_blank', 'noopener'); $wire.labelOpened(this.l.id) } } }"
              x-on:vxf-label.window="show($event.detail)" x-on:keydown.escape.window="open = false">
             <div x-show="open" x-cloak class="vxf-label-backdrop" x-on:click.self="open = false" role="dialog" aria-modal="true" aria-labelledby="vxf-label-title">
                 <div class="vxf-label-card">
@@ -349,12 +350,25 @@
                         <button type="button" class="vxf-iconbtn" x-on:click="open = false" aria-label="Close"><x-heroicon-o-x-mark /></button>
                     </div>
                     <div class="vxf-label-frame">
-                        <p x-show="loading && !failed" class="vxf-sub">Loading the label…</p>
+                        <p x-show="loading && !failed" class="vxf-sub">Loading the Whatnot label preview…</p>
+                        <p x-show="failed" class="vxf-sub" role="alert">This label could not be previewed. Open it in a new tab or refresh the shipment in Shipping &amp; Labels.</p>
                         <template x-if="open && l"><iframe x-ref="frame" :src="l.src" title="Shipping label" x-on:load="loading = false"></iframe></template>
                     </div>
+                    <div style="padding:10px 18px;background:#faf5ff;border-top:1px solid #ede9fe">
+                        <label style="display:flex;gap:9px;align-items:center;font-size:13px;font-weight:700;color:#3b215b"><input type="checkbox" x-model="verified" style="width:18px;height:18px"> I verified the buyer, package, and tracking details before printing.</label>
+                    </div>
+                    <div style="padding:9px 18px;border-top:1px solid #ede9fe;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                        <label style="font-size:12px;font-weight:700">Label paper
+                            <select x-model="labelSize" @change="localStorage.setItem('vxf-label-size', labelSize)" style="border-radius:7px;font-size:12px;margin-left:6px">
+                                <option value="4x6">4 × 6 thermal</option>
+                                <option value="letter">Letter paper</option>
+                            </select>
+                        </label>
+                        <span class="vxf-sub">Choose your printer and matching paper size in the browser print dialog. This preference is saved on this device.</span>
+                    </div>
                     <div class="vxf-label-foot">
-                        <a class="vxf-btn" :href="l?.url" target="_blank" rel="noopener noreferrer" x-on:click="$wire.labelOpened(l.id)">Open in new tab</a>
-                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" x-on:click="print()" :disabled="loading"><x-heroicon-o-printer /> Print</button>
+                        <a class="vxf-btn" :href="l?.src" target="_blank" rel="noopener noreferrer">Open label in browser</a>
+                        <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--lg" x-on:click="print()" :disabled="loading || failed || !verified"><x-heroicon-o-printer /> Print</button>
                     </div>
                 </div>
             </div>
@@ -376,6 +390,15 @@
                     @endif
                     <div class="vxf-review__stat {{ $r['openIssues'] ? 'is-warn' : 'is-ok' }}"><b>{{ $r['openIssues'] }}</b><span>open {{ \Illuminate\Support\Str::plural('issue', $r['openIssues']) }}{{ $r['issues'] > $r['openIssues'] ? ' · ' . ($r['issues'] - $r['openIssues']) . ' resolved' : '' }}</span></div>
                     <div class="vxf-review__stat"><b>{{ $r['seconds'] >= 3600 ? gmdate('G\h i\m', $r['seconds']) : intdiv($r['seconds'], 60) . 'm' }}</b><span>packing time</span></div>
+                </div>
+                <div class="vxf-card" style="padding:14px;margin-top:12px">
+                    <h3 style="font-weight:800;margin-bottom:8px">Packing readiness checklist</h3>
+                    <div style="display:grid;gap:7px;font-size:13px">
+                        <div>{{ $r['packedPackages'] }}/{{ $r['packages'] }} packages packed · {{ $r['unverifiedPackages'] }} not yet marked packed</div>
+                        <div>{{ $r['openIssues'] }} unresolved issues · {{ $r['blockingIssues'] }} blocking</div>
+                        <div>{{ $r['missingLabels'] }} linked shipments without a synced Whatnot label</div>
+                        <div class="vxf-sub">Missing labels are shown for review; packing sign-off remains governed by existing completion and blocking-issue rules. Printing verification is performed before each label print.</div>
+                    </div>
                 </div>
                 @if ($r['notPacked']->isNotEmpty())
                     <div class="vxf-alert" role="alert"><div><strong>{{ $r['notPacked']->count() }} {{ \Illuminate\Support\Str::plural('buyer', $r['notPacked']->count()) }} not packed yet</strong>

@@ -471,14 +471,14 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $package = \App\Models\FulfillmentRunPackage::query()->where('buyer_id', $buyer->id)->firstOrFail();
 
         $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
-            ->assertSee('No label yet')->assertDontSee('Print label');
+            ->assertSee('No label yet')->assertDontSee('Preview label');
 
         Shipment::query()->whereKey($package->shipment_id)->update(['raw_payload' => json_encode(['documents' => ['label_url' => 'https://labels.whatnot.test/abc.pdf']])]);
         $board = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
-            ->assertSee('Print label')->assertSeeHtml("\$dispatch('vxf-label'")
+            ->assertSee('Preview label')->assertSeeHtml("\$dispatch('vxf-label'")
             ->call('labelOpened', $package->id)
-            ->assertSee('Reprint');
-        $this->assertSame(1, \App\Models\FulfillmentEvent::query()->where('type', 'label_printed')->where('package_id', $package->id)->count());
+            ->assertSee('Preview / reprint');
+        $this->assertSame(1, \App\Models\FulfillmentEvent::query()->where('type', 'label_print_requested')->where('package_id', $package->id)->count());
 
         // The label is served from this site for in-app printing, only to someone working the show.
         \Illuminate\Support\Facades\Http::fake(['labels.whatnot.test/*' => \Illuminate\Support\Facades\Http::response('%PDF-1.4 label', 200, ['Content-Type' => 'application/pdf'])]);
@@ -804,6 +804,8 @@ class FulfillmentCenterWorkflowTest extends TestCase
 
         $this->get(\App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $show->id]))->assertOk()
             ->assertSee('zoe_cards')->assertSee('bigpullz')->assertSee('Include this shipment in label batch')
-            ->assertSee('https://labels.example.com/zoe.pdf', false)->assertSee('9400111');
+            // Labels are served through the app's label proxy, never the raw Whatnot link.
+            ->assertSee(route('fulfillment.shipment-label', ['shipment' => Shipment::query()->where('buyer_username', 'zoe_cards')->value('id')]), false)
+            ->assertDontSee('https://labels.example.com/zoe.pdf', false)->assertSee('9400111');
     }
 }

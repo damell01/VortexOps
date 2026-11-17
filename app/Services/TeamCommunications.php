@@ -18,7 +18,33 @@ use Illuminate\Validation\ValidationException;
 /** Owner-only development sandbox. Preview records never notify or reach other accounts. */
 class TeamCommunications
 {
-    public static function canAccess(?User $user): bool { return config('chatify-preview.available', false) && ($user?->isOwner() ?? false); }
+    public static function canAccess(?User $user): bool
+    {
+        return config('chatify-preview.available', false)
+            && $user !== null
+            && ($user->isOwner() || (! $user->isStreamerAssistant() && $user->hasAnyRole(['super_admin', 'admin'])));
+    }
+    /**
+     * During the production pilot, only accounts that can actually open
+     * messaging may be selected as recipients.
+     */
+    public static function previewRecipients(Builder $query): Builder
+    {
+        if (! config('chatify-preview.privileged_preview_enabled', false) || config('chatify-preview.team_enabled', false)) {
+            return $query;
+        }
+
+        $ownerEmail = config('app.owner_email') ?: 'dbellcreations@gmail.com';
+
+        return $query->where(function (Builder $eligible) use ($ownerEmail) {
+            $eligible->where('email', $ownerEmail)
+                ->orWhere(function (Builder $admin) {
+                    $admin->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'admin']))
+                        ->whereDoesntHave('roles', fn ($roles) => $roles->where('name', \App\Support\AssistantPayrollRole::NAME));
+                });
+        });
+    }
+
     public function authorize(User $user): void { abort_unless(self::canAccess($user), 403); }
 
     public function conversations(User $user): Builder
@@ -60,6 +86,12 @@ class TeamCommunications
         $ids = collect($data['members'])->map(fn ($id) => (int) $id)->reject(fn ($id) => $id === $user->id)->unique()->values();
         if ($ids->isEmpty() || ($data['kind'] === 'direct' && $ids->count() !== 1)) {
             throw ValidationException::withMessages(['members' => 'Choose one other person for a direct chat, or one or more people for a group.']);
+        }
+        if (config('chatify-preview.privileged_preview_enabled', false) && ! config('chatify-preview.team_enabled', false)) {
+            $allowedCount = self::previewRecipients(User::query())->whereKey($ids->all())->count();
+            if ($allowedCount !== $ids->count()) {
+                throw ValidationException::withMessages(['members' => 'During the pilot, select only the owner or an admin account.']);
+            }
         }
         $ids->push($user->id);
         $key = $data['kind'] === 'direct' ? 'preview:'.$ids->sort()->implode(':') : null;
@@ -162,13 +194,13 @@ class TeamCommunications
     public function banners(User $user)
     {
         $this->authorize($user);
+        $roleIds = $user->roles()->pluck('roles.id');
         return TeamAnnouncement::where('is_preview', true)->where('status', 'published')->where('show_banner', true)
             ->where('starts_at', '<=', now())->where('ends_at', '>', now())
-            ->where(function ($q) use ($user) {
+            ->where(function ($q) use ($user, $roleIds) {
                 $q->where('audience', 'all')
                     ->orWhere(fn ($target) => $target->where('audience', 'users')->whereJsonContains('user_ids', $user->id))
-                    ->when($user->roles()->exists(), function ($audience) use ($user) {
-                        $roleIds = $user->roles()->pluck('roles.id');
+                    ->when($roleIds->isNotEmpty(), function ($audience) use ($roleIds) {
                         $audience->orWhere(function ($target) use ($roleIds) {
                             $target->where('audience', 'roles')->where(function ($roles) use ($roleIds) {
                                 foreach ($roleIds as $roleId) {

@@ -21,7 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  *    so blocks with per-request values (timestamps, one-off data) never
  *    become files;
  *  - the replacement sits exactly where the block was, so scripts still run
- *    in the same order (a plain external script blocks like an inline one).
+ *    in the same order (a plain external script blocks like an inline one);
+ *  - wire:navigate visits keep everything inline (see handle()).
  */
 class ExternalizeInlineAssets
 {
@@ -48,7 +49,14 @@ class ExternalizeInlineAssets
         }
 
         try {
-            $response->setContent($this->dedupeSvgs($this->rewrite((string) $response->getContent())));
+            // A wire:navigate visit swaps the page in with JavaScript, and a <script src>
+            // inserted that way runs asynchronously, after Alpine has started the
+            // components that need it. Those pages keep their blocks inline; only
+            // full page loads, where an external script blocks like an inline one,
+            // get the cached files.
+            $html = (string) $response->getContent();
+            if (! $request->headers->has('X-Livewire-Navigate')) $html = $this->rewrite($html);
+            $response->setContent($this->dedupeSvgs($html));
         } catch (\Throwable $e) {
             report($e); // never break a page over an optimisation
         }

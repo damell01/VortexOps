@@ -19,6 +19,7 @@
     $pct = $expected ? min(100, round($done / max(1, $expected) * 100)) : ($buyers->count() ? round($packedBuyers / $buyers->count() * 100) : 0);
 @endphp
 @include('fulfillment.dev-banner')
+@if ($show && $this->isManager())<x-fulfillment-show-tabs :show="$show" :run="$run" active="packing" style="margin-bottom:10px" />@endif
 <div class="vxf" x-data="{
         theme: (() => { try { return localStorage.getItem('vxf-board-theme') || 'auto' } catch (e) { return 'auto' } })(),
         effective() { return this.theme === 'auto' ? (document.documentElement.classList.contains('dark') ? 'dark' : 'light') : this.theme },

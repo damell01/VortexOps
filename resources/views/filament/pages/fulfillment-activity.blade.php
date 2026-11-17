@@ -463,6 +463,7 @@
                 </div>
             </div>
             <div class="vxf-drawer__body">
+                @if ($run->show)<x-fulfillment-show-tabs :show="$run->show" :run="$run" active="activity" style="margin-bottom:10px" />@endif
                 <div class="vxf-tabs" role="tablist" aria-label="Show log sections">
                     @foreach (['overview' => 'Overview', 'buyers' => 'Buyers', 'packages' => 'Packages', 'activity' => 'Activity', 'issues' => 'Issues'] as $k => $l)
                         <button type="button" role="tab" class="vxf-tab" aria-selected="{{ $logTab === $k ? 'true' : 'false' }}" wire:click="$set('logTab','{{ $k }}')">{{ $l }}@if ($k === 'issues' && $d['flags']->where('status','open')->count()) ({{ $d['flags']->where('status','open')->count() }})@endif</button>

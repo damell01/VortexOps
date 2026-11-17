@@ -22,6 +22,9 @@ class ShippingDesk extends Page
     public string $viewMode = 'buyers';
     public array $selectedShipmentIds = [];
     public array $printDocuments = [];
+    public string $printerName = '';
+    public string $labelSize = '4x6';
+    public bool $confirmReprints = false;
 
     public function getView(): string
     {
@@ -64,6 +67,19 @@ class ShippingDesk extends Page
         }
     }
 
+    /** Select printable shipments in this show, capped at 100 for manageable batches. */
+    public function selectPrintableLabels(): void
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        $this->selectedShipmentIds = Shipment::query()->where('show_id', $show->id)
+            ->orderBy('buyer_username')->orderBy('id')->get(['id', 'raw_payload'])
+            ->filter(function (Shipment $shipment) {
+                $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
+                return (bool) self::safeDocumentUrl(($raw['documents'] ?? [])['label_url'] ?? null);
+            })->take(100)->pluck('id')->map(fn ($id) => (string) $id)->all();
+    }
+
     public function preparePrintBatch(): void
     {
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
@@ -76,11 +92,23 @@ class ShippingDesk extends Page
         $shipments = Shipment::query()->where('show_id', $show->id)->whereIn('id', $ids)
             ->orderBy('buyer_username')->orderBy('id')->get();
         if ($shipments->count() !== count($ids)) abort(403);
+        $this->validate(['labelSize' => ['required', 'in:4x6,letter'], 'printerName' => ['nullable', 'string', 'max:120']]);
+        $previouslyRequested = \App\Models\FulfillmentEvent::query()
+            ->where('show_id', $show->id)->whereIn('type', ['label_print_requested', 'label_printed'])
+            ->where(function ($query) use ($ids) {
+                $query->whereIn('package_id', \App\Models\FulfillmentRunPackage::query()->whereIn('shipment_id', $ids)->select('id'));
+                foreach ($ids as $id) {
+                    $query->orWhere('data->shipment_id', $id);
+                }
+            })->exists();
+        if ($previouslyRequested && ! $this->confirmReprints) {
+            throw ValidationException::withMessages(['selectedShipmentIds' => 'Some selected labels have previously been sent to print. Review the selection and check Confirm possible reprints.']);
+        }
         $documents = $shipments->map(function (Shipment $shipment) {
             $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
             $docs = is_array($raw['documents'] ?? null) ? $raw['documents'] : [];
             $url = self::safeDocumentUrl($docs['label_url'] ?? null);
-            return $url ? ['buyer' => $shipment->buyer_username ?: 'Unknown buyer', 'url' => $url] : null;
+            return $url ? ['buyer' => $shipment->buyer_username ?: 'Unknown buyer', 'url' => route('fulfillment.shipment-label', ['shipment' => $shipment->id]), 'shipment_id' => $shipment->id, 'tracking' => $shipment->tracking_number] : null;
         })->filter()->values()->all();
         if (count($documents) !== count($ids)) {
             throw ValidationException::withMessages(['selectedShipmentIds' => 'Every selected shipment must have a synced, printable label URL.']);
@@ -91,8 +119,39 @@ class ShippingDesk extends Page
             'status' => 'prepared', 'prepared_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
         $this->printDocuments = $documents;
+        $this->confirmReprints = false;
         $this->selectedShipmentIds = [];
         Notification::make()->title('Label batch prepared')->body(count($documents).' labels ready to open individually. Printing is not yet confirmed.')->success()->send();
+    }
+
+    /** Record an explicit print attempt, never claim physical printer success. */
+    public function recordPrintAttempt(int $shipmentId): void
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        $shipment = Shipment::query()->where('show_id', $show->id)->findOrFail($shipmentId);
+        $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
+        abort_unless(self::safeDocumentUrl(($raw['documents'] ?? [])['label_url'] ?? null), 422);
+        $package = \App\Models\FulfillmentRunPackage::query()->where('shipment_id', $shipmentId)->first();
+        \App\Services\FulfillmentLog::record('label_print_requested', $package?->run_id, auth()->id(), [
+            'show_id' => $show->id, 'shipment_id' => $shipmentId,
+            'printer_name' => mb_substr($this->printerName, 0, 120), 'paper_size' => $this->labelSize,
+            'source' => 'shipping_desk',
+        ], $package?->buyer_id, $package?->id);
+        Notification::make()->title('Print attempt recorded')->body('Printing must still be confirmed at the printer.')->success()->send();
+    }
+
+    /** Recent label, packing and exception events for this authorized show. */
+    public function shippingAudit(): \Illuminate\Support\Collection
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+
+        return \App\Models\FulfillmentEvent::query()
+            ->where('show_id', $show->id)
+            ->whereIn('type', ['label_previewed', 'label_print_requested', 'label_printed', 'package_packed', 'buyer_packed', 'item_verified', 'issue_flagged', 'issue_resolved', 'scan_rejected'])
+            ->with('user:id,name')
+            ->latest('id')->limit(35)->get();
     }
 
     public function getTitle(): string

@@ -55,11 +55,19 @@ class CommunicationsPreviewTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_open_workspace_but_admins_super_admins_streamers_and_roleless_users_cannot(): void
+    public function test_owner_and_admins_can_open_pilot_but_fulfillment_admins_and_staff_cannot(): void
     {
-        Livewire::test(Communications::class)->assertSee('Owner preview')->assertSee('Messages')->assertSee('Announcements');
+        Livewire::test(Communications::class)->assertSee('Admin pilot')->assertSee('Messages')->assertSee('Announcements');
         $this->assertArrayNotHasKey(Communications::class, RoleResource::pageOptions());
-        foreach (['admin', 'super_admin', 'streamer', null] as $role) {
+        foreach (['admin', 'super_admin'] as $role) {
+            $user = User::factory()->create();
+            $user->assignRole(Role::findOrCreate($role, 'web'));
+            $this->actingAs($user);
+            $this->assertTrue(Communications::canAccess());
+            Livewire::test(Communications::class)->assertSee('Admin pilot');
+            Livewire::test(AnnouncementPreview::class)->assertStatus(200);
+        }
+        foreach (['fulfillment_admin', 'streamer', null] as $role) {
             $user = User::factory()->create();
             if ($role) $user->assignRole(Role::findOrCreate($role, 'web'));
             $this->actingAs($user);
@@ -88,6 +96,20 @@ class CommunicationsPreviewTest extends TestCase
         $this->assertTrue($chat->is_preview);
         $this->assertTrue($group->is_preview);
         Notification::assertNothingSent(); Mail::assertNothingOutgoing(); Queue::assertNothingPushed();
+    }
+
+    public function test_privileged_pilot_prevents_adding_non_admin_recipients(): void
+    {
+        config(['chatify-preview.privileged_preview_enabled' => true, 'chatify-preview.team_enabled' => false]);
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$admin->id]]);
+        $this->actingAs($admin);
+        $this->service->send($admin, $chat->id, 'Pilot chat works', (string) Str::uuid());
+        $this->assertDatabaseHas('team_messages', ['conversation_id' => $chat->id, 'body' => 'Pilot chat works']);
+
+        $this->expectException(ValidationException::class);
+        $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
     }
 
     public function test_messages_are_member_scoped_idempotent_escaped_and_private(): void
@@ -144,7 +166,7 @@ class CommunicationsPreviewTest extends TestCase
         $this->assertSame('2026-10-20 15:00:00', $a->starts_at->format('Y-m-d H:i:s'));
         $this->assertCount(0, $this->service->banners($this->owner));
         $this->service->publishPreview($this->owner, $a->id);
-        Livewire::test(AnnouncementPreview::class)->assertSee('Team update')->assertSee('Owner preview');
+        Livewire::test(AnnouncementPreview::class)->assertSee('Team update')->assertSee('Admin pilot');
         Carbon::setTestNow(Carbon::parse('2026-10-20 17:00:00', 'UTC'));
         $this->assertCount(0, $this->service->banners($this->owner));
         Carbon::setTestNow(Carbon::parse('2026-10-20 14:59:59', 'UTC'));
@@ -280,15 +302,24 @@ class CommunicationsPreviewTest extends TestCase
         Livewire::test(AnnouncementPreview::class)->call('dismiss', $a->id)->assertForbidden();
     }
 
-    public function test_preview_banner_is_not_rendered_or_queried_on_non_owner_dashboard(): void
+    public function test_preview_banner_is_visible_to_admin_but_not_queried_for_staff(): void
     {
-        $a = $this->draft(['title' => 'Hidden preview banner']);
+        $a = $this->draft(['title' => 'Pilot preview banner']);
         $this->service->publishPreview($this->owner, $a->id);
-        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Hidden preview banner')->assertSee('Messages &amp; Announcements', false);
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Pilot preview banner');
+
         $this->person->assignRole(Role::findOrCreate('admin', 'web'));
         $this->actingAs($this->person);
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertSee('Pilot preview banner');
+
+        $staff = User::factory()->create();
+        $staff->assignRole(Role::findOrCreate('fulfillment_admin', 'web'));
+        $this->actingAs($staff);
+        \Illuminate\Support\Facades\DB::flushQueryLog();
         \Illuminate\Support\Facades\DB::enableQueryLog();
-        $this->get(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'))->assertOk()->assertDontSee('Hidden preview banner')->assertDontSee('Messages &amp; Announcements', false);
+        $this->assertFalse(TeamCommunications::canAccess($staff));
+        $this->assertStringNotContainsString('vx-chatify-shell', view('filament.components.global-communications-widget')->render());
+        Livewire::test(AnnouncementPreview::class)->assertForbidden();
         $queries = \Illuminate\Support\Facades\DB::getQueryLog();
         \Illuminate\Support\Facades\DB::disableQueryLog();
         $this->assertFalse(collect($queries)->contains(fn ($q) => str_contains($q['query'], 'team_announcements')));

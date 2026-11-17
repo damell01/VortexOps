@@ -46,6 +46,7 @@
     </section>
 
 
+    @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false))
     <section class="card">
         <div class="text-sm font-bold mb-2">Team message notifications</div>
         <p class="sub mb-3">Choose how to be alerted when someone sends you a message. Your existing device subscription is used for push notifications. These options apply when messaging is enabled for your account.</p>
@@ -75,6 +76,7 @@
         <p class="sub mt-3">Quiet hours use your profile timezone, or the application timezone when no profile timezone is set. Messages still appear in your inbox while alerts are silenced.</p>
         <p class="sub mt-3">Email delivery will use a cooldown to avoid repeated alerts during active conversations. Save your preferences below.</p>
     </section>
+    @endif
 
     @forelse($grouped as $group => $items)
         <section class="card">

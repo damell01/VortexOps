@@ -50,11 +50,20 @@ class FulfillmentLabelController
     /** Preview a shipment label from Shipment Center or Shipping & Labels. */
     public function shipment(Request $request, int $shipment): Response
     {
-        $row = Shipment::query()->findOrFail($shipment);
         $user = $request->user();
-        abort_unless($user && FulfillmentAccess::moduleEnabled(), 404);
-        $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail($row->show_id);
-        abort_unless(\App\Filament\Resources\FulfillmentResource::canView($show), 403);
+        abort_unless($user, 404);
+
+        if (\App\Support\ShipmentTrackingAccess::canView($user)) {
+            // Admins may preview imported labels before a streamer report is
+            // approved, but only for shows in their active channel.
+            $row = \App\Support\ShipmentTrackingAccess::shipments()->findOrFail($shipment);
+        } else {
+            // Preserve the existing assigned-show access for fulfillment packers.
+            abort_unless(FulfillmentAccess::moduleEnabled(), 404);
+            $row = Shipment::query()->findOrFail($shipment);
+            $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail($row->show_id);
+            abort_unless(\App\Filament\Resources\FulfillmentResource::canView($show), 403);
+        }
 
         $payload = is_array($row->raw_payload) ? $row->raw_payload : (json_decode((string) $row->raw_payload, true) ?: []);
         $url = ShippingDesk::safeDocumentUrl(($payload['documents'] ?? [])['label_url'] ?? null);

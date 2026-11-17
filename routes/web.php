@@ -211,6 +211,12 @@ Route::post('/integrations/whatnot/v2/webhook', \App\Http\Controllers\WhatnotV2W
 // Fulfillment Center: the read-only TV whiteboard, its live feed, and a printable show log.
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/fulfillment/whiteboard', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'show'])->name('fulfillment.whiteboard');
+    // "Has anything changed on the floor?" — a cache read, polled every few seconds by the live screens.
+    Route::get('/fulfillment/pulse', function () {
+        abort_unless(\App\Support\FulfillmentAccess::moduleEnabled() && \App\Support\FulfillmentAccess::isMember(auth()->user()), 403);
+
+        return response()->json(['v' => \App\Support\FulfillmentPulse::version()])->header('Cache-Control', 'no-store');
+    })->middleware('throttle:240,1')->name('fulfillment.pulse');
     Route::get('/fulfillment/whiteboard/feed', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'feed'])->middleware('throttle:120,1')->name('fulfillment.whiteboard.feed');
     Route::get('/fulfillment/runs/{run}/print', [\App\Http\Controllers\FulfillmentWhiteboardController::class, 'print'])->name('fulfillment.run.print');
     // A package's Whatnot label, served from this site so it prints inside the app.

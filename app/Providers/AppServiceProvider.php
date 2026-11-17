@@ -80,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \App\Support\FulfillmentPulse::register();
         \App\Support\PokemonHooks::register();
 
         // A value a record already has is always valid to keep. Dropdowns (and

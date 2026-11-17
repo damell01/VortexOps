@@ -87,7 +87,10 @@
 .vx-picker-check{width:15px;height:15px;flex:none}
 /* In the dark top bar */
 .vx-desktop-mega-nav .vx-mega-business + .vx-mega-channel{margin-left:6px!important}
-.vx-desktop-mega-nav .vx-mega-channel.vx-mega-business{min-width:150px!important;max-width:205px!important;flex-basis:205px!important}
+/* Two pickers (business + channel) share the right end of the bar: compact, and they shrink before the bar overflows. */
+.vx-desktop-mega-nav:has(.vx-mega-business) .vx-mega-channel{flex:0 1 168px!important;min-width:112px!important;max-width:168px!important}
+.vx-desktop-mega-nav .vx-mega-channel.vx-mega-business{margin-left:auto!important}
+.vx-desktop-mega-nav .vx-mega-business + .vx-mega-channel--trailing{margin-left:6px!important}
 .vx-mobile-channel .vx-picker-menu{left:0;right:auto;max-width:100%}
 .vx-desktop-mega-nav .vx-picker-btn{min-height:38px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#f3f4f6}
 .vx-desktop-mega-nav .vx-picker-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28)}

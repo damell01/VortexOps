@@ -139,6 +139,26 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertCount(2, $desk->get('printDocuments'));
     }
 
+    public function test_the_floor_pulse_moves_on_every_change_and_the_tv_feed_answers_same_when_nothing_did(): void
+    {
+        $run = $this->started();
+        $v1 = $this->actingAs($this->manager)->getJson(route('fulfillment.pulse'))->assertOk()->json('v');
+        $this->assertSame($v1, $this->getJson(route('fulfillment.pulse'))->json('v'), 'steady while nothing happens');
+
+        $feed = $this->getJson(route('fulfillment.whiteboard.feed'))->assertOk();
+        $this->assertSame($v1, $feed->json('v'));
+        $this->assertArrayHasKey('now', $feed->json(), 'a full board without since');
+        $this->getJson(route('fulfillment.whiteboard.feed', ['since' => $v1]))->assertExactJson(['same' => true, 'v' => $v1]);
+
+        $buyer = $run->buyers()->firstOrFail();
+        app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
+        $v2 = $this->getJson(route('fulfillment.pulse'))->json('v');
+        $this->assertNotSame($v1, $v2, 'packing a buyer moves the pulse');
+        $this->assertArrayHasKey('now', $this->getJson(route('fulfillment.whiteboard.feed', ['since' => $v1]))->json(), 'an old version gets the new board');
+
+        $this->actingAs(User::factory()->create())->getJson(route('fulfillment.pulse'))->assertForbidden();
+    }
+
     public function test_buyers_are_lettered_by_username_initial_once_per_username_with_orders_grouped(): void
     {
         $run = $this->started($this->show(['zoe_cards' => 1, 'Alpha_Rips' => 2, 'bigpullz' => 1, 'alpha_rips' => 1]));
@@ -577,6 +597,30 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame(FulfillmentRun::READY, $run->status);
         $this->assertNotNull($run->ready_notified_at);
         $this->assertTrue($this->packer->notifications()->exists());
+    }
+
+    public function test_ready_to_pack_lists_the_newest_show_first_and_skips_shows_before_the_pack_from_date(): void
+    {
+        $old = $this->show(['old_buyer' => 1], true, today()->subDays(5)->toDateString());
+        $mid = $this->show(['mid_buyer' => 1], true, today()->subDays(3)->toDateString());
+        $new = $this->show(['new_buyer' => 1], true, today()->subDay()->toDateString());
+        $queue = app(FulfillmentQueue::class);
+        $this->assertSame(3, $queue->sync());
+        $ids = fn () => $queue->queuePage($this->manager, 'all', 1, 10)->pluck('show_id')->all();
+        $this->assertSame([$new->id, $mid->id, $old->id], $ids(), 'most recently streamed first');
+
+        // Packers can't move the date; managers can, and older shows drop out everywhere.
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->call('savePackFrom', today()->subDays(2)->toDateString())->assertForbidden();
+        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->call('savePackFrom', today()->subDays(2)->toDateString());
+        \App\Models\Setting::flushMemo();
+        $this->assertSame([$new->id], $ids());
+        $this->assertSame(1, Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->instance()->stats['ready']);
+        $later = $this->show(['later_buyer' => 1], true, today()->subDays(4)->toDateString());
+        $this->assertSame(0, $queue->sync(), 'no new records for shows before the date');
+
+        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->call('savePackFrom', '');
+        \App\Models\Setting::flushMemo();
+        $this->assertCount(3, $ids(), 'clearing the date brings the recent window back');
     }
 
     public function test_overnight_shifts_are_one_shift_into_the_next_day(): void

@@ -153,7 +153,7 @@
         $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
         $tz = \App\Support\BusinessTime::zone();
     @endphp
-    <div class="vxf-island" wire:poll.visible.20s>
+    <div class="vxf-island" wire:poll.visible.90s data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire, 'stats')">
     <section class="vxf-stats" aria-label="Today at a glance">
         @foreach (array_filter([
             ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
@@ -196,7 +196,7 @@
         $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
         $tz = \App\Support\BusinessTime::zone();
     @endphp
-    <div class="vxf-island" wire:poll.visible.20s>
+    <div class="vxf-island" wire:poll.visible.90s data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire, 'floor')">
 
     <section class="vxf-card vxf-floor" aria-labelledby="vxf-stations" x-data="{ status: 'all' }">
         <div class="vxf-card__head">
@@ -292,7 +292,7 @@
             $approved = $requireReport ? $this->queueApproved : [];
             $ordersLink = \App\Filament\Resources\FulfillmentResource::canAccess();
         @endphp
-        <div class="vxf-island" wire:poll.visible.60s>
+        <div class="vxf-island" wire:poll.visible.120s data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire, 'queue')">
         @if ($manager)
         {{-- Station assignment shortcuts stay beside the queue, without obscuring rows. --}}
         <details class="vxf-queue-dock" aria-label="Station assignment shortcuts">
@@ -316,6 +316,37 @@
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
                 <h2 id="vxf-queue">{{ $manager ? "Today's Shows / Ready to Pack" : 'My shows' }} <span class="vxf-pill vxf-num">{{ $total }}</span></h2>
+                @if ($manager)
+                    @php
+                        $packFrom = \App\Services\FulfillmentQueue::packFrom();
+                        $today = \App\Support\BusinessTime::local()->startOfDay();
+                        $quick = ['Today' => $today->toDateString(), 'Yesterday' => $today->copy()->subDay()->toDateString(), 'Last 7 days' => $today->copy()->subDays(6)->toDateString()];
+                    @endphp
+                    <div class="vxf-packfrom" x-data="{ open: false, date: @js($packFrom?->toDateString() ?? ''), save(d) { this.date = d; this.open = false; $wire.$island('queue'); $wire.savePackFrom(d) } }" x-on:keydown.escape.window="open = false" x-on:click.outside="open = false">
+                        <button type="button" class="vxf-packfrom__chip {{ $packFrom ? 'is-set' : '' }}" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-haspopup="dialog">
+                            <x-heroicon-o-calendar-days aria-hidden="true" />
+                            <span>@if ($packFrom)Packing shows from <b>{{ $packFrom->format('M j') }}</b>@else Packing the last {{ \App\Services\FulfillmentQueue::WINDOW_DAYS }} days @endif</span>
+                            <x-heroicon-m-chevron-down class="vxf-packfrom__chev" aria-hidden="true" />
+                        </button>
+                        <div class="vxf-packfrom__panel" x-show="open" x-cloak x-transition.origin.top role="dialog" aria-label="Which shows need packing">
+                            <p class="vxf-packfrom__title">Which shows need packing?</p>
+                            <p class="vxf-packfrom__help">Shows streamed before this date drop out of Ready to pack, the stations and the counts. They aren't deleted: open them from Shows any time, as examples.</p>
+                            <div class="vxf-packfrom__quick">
+                                @foreach ($quick as $label => $value)
+                                    <button type="button" x-on:click="save(@js($value))" x-bind:class="{ 'is-on': date === @js($value) }">{{ $label }}</button>
+                                @endforeach
+                                <button type="button" x-on:click="save('')" x-bind:class="{ 'is-on': date === '' }">Last {{ \App\Services\FulfillmentQueue::WINDOW_DAYS }} days</button>
+                            </div>
+                            <label class="vxf-packfrom__custom">
+                                <span>Or pick a date</span>
+                                <span class="vxf-packfrom__row">
+                                    <input type="date" x-model="date" max="{{ $today->toDateString() }}" aria-label="Pack shows streamed on or after">
+                                    <button type="button" class="vxf-btn vxf-btn--primary vxf-btn--sm" x-on:click="save(date)">Save</button>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                @endif
                 <div class="vxf-tabs" role="group" aria-label="Job length" x-data="{ tab: @js($jobs) }">
                     @foreach (['all' => 'All', 'slow' => 'Long jobs', 'quick' => 'Quick'] as $key => $label)
                         <button type="button" class="vxf-tab" x-on:click="tab = '{{ $key }}'" wire:click="$set('jobs', '{{ $key }}')" x-bind:aria-pressed="tab === '{{ $key }}' ? 'true' : 'false'" aria-pressed="{{ $jobs === $key ? 'true' : 'false' }}">{{ $label }}</button>
@@ -404,7 +435,7 @@
         <div class="vxf-activity-col">
         @island(name: 'feed', lazy: $section !== 'today')
         @php $tz = \App\Support\BusinessTime::zone(); @endphp
-        <div class="vxf-island" wire:poll.visible.30s>
+        <div class="vxf-island" wire:poll.visible.90s data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire, 'feed')">
         <section class="vxf-card" aria-labelledby="vxf-activity">
             <div class="vxf-card__head"><h2 id="vxf-activity">Live Activity</h2>
                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'shows']) }}">Show logs</a></div>
@@ -436,7 +467,7 @@
                 $tz = \App\Support\BusinessTime::zone();
                 $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
             @endphp
-            <div class="vxf-island" wire:poll.visible.30s>
+            <div class="vxf-island" wire:poll.visible.90s data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire, 'side')">
             @if ($this->signoffQueue->isNotEmpty())
                 @php $queue = $this->signoffQueue; @endphp
                 <section class="vxf-card vxf-signq" aria-labelledby="vxf-signoff">

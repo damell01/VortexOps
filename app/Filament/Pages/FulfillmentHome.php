@@ -166,6 +166,19 @@ class FulfillmentHome extends Page
         return $this->queue;
     }
 
+    /** Managers: shows streamed before this date drop out of Ready to pack (blank clears it). */
+    public function savePackFrom(?string $date): void
+    {
+        abort_unless($this->isManager(), 403);
+        $date = trim((string) $date);
+        if ($date !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return;
+        \App\Models\Setting::set('fulfillment_pack_from', $date !== '' ? $date : null);
+        \App\Support\FulfillmentPulse::bump();
+        $this->queuePage = 1;
+        unset($this->queue, $this->queueTotal, $this->stats, $this->needsYou);
+        \Filament\Notifications\Notification::make()->title($date !== '' ? 'Ready to pack now starts with shows from '.\Illuminate\Support\Carbon::parse($date)->format('M j, Y') : 'Ready to pack shows the last '.FulfillmentQueue::WINDOW_DAYS.' days')->success()->send();
+    }
+
     public function setQueuePage(int $page): void
     {
         $this->queuePage = max(1, min($page, $this->queuePageCount()));
@@ -319,8 +332,9 @@ class FulfillmentHome extends Page
         }
         // The long/quick filter on the page applies here too.
         $unassigned = FulfillmentRun::query()->where('status', FulfillmentRun::READY)->whereNull('station_id')->whereDoesntHave('packers')
+            ->whereHas('show', fn ($s) => $s->whereDate('show_date', '>=', FulfillmentQueue::earliestShowDate()))
             ->when(in_array($this->jobs, ['slow', 'quick'], true), fn ($q) => $q->whereHas('show', fn ($s) => $s->where('is_slow_pack', $this->jobs === 'slow')))
-            ->with('show:id,title,show_date')->orderBy('ready_at')->limit(2)->get();
+            ->with('show:id,title,show_date')->orderByDesc('ready_at')->limit(2)->get();
         foreach ($unassigned as $r) {
             $out[] = ['tone' => 'blue', 'icon' => 'heroicon-o-arrow-right-circle', 'title' => ($r->show?->title ?? 'Show').' has no station',
                 'sub' => 'Ready to pack'.($r->show?->show_date ? ' · streamed '.$r->show->show_date->format('M j') : ''),
@@ -379,6 +393,7 @@ class FulfillmentHome extends Page
     {
         // Aggregate in SQL rather than hydrating every open run on each dashboard poll.
         $open = FulfillmentRun::query()->whereIn('status', FulfillmentRun::OPEN)
+            ->whereIn('show_id', \App\Models\Show::query()->select('id')->whereDate('show_date', '>=', FulfillmentQueue::earliestShowDate()))
             ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS ready_count', [FulfillmentRun::READY])
             ->selectRaw('COALESCE(SUM(expected_packages), 0) AS expected_count')
             ->selectRaw('SUM(CASE WHEN expected_packages IS NULL THEN 1 ELSE 0 END) AS unknown_count')
@@ -495,6 +510,7 @@ class FulfillmentHome extends Page
 
         return FulfillmentRun::query()->where('fulfillment_runs.status', FulfillmentRun::READY)
             ->join('shows', 'shows.id', '=', 'fulfillment_runs.show_id')
+            ->where('shows.show_date', '>=', FulfillmentQueue::earliestShowDate())
             ->when($search !== '', fn ($q) => $q->where('shows.title', 'like', '%' . addcslashes($search, '%_\\') . '%'))
             ->with('show.fulfillmentUsers:id')
             ->orderByDesc('shows.show_date')->orderByDesc('fulfillment_runs.id')

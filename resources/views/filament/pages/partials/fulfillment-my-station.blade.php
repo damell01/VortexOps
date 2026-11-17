@@ -11,7 +11,7 @@
     $board = fn ($r) => \App\Filament\Pages\FulfillmentStationBoard::getUrl(array_filter(['run' => $r->id, 'station' => $r->station_id]));
     $pct = $run && $run->pkg_total ? $run->pkg_packed / $run->pkg_total : 0;
 @endphp
-<div class="vxmy">
+<div class="vxmy" data-vxf-pulse x-data x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire)">
     <div class="vxmy-date">{{ \App\Support\BusinessTime::local()->format('l, M j') }}</div>
     <h1 class="vxmy-hello">Hi {{ $first }} 👋</h1>
     <p class="vxmy-sub">

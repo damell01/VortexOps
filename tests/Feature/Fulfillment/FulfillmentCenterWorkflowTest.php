@@ -124,6 +124,21 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $home->set('packageSearch', 'nobody-here')->assertSee('Nothing matches');
     }
 
+    public function test_shipping_desk_shows_a_sticky_print_bar_once_labels_are_picked(): void
+    {
+        $show = $this->show(['zoe_cards' => 1, 'Alpha_Rips' => 1], true);
+        $ids = Shipment::query()->where('show_id', $show->id)->pluck('id');
+        foreach ($ids as $id) Shipment::query()->whereKey($id)->update(['raw_payload' => json_encode(['documents' => ['label_url' => 'https://example.com/l'.$id.'.pdf']])]);
+
+        $desk = Livewire::actingAs($this->manager)->test(\App\Filament\Resources\FulfillmentResource\Pages\ShippingDesk::class, ['record' => $show->id])
+            ->assertDontSeeHtml('vxsd-printbar');
+        $desk->set('selectedShipmentIds', $ids->map(fn ($id) => (string) $id)->all())
+            ->assertSeeHtml('class="vxsd-printbar"')->assertSeeText('2 labels selected')->assertSee('Print selected')
+            ->assertSeeHtml('id="vxsd-batch"');
+        $desk->call('preparePrintBatch')->assertSet('selectedShipmentIds', [])->assertDontSeeHtml('class="vxsd-printbar"');
+        $this->assertCount(2, $desk->get('printDocuments'));
+    }
+
     public function test_buyers_are_lettered_by_username_initial_once_per_username_with_orders_grouped(): void
     {
         $run = $this->started($this->show(['zoe_cards' => 1, 'Alpha_Rips' => 2, 'bigpullz' => 1, 'alpha_rips' => 1]));

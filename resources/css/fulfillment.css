@@ -1310,3 +1310,21 @@ html.dark .vxf-full{background:#0b1020}
 .vxf-today-grid[x-cloak],.vxf-pane[x-cloak]{display:none!important}
 .vxf-today-grid .vxf-summary-col{grid-column:auto!important;display:flex!important;flex-direction:column}
 @media(max-width:899px){.vxf-today-grid{grid-template-columns:minmax(0,1fr)}.vxf-sections{width:100%}.vxf-sections__tab{flex:1;justify-content:center;padding:6px 10px}}
+
+/* Shipping & Labels: the selection follows you down the list. */
+.vxsd-printbar{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom));z-index:20;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border-radius:16px;background:#1e1b4b;color:#fff;box-shadow:0 12px 32px -8px rgba(30,27,75,.55);animation:vxsd-bar-in .22s ease-out}
+.vxsd-printbar__count{flex:1;min-width:120px;font-size:14px}
+.vxsd-printbar__count strong{font-size:17px;margin-right:2px}
+.vxsd-printbar button{min-height:42px;border-radius:11px;padding:0 14px;font-size:13px;font-weight:700;cursor:pointer}
+.vxsd-printbar__ghost{border:1px solid rgba(255,255,255,.28);background:transparent;color:#fff}
+.vxsd-printbar__ghost:hover{background:rgba(255,255,255,.1)}
+.vxsd-printbar__go{display:inline-flex;align-items:center;gap:7px;border:0;background:#8b5cf6;color:#fff}
+.vxsd-printbar__go:hover{background:#7c3aed}.vxsd-printbar__go:disabled{opacity:.6}
+.vxsd-printbar__go svg{width:18px;height:18px}
+@keyframes vxsd-bar-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(max-width:640px){.vxsd-printbar{bottom:calc(76px + env(safe-area-inset-bottom))}.vxsd-printbar__count{flex-basis:100%}.vxsd-printbar__go{flex:1;justify-content:center}}
+@media(prefers-reduced-motion:reduce){.vxsd-printbar{animation:none}}
+/* While labels are picked, the Messages button steps up above the print bar instead of covering it. */
+body:has(.vxsd-printbar) .vx-chatify-shell .vx-chatify-launch{bottom:96px}
+@media(max-width:640px){body:has(.vxsd-printbar) .vx-chatify-shell .vx-chatify-launch{bottom:calc(220px + env(safe-area-inset-bottom))}}
+body:has(.vxsd-printbar) .vx-to-top{display:none!important}

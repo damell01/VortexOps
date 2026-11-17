@@ -36,7 +36,7 @@
                 </div>
             @endforeach
         </div>
-        <section class="rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/30">
+        <section id="vxsd-batch" class="scroll-mt-24 rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/30">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h3 class="font-bold text-violet-950 dark:text-violet-100">Bulk label preparation</h3>
@@ -190,6 +190,17 @@
             <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-900">No matching buyers or shipments. Check the sync status and search filters.</div>
         @endforelse
         </div>
+        {{-- Picking labels happens far down the list; this bar follows the picker so the batch is one tap away. --}}
+        @if(count($selectedShipmentIds))
+            <div class="vxsd-printbar" role="region" aria-label="Selected labels" x-data x-transition>
+                <span class="vxsd-printbar__count"><strong class="tabular-nums">{{ count($selectedShipmentIds) }}</strong> {{ \Illuminate\Support\Str::plural('label', count($selectedShipmentIds)) }} selected</span>
+                <button type="button" class="vxsd-printbar__ghost" wire:click="$set('selectedShipmentIds', [])">Clear</button>
+                <button type="button" class="vxsd-printbar__ghost" wire:click="selectPrintableLabels">Select all printable</button>
+                <button type="button" class="vxsd-printbar__go" x-on:click="$wire.preparePrintBatch().then(() => document.getElementById('vxsd-batch')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))" wire:loading.attr="disabled" wire:target="preparePrintBatch">
+                    <x-heroicon-o-printer aria-hidden="true" /> <span wire:loading.remove wire:target="preparePrintBatch">Print selected</span><span wire:loading wire:target="preparePrintBatch">Preparing…</span>
+                </button>
+            </div>
+        @endif
         <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900" x-data="{ expanded: false }">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div><h3 class="font-bold text-gray-950 dark:text-white">Shipping &amp; packing audit</h3><p class="text-xs text-gray-500">Recent actions, buyer usernames and the team member responsible.</p></div>

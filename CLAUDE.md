@@ -255,7 +255,7 @@ the write:
   `Auction or BIN?`, `Cost`, `Sale price / Target`). Only `PRODUCT NAME` is required.
 - Matching is by SKU, then by trimmed lowercase name — so a re-import updates
   rather than duplicating.
-- A price cell holding a formula is **skipped and reported**, never cast to 0.00.
+- A price cell holding a formula uses the **result saved in the file** (Sheets/Excel store it); with no saved result (or a saved 0) it is **skipped and reported**, never cast to 0.00.
 - Costs, targets and `sold_as` already set are left alone unless `overwrite` is
   passed; `average_cost` is never written here — it belongs to receiving.
 

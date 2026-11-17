@@ -32,7 +32,6 @@
                             <select wire:model.live="sheet" class="min-h-10 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                                 @foreach ($sheets as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach
                             </select>
-                            <p class="mt-1.5 text-[11px] text-gray-500">{{ $fileName }}</p>
                         </div>
                     @endif
                 </div>
@@ -63,14 +62,6 @@
                     <h2 class="text-base font-semibold text-gray-950 dark:text-white">Preview before import</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review what is new, what already exists, the sheet cost/target, and the expected margin. Fix any row with <b>Edit</b>, or set it to <b>Don't import</b>. Rows that look like something already in the catalogue start as <b>Don't import</b> — choose to update the existing item, import as new, or leave it out. Nothing is written yet.</p>
 
-                    <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                        <div class="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-500/20 dark:bg-green-500/10"><div class="text-2xl font-bold text-green-700 dark:text-green-300">{{ $summary['create'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">New items</div></div>
-                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/20 dark:bg-amber-500/10"><div class="text-2xl font-bold text-amber-700 dark:text-amber-300">{{ $summary['update'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide text-amber-700/70 dark:text-amber-300/70">Updates</div></div>
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"><div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ $summary['unchanged'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Existing / no change</div></div>
-                        <div class="rounded-lg border p-3 {{ $summary['warnings'] ? 'border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50' }}"><div class="text-2xl font-bold {{ $summary['warnings'] ? 'text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300' }}">{{ $summary['warnings'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide {{ $summary['warnings'] ? 'text-red-700/70 dark:text-red-300/70' : 'text-gray-500' }}">Need a look</div></div>
-                        <div class="rounded-lg border p-3 {{ $summary['duplicates'] ? 'border-violet-200 bg-violet-50 dark:border-violet-500/20 dark:bg-violet-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50' }}"><div class="text-2xl font-bold {{ $summary['duplicates'] ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300' }}">{{ $summary['duplicates'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Possible duplicates</div></div>
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"><div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ $summary['skipped'] }}</div><div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Not importing</div></div>
-                    </div>
                 </div>
             </div>
 
@@ -166,10 +157,10 @@
             @if ($this->hiddenRowCount > 0)<div class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700">… and {{ $this->hiddenRowCount }} more rows not shown. They are included in the import as they stand — filter to find them.</div>@endif
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <section class="vx-import-go sticky bottom-3 z-10 rounded-xl border border-primary-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-primary-500/30 dark:bg-gray-900/95 dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-start gap-3"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">3</span><div><h2 class="text-base font-semibold text-gray-950 dark:text-white">Import it</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Writes {{ $summary['create'] + $summary['update'] }} rows that actually change something. Existing no-change rows are left alone@if($summary['skipped']), and the {{ $summary['skipped'] }} marked “Don't import” are left out@endif.</p></div></div>
-                <button type="button" wire:click="import" wire:loading.attr="disabled" wire:target="import" class="vx-plain shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:opacity-60"><span wire:loading.remove wire:target="import">Import {{ $summary['create'] + $summary['update'] }} rows</span><span wire:loading wire:target="import">Importing…</span></button>
+                <div class="flex items-start gap-3"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">3</span><div><h2 class="text-base font-semibold text-gray-950 dark:text-white">Import it</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Writes {{ $summary['create'] + $summary['update'] }} rows that actually change something. Existing no-change rows are left alone{{ $summary['skipped'] ? ', and the '.$summary['skipped'].' marked “Don\'t import” are left out' : '' }}.</p></div></div>
+                @php $toWrite = $summary['create'] + $summary['update']; @endphp<button type="button" wire:click="import" wire:loading.attr="disabled" wire:target="import" @disabled($toWrite === 0) class="vx-plain shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"><span wire:loading.remove wire:target="import">{{ $toWrite === 0 ? 'Nothing to import' : 'Import '.$toWrite.' '.\Illuminate\Support\Str::plural('row', $toWrite) }}</span><span wire:loading wire:target="import">Importing…</span></button>
             </div>
             @if ($result)<div class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300">Done — <b>{{ $result['created'] }}</b> created, <b>{{ $result['updated'] }}</b> updated, <b>{{ $result['unchanged'] }}</b> already matched.</div>@endif
         </section>

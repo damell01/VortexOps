@@ -38,7 +38,7 @@ class ImportProductCostSheetTest extends TestCase
     /**
      * @param  array<int, array<int, mixed>>  $rows
      */
-    private function workbook(array $rows, ?array $header = null, string $title = 'Product cost ref sheet'): string
+    private function workbook(array $rows, ?array $header = null, string $title = 'Product cost ref sheet', bool $savedResults = true): string
     {
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
@@ -53,7 +53,9 @@ class ImportProductCostSheetTest extends TestCase
             'A1',
         );
 
-        (new Xlsx($spreadsheet))->save($this->path);
+        $writer = new Xlsx($spreadsheet);
+        $writer->setPreCalculateFormulas($savedResults); // false: formulas with no saved result
+        $writer->save($this->path);
 
         return $this->path;
     }
@@ -166,12 +168,20 @@ class ImportProductCostSheetTest extends TestCase
         $this->assertSame('92.00', $product->sale_price);
     }
 
-    public function test_a_formula_in_a_price_cell_is_ignored_rather_than_read_as_zero(): void
+    public function test_a_formula_price_uses_the_number_the_sheet_showed(): void
     {
-        // The sheet's own margin column is full of "=F2-E2", so a price cell
-        // holding one is a matter of a row being copied slightly wrong. Cast
-        // straight to float it becomes 0.0 — a silent, plausible, wrong price.
         $this->workbook([['Gem 1 Box', null, 'box', 'Both', 50, '=E2*2', null]]);
+
+        $this->artisan('inventory:import-cost-sheet', ['file' => $this->path])->assertSuccessful();
+
+        $this->assertSame('100.00', Product::where('name', 'Gem 1 Box')->value('sale_price'));
+    }
+
+    public function test_a_formula_with_no_saved_result_is_ignored_rather_than_read_as_zero(): void
+    {
+        // Cast straight to float a formula string becomes 0.0 — a silent,
+        // plausible, wrong price. Without a saved result it is skipped.
+        $this->workbook([['Gem 1 Box', null, 'box', 'Both', 50, '=E2*2', null]], savedResults: false);
 
         $this->artisan('inventory:import-cost-sheet', ['file' => $this->path])->assertSuccessful();
 

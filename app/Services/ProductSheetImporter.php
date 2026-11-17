@@ -93,7 +93,8 @@ class ProductSheetImporter
             $reader->setLoadSheetsOnly([$sheet]);
         }
 
-        $raw = $reader->load($path)->getSheet(0)->toArray(null, false, false, false);
+        $worksheet = $reader->load($path)->getSheet(0);
+        $raw = $worksheet->toArray(null, false, false, false);
 
         if ($raw === []) {
             return [];
@@ -118,6 +119,15 @@ class ProductSheetImporter
 
             foreach (['cost' => 'Cost', 'sale_price' => 'Sale price / Target'] as $key => $label) {
                 $cell = $line[$columns[$key]] ?? null;
+
+                // A sheet saved by Google Sheets or Excel keeps each formula's
+                // last result next to it: use that number when it is there.
+                if (is_string($cell) && str_starts_with(trim($cell), '=') && $columns[$key] !== null) {
+                    $cached = $this->cachedFormulaResult($worksheet, (int) $columns[$key], (int) $offset);
+                    if ($cached !== null) {
+                        $line[$columns[$key]] = $cell = $cached;
+                    }
+                }
 
                 // A formula cell reads as "=F2-E2", and (float) on that is
                 // 0.00 — a silent, plausible, wrong number. It is skipped, and
@@ -556,6 +566,19 @@ class ProductSheetImporter
         $text = trim((string) $value);
 
         return $text === '' ? null : $text;
+    }
+
+    /** The value a formula cell last showed in Sheets/Excel (saved in the file), or null when the file has none. */
+    private function cachedFormulaResult(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet, int $column, int $rowIndex): ?float
+    {
+        try {
+            $value = $worksheet->getCell([$column + 1, $rowIndex + 1])->getOldCalculatedValue();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        // 0 is what a broken or circular formula can leave behind; never a price.
+        return is_numeric($value) && (float) $value != 0.0 ? (float) $value : null;
     }
 
     /**

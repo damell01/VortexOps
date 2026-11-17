@@ -42,7 +42,7 @@ class ImportInventorySheetPageTest extends TestCase
     }
 
     /** @param array<int, array<int, mixed>> $rows */
-    private function workbook(array $rows, string $title = 'Product cost ref sheet'): UploadedFile
+    private function workbook(array $rows, string $title = 'Product cost ref sheet', bool $savedResults = true): UploadedFile
     {
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
@@ -53,7 +53,10 @@ class ImportInventorySheetPageTest extends TestCase
             'A1',
         );
 
-        (new Xlsx($spreadsheet))->save($this->path);
+        $writer = new Xlsx($spreadsheet);
+        // Sheets and Excel save each formula's last result in the file; false writes formulas without one.
+        $writer->setPreCalculateFormulas($savedResults);
+        $writer->save($this->path);
 
         return UploadedFile::fake()->createWithContent('cost-sheet.xlsx', file_get_contents($this->path));
     }
@@ -164,9 +167,19 @@ class ImportInventorySheetPageTest extends TestCase
         $this->assertSame(1, $page->get('summary')['unchanged']);
     }
 
-    public function test_a_formula_in_a_price_cell_is_flagged_rather_than_read_as_zero(): void
+    public function test_a_formula_price_uses_the_result_saved_in_the_file(): void
     {
-        $file = $this->workbook([['2026 Topps Chrome Hobby Box', 'TCH-2026', 'box', 'BIN', '=E2*2', 249.99]]);
+        $file = $this->workbook([['2026 Topps Chrome Hobby Box', 'TCH-2026', 'box', 'BIN', 120, '=E2*2']]);
+
+        $rows = $this->page()->set('upload', $file)->get('rows');
+
+        $this->assertSame([], $rows[0]['warnings']);
+        $this->assertEquals(240.0, $rows[0]['sheet_target'], 'the number Sheets/Excel showed for the formula');
+    }
+
+    public function test_a_formula_with_no_saved_result_is_flagged_rather_than_read_as_zero(): void
+    {
+        $file = $this->workbook([['2026 Topps Chrome Hobby Box', 'TCH-2026', 'box', 'BIN', '=F2/2', 249.99]], savedResults: false);
 
         $page = $this->page()->set('upload', $file);
         $rows = $page->get('rows');

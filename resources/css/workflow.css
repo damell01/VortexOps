@@ -434,3 +434,7 @@ button.vxw-tile:active, a.vxw-tile:active { transform: scale(.99); }
 [data-vx-eos-report] .vx-eos-share-detail > summary { list-style: none; }
 [data-vx-eos-report] .vx-eos-share-detail > summary::-webkit-details-marker { display: none; }
 [data-vx-eos-report] .vxw-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+
+/* Import sheet: the Messages button steps above the sticky Import bar instead of covering it. */
+body:has(.vx-import-go) .vx-chatify-shell .vx-chatify-launch { bottom: 118px; }
+body:has(.vx-import-go) .vx-to-top { display: none !important; }

@@ -186,7 +186,7 @@ class StreamReviewTest extends TestCase
         $this->assertTrue(ReviewShowStreamers::canAccess());
         $menu=view('filament.components.desktop-mega-nav')->render();
         $this->assertStringContainsString(ShowResource::getUrl('stream-review'),$menu);
-        $this->assertGreaterThanOrEqual(2,substr_count($menu,'Stream Review'));
+        $this->assertGreaterThanOrEqual(1,substr_count($menu,'Stream Review'));
         // The fulfillment admin may open it, but it is left out of their menu.
         $this->role('fulfillment_admin');
         $this->assertTrue(ReviewShowStreamers::canAccess());

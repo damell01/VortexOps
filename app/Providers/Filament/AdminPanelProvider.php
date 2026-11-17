@@ -460,6 +460,8 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                // Shared inline scripts/styles become cached files (see the class).
+                \App\Http\Middleware\ExternalizeInlineAssets::class,
             ])
             ->middleware([\App\Http\Middleware\RequirePasswordChange::class], isPersistent: true)
             ->plugins([

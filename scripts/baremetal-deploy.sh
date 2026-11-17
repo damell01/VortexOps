@@ -145,7 +145,7 @@ if [ "$FRONTEND_CHANGED" -eq 1 ]; then
   # Start clean so a frontend deploy is deterministic.
   rm -rf node_modules
   npm ci --no-audit --no-fund
-  npm run build
+  bash scripts/build-assets.sh   # builds beside public/build, then swaps (never leaves it empty)
   rm -rf node_modules
 else
   echo "Frontend unchanged: keeping existing public/build assets"

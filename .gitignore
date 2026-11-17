@@ -58,3 +58,5 @@ tests/Browser/output/
 
 # Published by the deploy (php artisan vendor:publish --tag=chatify-assets)
 /public/vendor/chatify/
+/public/build-next
+/public/build-old

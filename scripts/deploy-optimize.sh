@@ -42,7 +42,7 @@ echo ""
 echo "🎨 Building frontend assets..."
 if [ -f "package.json" ]; then
     if [ "$ENVIRONMENT" = "production" ]; then
-        npm run build
+        bash scripts/build-assets.sh
         echo "✓ Production build complete"
     else
         npm run dev

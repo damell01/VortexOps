@@ -53,7 +53,7 @@ echo ""
 
 # Build assets
 echo "🎨 Building assets..."
-npm run build
+bash scripts/build-assets.sh
 echo "✓ Assets built"
 echo ""
 

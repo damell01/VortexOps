@@ -217,3 +217,20 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/fulfillment/labels/{package}', \App\Http\Controllers\FulfillmentLabelController::class)->whereNumber('package')->middleware('throttle:60,1')->name('fulfillment.label');
     Route::get('/fulfillment/shipment-labels/{shipment}', [\App\Http\Controllers\FulfillmentLabelController::class, 'shipment'])->whereNumber('shipment')->middleware('throttle:60,1')->name('fulfillment.shipment-label');
 });
+
+// Shared inline <script>/<style> blocks moved out of pages by ExternalizeInlineAssets.
+// Named by content, so a file never changes: cached for a year, only for signed-in users.
+Route::middleware(['web', 'auth'])->get('/admin/inline-assets/{file}', function (string $file) {
+    abort_unless(preg_match('/^[a-f0-9]{32}\.(js|css)$/', $file), 404);
+    $path = \App\Http\Middleware\ExternalizeInlineAssets::directory().'/'.$file;
+    abort_unless(is_file($path), 404);
+
+    $response = response()->file($path, [
+        'Content-Type' => str_ends_with($file, '.js') ? 'application/javascript; charset=utf-8' : 'text/css; charset=utf-8',
+    ]);
+    $response->setPrivate();
+    $response->setMaxAge(31536000);
+    $response->setImmutable();
+
+    return $response;
+})->where('file', '[a-f0-9]{32}\.(js|css)')->name('inline-asset');

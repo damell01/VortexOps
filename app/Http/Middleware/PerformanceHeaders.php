@@ -55,7 +55,10 @@ class PerformanceHeaders
                 $response->headers->set('Server-Timing', sprintf('app;dur=%.1f, db;dur=%.1f', $elapsed, $metrics->databaseMs));
                 $response->headers->set('X-Query-Count', (string) $metrics->queries);
                 // Never expose signed-in HTML through a shared/public page cache.
-                if ($request->user() || $request->is('admin*', 'livewire*')) {
+                // Content-named files (inline-assets) say immutable and keep their
+                // private one-year cache: their name changes whenever they do.
+                if (($request->user() || $request->is('admin*', 'livewire*'))
+                    && ! str_contains((string) $response->headers->get('Cache-Control'), 'immutable')) {
                     $response->headers->set('Cache-Control', 'private, no-store');
                 }
             }

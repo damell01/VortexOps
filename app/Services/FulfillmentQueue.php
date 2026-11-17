@@ -36,7 +36,7 @@ final class FulfillmentQueue
         $query = Show::query()
             ->where('is_operational', true)
             ->whereNotIn('status', ['cancelled'])
-            ->whereDate('show_date', '>=', today()->subDays(self::WINDOW_DAYS))
+            ->whereDate('show_date', '>=', self::earliestShowDate())
             ->where(function (Builder $ready) use ($approvedReport) {
                 // Ended with something to pack...
                 $ready->where(fn (Builder $ended) => $ended->readyForAnalytics()->where(function (Builder $work) use ($approvedReport) {
@@ -57,6 +57,30 @@ final class FulfillmentQueue
     }
 
     /** Whether packing must wait for the streamer report to be approved (the long-standing rule). */
+    /**
+     * Shows streamed before this date are never "ready to pack" (they were
+     * shipped before the Fulfillment Center was in use). They stay viewable as
+     * examples from Shows; they just don't fill the queue. Setting: fulfillment_pack_from.
+     */
+    public static function packFrom(): ?\Illuminate\Support\Carbon
+    {
+        $raw = \App\Models\Setting::get('fulfillment_pack_from');
+        try {
+            return $raw ? \Illuminate\Support\Carbon::parse((string) $raw)->startOfDay() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** The earliest show date the queue considers: the recent window, or the pack-from date if later. */
+    public static function earliestShowDate(): string
+    {
+        $window = today()->subDays(self::WINDOW_DAYS);
+        $from = self::packFrom();
+
+        return ($from && $from->greaterThan($window) ? $from : $window)->toDateString();
+    }
+
     public static function requiresApprovedReport(): bool
     {
         // Packing is driven by show readiness and assignment, not by
@@ -163,8 +187,8 @@ final class FulfillmentQueue
     }
 
     /**
-     * The ready-to-pack queue for the Home page, newest work first: packing,
-     * then paused, then ready by when they became ready. Paged by the caller.
+     * The ready-to-pack queue for the Home page: packing, then paused, then
+     * ready with the most recently streamed show first. Paged by the caller.
      * Runs only exist for shows the ready check already accepted, so this
      * stays a plain indexed query instead of re-running that check.
      *
@@ -178,7 +202,7 @@ final class FulfillmentQueue
             ->whereIn('fulfillment_runs.status', FulfillmentRun::OPEN)
             ->join('shows', 'shows.id', '=', 'fulfillment_runs.show_id')
             ->where('shows.is_operational', true)->where('shows.status', '!=', 'cancelled')
-            ->where('shows.show_date', '>=', today()->subDays(self::WINDOW_DAYS)->toDateString())
+            ->where('shows.show_date', '>=', self::earliestShowDate())
             ->when(ChannelContext::isScoped(), fn (Builder $q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
             ->when(trim($search) !== '', function (Builder $q) use ($search) {
                 $term = '%'.substr(trim($search), 0, 120).'%';
@@ -201,8 +225,9 @@ final class FulfillmentQueue
             ->with(['show:id,title,show_date,start_time,whatnot_channel_id,status,is_slow_pack', 'show.channel:id,name', 'show.streamers:id,name',
                 'show.fulfillmentUsers:id,name', 'station:id,name', 'packers:id,name'])
             ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
+            // Shows being packed or paused first, then the most recently streamed.
             ->orderByRaw("CASE fulfillment_runs.status WHEN 'packing' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END")
-            ->orderBy('fulfillment_runs.ready_at')->orderBy('fulfillment_runs.id')
+            ->orderByDesc('shows.show_date')->orderByDesc('shows.start_time')->orderByDesc('fulfillment_runs.id')
             ->forPage($page, $perPage)->get();
     }
 

@@ -317,18 +317,25 @@
     }
 
     // ── Feed polling with backoff ─────────────────────────────────────────
-    let delay = 5000, timer, polling = false;
+    // The feed answers "same" in a few bytes when nothing on the floor has
+    // changed, so the board can ask every 3 seconds and redraw only on change.
+    // A full redraw still happens at least once a minute.
+    let delay = 3000, timer, polling = false, version = @json($initial['v'] ?? null), lastFull = Date.now();
     async function poll() {
         if (polling) return;
         polling = true;
         clearTimeout(timer);
         try {
-            const r = await fetch(feed, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
+            const url = new URL(feed, location.href);
+            if (version && Date.now() - lastFull < 60000) url.searchParams.set('since', version);
+            const r = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
             if (r.status === 401 || r.status === 419) { setTimeout(() => location.reload(), 30000); throw new Error('signed out'); }
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            render(await r.json());
+            const data = await r.json();
+            if (!data.same) { render(data); lastFull = Date.now(); }
+            if (data.v) version = data.v;
             offline.hidden = true; document.getElementById('vxtv-live').classList.remove('is-off');
-            delay = 5000;
+            delay = 3000;
         } catch (e) {
             offline.hidden = false; document.getElementById('vxtv-live').classList.add('is-off');
             delay = Math.min(delay * 2, 60000);
@@ -338,7 +345,7 @@
     }
 
     render(@json($initial));
-    timer = setTimeout(poll, 5000);
+    timer = setTimeout(poll, 3000);
     setInterval(() => cards.forEach(paintTimer), 1000);
     window.addEventListener('online', poll);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });

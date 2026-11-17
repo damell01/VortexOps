@@ -32,7 +32,7 @@ class FulfillmentWhiteboardController extends Controller
             'stationList' => FulfillmentStation::query()->where('active', true)->orderBy('sort')->orderBy('id')->get(['id', 'name']),
             'density' => in_array($request->query('density'), ['compact', 'comfortable', 'large', 'rows'], true) ? $request->query('density') : 'comfortable',
             'feedUrl' => route('fulfillment.whiteboard.feed', array_filter(['station' => $station])),
-            'initial' => $this->payload($station),
+            'initial' => ['v' => \App\Support\FulfillmentPulse::version()] + $this->payload($station),
         ]);
     }
 
@@ -40,7 +40,14 @@ class FulfillmentWhiteboardController extends Controller
     {
         abort_unless(FulfillmentAccess::moduleEnabled() && FulfillmentAccess::isMember($request->user()), 403);
 
-        return response()->json($this->payload($request->integer('station') ?: null))->header('Cache-Control', 'no-store');
+        // The screen sends the version it last drew; when nothing has changed it
+        // gets a few bytes back instead of the whole board.
+        $v = \App\Support\FulfillmentPulse::version(); // read before the board is built, so nothing slips between
+        if ($v !== '0' && $request->query('since') === $v) {
+            return response()->json(['same' => true, 'v' => $v])->header('Cache-Control', 'no-store');
+        }
+
+        return response()->json(['v' => $v] + $this->payload($request->integer('station') ?: null))->header('Cache-Control', 'no-store');
     }
 
     /** Only what a shared screen may show. */

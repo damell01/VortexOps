@@ -22,7 +22,15 @@ use Illuminate\Support\Facades\Schema;
  *  - "changes" that did not change anything (same old and new value);
  *  - import logs and sync audits after 30 days, failed jobs after 30 days,
  *    the HTML copy of sent emails after 30 days, read notifications after
- *    60 days, the activity log after 90 days.
+ *    60 days, the activity log after 90 days;
+ *  - Whatnot webhook deliveries once handled for 30 days (failed: 90 days);
+ *  - automatic show changes (the API sync and the system) after 180 days;
+ *    every change a person made stays;
+ *  - Whatnot value-history observations after 180 days, except the newest
+ *    one of each field, which the next sync compares against;
+ *  - label print jobs after 90 days, scanner logs after a year;
+ *  - finished queue batches after 7 days, expired database-cache rows, and
+ *    login sessions idle for more than 7 days.
  *
  * Dry run by default: it says what it would remove. --apply removes it, in
  * small batches, and --optimize then hands the space back to the disk.
@@ -62,6 +70,19 @@ class StorageTrim extends Command
         $rows[] = $this->deleteWhere('notifications', 'read notifications older than 60 days', fn ($q) => $q->whereNotNull('read_at')->where('read_at', '<', now()->subDays(60)));
         $rows[] = $this->deleteWhere('activity_log', 'activity log older than 90 days', fn ($q) => $q->where('created_at', '<', now()->subDays(90)));
         $rows[] = $this->clearColumn('email_logs', 'html', 'email copies older than 30 days', fn ($q) => $q->where('created_at', '<', now()->subDays(30)));
+        $rows[] = $this->deleteWhere('whatnot_api_webhook_events', 'handled webhook deliveries older than 30 days (failed: 90)',
+            fn ($q) => $q->where(fn ($w) => $w->where(fn ($done) => $done->whereNotNull('processed_at')->where('received_at', '<', now()->subDays(30)))
+                ->orWhere('received_at', '<', now()->subDays(90))));
+        $rows[] = $this->deleteWhere('show_change_logs', 'automatic show changes older than 180 days (people\'s edits stay)',
+            fn ($q) => $q->where(fn ($w) => $w->where('source', \App\Services\WhatnotApiShowImporter::SOURCE)->orWhere('changed_by', 'system'))
+                ->where('created_at', '<', now()->subDays(180)));
+        $rows[] = $this->observedValues();
+        $rows[] = $this->deleteWhere('fulfillment_print_jobs', 'label print jobs older than 90 days', fn ($q) => $q->where('created_at', '<', now()->subDays(90)));
+        $rows[] = $this->deleteWhere('scan_logs', 'scanner log older than a year', fn ($q) => $q->where('scanned_at', '<', now()->subYear()));
+        $rows[] = $this->deleteKeyed('job_batches', 'id', 'finished queue batches older than 7 days',
+            fn ($q) => $q->whereNotNull('finished_at')->where('finished_at', '<', now()->subDays(7)->getTimestamp()));
+        $rows[] = $this->deleteKeyed('cache', 'key', 'expired database-cache rows', fn ($q) => $q->where('expiration', '<', now()->getTimestamp()));
+        $rows[] = $this->deleteKeyed('sessions', 'id', 'login sessions idle more than 7 days', fn ($q) => $q->where('last_activity', '<', now()->subDays(7)->getTimestamp()));
 
         $this->table(['What', 'Table', $this->apply ? 'Removed / slimmed' : 'Would remove / slim'], array_values(array_filter($rows)));
 
@@ -123,6 +144,52 @@ class StorageTrim extends Command
         if ($this->apply && $slimmed) $this->touched[$table] = true;
 
         return ["Raw copies older than {$days} days (IDs and evidence kept), about " . $this->size($saved), $table, number_format($slimmed)];
+    }
+
+    /**
+     * Each value-history row records what a Whatnot field read at one time.
+     * The newest one per field is what the next sync compares against, so it
+     * always stays; older ones go after 180 days.
+     */
+    private function observedValues(): ?array
+    {
+        $table = 'whatnot_api_observed_values';
+        if (! Schema::hasTable($table)) return null;
+        $cutoff = now()->subDays(180);
+        $removed = 0;
+        DB::table($table)->select(['id', 'whatnot_channel_id', 'resource', 'source_id', 'field', 'observed_at'])
+            ->where('observed_at', '<', $cutoff)->orderBy('id')
+            ->chunkById(500, function ($rows) use ($table, &$removed) {
+                $stale = [];
+                foreach ($rows as $row) {
+                    $newer = DB::table($table)->where('whatnot_channel_id', $row->whatnot_channel_id)->where('resource', $row->resource)
+                        ->where('source_id', $row->source_id)->where('field', $row->field)
+                        ->where(fn ($q) => $q->where('observed_at', '>', $row->observed_at)->orWhere(fn ($same) => $same->where('observed_at', $row->observed_at)->where('id', '>', $row->id)))
+                        ->exists();
+                    if ($newer) $stale[] = $row->id;
+                }
+                $removed += count($stale);
+                if ($this->apply && $stale) DB::table($table)->whereIn('id', $stale)->delete();
+            });
+        if ($this->apply && $removed) $this->touched[$table] = true;
+
+        return ['Value history older than 180 days (the newest of each field stays)', $table, number_format($removed)];
+    }
+
+    /** For tables keyed by something other than an auto-increment id (cache, sessions, job batches). */
+    private function deleteKeyed(string $table, string $key, string $label, \Closure $where): ?array
+    {
+        if (! Schema::hasTable($table)) return null;
+        $count = $where(DB::table($table))->count();
+        if ($this->apply && $count) {
+            do {
+                $keys = $where(DB::table($table))->limit(1000)->pluck($key);
+                DB::table($table)->whereIn($key, $keys)->delete();
+            } while ($keys->count() === 1000);
+            $this->touched[$table] = true;
+        }
+
+        return [ucfirst($label), $table, number_format($count)];
     }
 
     private function deleteWhere(string $table, string $label, \Closure $where): ?array

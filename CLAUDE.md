@@ -312,6 +312,20 @@ shifts) plus two sign-ins: `fulfillment-admin@vortexops.test` (manager) and
 runs it with `--refresh`. `--logins` prints the sign-ins, `--remove` deletes
 the demo, and it refuses to run when `APP_ENV=production`.
 
+## Data retention
+
+`php artisan storage:trim` (nightly, dry run without `--apply`; Sundays it also
+runs `--optimize` to hand freed space back to MySQL) keeps the database lean.
+It never removes business records or anything a person entered. It trims:
+old raw API copies, import/sync logs and failed jobs (30 days), handled
+webhook deliveries (30 days; failed ones 90), read notifications (60 days),
+the activity log (90 days), automatic show changes from the sync (180 days;
+people's edits stay), Whatnot value history (180 days, newest per field
+kept), label print jobs (90 days), scanner logs (1 year), finished job
+batches (7 days), expired database-cache rows and sessions idle 7+ days.
+Add a rule there, with a case in `StorageRetentionTest`, rather than a new
+command.
+
 ## Scheduler / queue
 
 - Queue worker: `php artisan queue:work --sleep=3 --tries=3 --timeout=120`

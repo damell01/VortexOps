@@ -24,18 +24,18 @@ class WhatnotStderrSurfacesTest extends TestCase
 
     protected function setUp(): void
     {
-        parent::setUp();
         // These run the real Node runner script; skip where Node is not installed (CI has it).
         if (trim((string) shell_exec('command -v node 2>/dev/null')) === '') $this->markTestSkipped('Node is not installed here');
+        parent::setUp();
 
         $this->stub = tempnam(sys_get_temp_dir(), 'wn-stub-') . '.cjs';
     }
 
     protected function tearDown(): void
     {
-        @unlink($this->stub);
+        if (isset($this->stub)) @unlink($this->stub);
 
-        parent::tearDown();
+        if ($this->app) parent::tearDown();
     }
 
     /**

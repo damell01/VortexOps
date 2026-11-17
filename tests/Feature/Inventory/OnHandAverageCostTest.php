@@ -78,4 +78,20 @@ class OnHandAverageCostTest extends TestCase
         $this->assertEquals(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'), 'stock counts are never touched');
         $this->assertSame([], SyncInventoryLots::plan(), 'running it again changes nothing');
     }
+
+    public function test_lowest_and_highest_recorded_are_real_unit_costs_not_vendor_averages(): void
+    {
+        $this->enableAdminModules();
+        $this->actingAs(\App\Models\User::factory()->create(['email' => config('app.owner_email')]));
+        $item = $this->item();
+        $this->wave($item, 1, 50.13, '2026-11-17 17:02:00');
+        $this->wave($item, 1, 12, '2026-11-17 17:03:00');
+        app(InventoryLotService::class)->recompute($item);
+
+        $metrics = \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ViewInventoryItem::class, ['record' => $item])
+            ->instance()->costMetrics;
+        $this->assertEquals(12.0, $metrics['min_cost']);
+        $this->assertEquals(50.13, $metrics['max_cost']);
+        $this->assertEqualsWithDelta(31.065, $metrics['current_average_cost'], 0.001);
+    }
 }

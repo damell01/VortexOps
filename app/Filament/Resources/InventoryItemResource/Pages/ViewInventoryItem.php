@@ -281,7 +281,11 @@ class ViewInventoryItem extends Page
     {
         if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $breakdown = $this->getCostBreakdownProperty();
-        $costs = array_values(array_filter(array_column($breakdown, 'average_cost'), fn ($cost) => $cost !== null && (float) $cost >= 0));
+        // Lowest / highest recorded: every unit cost a lot was ever opened at
+        // (sold-out waves included), not per-vendor averages — two waves at
+        // $12 and $50 with no vendor used to collapse into one $31 "average"
+        // shown as both the lowest and the highest.
+        $costs = $this->record->lots()->where('unit_cost', '>', 0)->pluck('unit_cost')->map(fn ($c) => (float) $c)->all();
         if (empty($costs) && $this->record->unit_cost !== null) $costs[] = (float) $this->record->unit_cost;
 
         return [

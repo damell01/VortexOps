@@ -75,7 +75,9 @@
                         @if($this->showId !== 'all')
                             <div class="vxs-detail-actions">
                                 <button type="button" class="vxs-btn" wire:click="refreshSelectedShow" wire:loading.attr="disabled" wire:target="refreshSelectedShow">Refresh Whatnot</button>
-                                <a class="vxs-btn vxs-btn-primary" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => (int) $this->showId]) }}">Shipping &amp; Labels</a>
+                                @if($this->canOpenShippingDesk((int) $this->showId))
+                                    <a class="vxs-btn vxs-btn-primary" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => (int) $this->showId]) }}">Shipping &amp; Labels</a>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -138,7 +140,9 @@
                                 @else
                                     <span class="vxs-muted">No printable Whatnot label is available for this shipment. Refresh from Whatnot or check Shipping &amp; Labels.</span>
                                 @endif
-                                <a class="vxs-btn" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $selectedShipment->show_id]) }}">Show shipping workspace</a>
+                                @if($this->canOpenShippingDesk((int) $selectedShipment->show_id))
+                                    <a class="vxs-btn" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('shipping', ['record' => $selectedShipment->show_id]) }}">Show shipping workspace</a>
+                                @endif
                             </div>
                             <template x-if="open && url">
                                 <div role="dialog" aria-modal="true" aria-label="Shipping label preview" @keydown.escape.window="open=false" style="position:fixed;inset:0;z-index:99999;background:rgba(17,12,35,.75);display:flex;align-items:center;justify-content:center;padding:16px" @click.self="open=false">
@@ -152,7 +156,7 @@
                                 </div>
                             </template>
                         </div>
-                        <p class="vxs-muted">Labels are previewed and printed using the existing authorized Shipping &amp; Labels and packing station workflows. If Whatnot has not supplied a label, no preview is available.</p>
+                        <p class="vxs-muted">Tracking details and available Whatnot labels can be viewed here even when a show has not entered the packing queue. The separate Shipping &amp; Labels workspace appears only for packing-ready shows.</p>
                     </section>
                 @endif
             </main>

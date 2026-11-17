@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Shipment;
+use App\Support\ShipmentTrackingAccess;
 use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class ShipmentOverview extends Page
@@ -18,26 +20,51 @@ class ShipmentOverview extends Page
     public string $showId = 'all';
     public ?int $selectedShipmentId = null;
 
+    /**
+     * Shipment history is visible before packing/report approval. The query
+     * still honors the user's selected channel and date/show filters.
+     */
+    private function visibleShipments(): Builder
+    {
+        $cutoff = now()->subDays(max(1, min($this->days, 365)))->toDateString();
+        $query = ShipmentTrackingAccess::shipments()
+            ->whereHas('show', fn (Builder $show) => $show->where('show_date', '>=', $cutoff));
+
+        if ($this->showId !== 'all') {
+            abort_unless(ctype_digit($this->showId), 422);
+            $query->where('show_id', (int) $this->showId);
+        }
+
+        return $query;
+    }
+
     public function selectShipment(int $id): void
     {
         abort_unless(static::canAccess(), 403);
+        abort_unless($this->visibleShipments()->whereKey($id)->exists(), 404);
         $this->selectedShipmentId = $id;
     }
 
     public function selectedShipment(): ?Shipment
     {
-        if (! $this->selectedShipmentId) return null;
-        $shipment = Shipment::query()->with('show:id,title,show_date')->find($this->selectedShipmentId);
-        if (! $shipment) return null;
-        abort_unless(\App\Filament\Resources\FulfillmentResource::getEloquentQuery()->whereKey($shipment->show_id)->exists(), 403);
-        return $shipment;
-    }
+        abort_unless(static::canAccess(), 403);
 
+        return $this->selectedShipmentId
+            ? $this->visibleShipments()->with('show:id,title,show_date')->find($this->selectedShipmentId)
+            : null;
+    }
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        return (bool) ($user && ($user->isOwner() || $user->isAdmin() || $user->isFulfillmentAdmin()));
+        return ShipmentTrackingAccess::canView(auth()->user());
+    }
+
+    /** Shipping & Labels requires a packing-ready show; tracking does not. */
+    public function canOpenShippingDesk(int $showId): bool
+    {
+        return static::canAccess()
+            && \App\Support\FulfillmentAccess::moduleEnabled()
+            && \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->whereKey($showId)->exists();
     }
 
     public function getView(): string
@@ -48,8 +75,8 @@ class ShipmentOverview extends Page
     public function shipmentHistory(int $shipmentId): \Illuminate\Support\Collection
     {
         abort_unless(static::canAccess(), 403);
-        $shipment = Shipment::query()->findOrFail($shipmentId);
-        // A timeline is read-only and scoped to an existing shipment.
+        $shipment = $this->visibleShipments()->findOrFail($shipmentId);
+        // A timeline is read-only and scoped to an authorized shipment.
         return DB::table('fulfillment_shipment_events')
             ->where('shipment_id', $shipment->id)
             ->orderByDesc('observed_at')->limit(50)->get();
@@ -86,7 +113,7 @@ class ShipmentOverview extends Page
     {
         abort_unless(static::canAccess(), 403);
 
-        return \App\Filament\Resources\FulfillmentResource::getEloquentQuery()
+        return ShipmentTrackingAccess::shows()
             ->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString())
             ->whereHas('shipments')
             ->withCount('shipments')
@@ -100,7 +127,10 @@ class ShipmentOverview extends Page
     {
         abort_unless(static::canAccess(), 403);
         abort_unless($this->showId !== 'all' && ctype_digit($this->showId), 422);
-        $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail((int) $this->showId);
+        $show = ShipmentTrackingAccess::shows()
+            ->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString())
+            ->whereHas('shipments')
+            ->findOrFail((int) $this->showId);
         try {
             $result = app(\App\Services\FulfillmentShipmentRefreshService::class)->refresh($show);
             \Filament\Notifications\Notification::make()->title('Shipments refreshed')
@@ -120,12 +150,7 @@ class ShipmentOverview extends Page
     public function dashboardData(): array
     {
         abort_unless(static::canAccess(), 403);
-        $base = Shipment::query()->whereHas('show', fn ($query) =>
-            $query->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString()));
-        if ($this->showId !== 'all') {
-            abort_unless(ctype_digit($this->showId) && $this->recentShows()->contains('id', (int) $this->showId), 403);
-            $base->where('show_id', (int) $this->showId);
-        }
+        $base = $this->visibleShipments();
         $byStatus = (clone $base)->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')->get();
         $totals = array_fill_keys(array_keys(self::BUCKETS), 0);
         $statusesIn = [];

@@ -61,6 +61,9 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  \App\Filament\Resources\InventoryLocationResource::canAccess() ? ['Locations',\App\Filament\Resources\InventoryLocationResource::getUrl('index'),'History & setup'] : null,
  \App\Filament\Resources\VendorResource::canAccess() ? ['Vendors',\App\Filament\Resources\VendorResource::getUrl('index'),'History & setup'] : null,
 ]));
+// Streamers only need the inventory list itself; the stock tools stay reachable for staff.
+if($streamerOnly && isset($groups['Inventory'])) $groups['Inventory']=array_values(array_filter($groups['Inventory'], fn ($link) => $link[0] === 'All Inventory'));
+if(isset($groups['Inventory']) && $groups['Inventory'] === []) unset($groups['Inventory']);
 
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Payroll']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],

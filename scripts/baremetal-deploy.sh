@@ -226,6 +226,38 @@ if [ -n "$FPM_UNIT" ]; then
 fi
 sudo -n systemctl reload apache2 2>/dev/null || true
 
+# Static files (CSS, JS, fonts) were served uncompressed and without cache
+# headers, so every page re-fetched ~1.2 MB of stylesheet. This drop-in sits in
+# nginx's http block (conf.d): it compresses them and caches what is safe to
+# cache — /build/ is content-hashed (a year), the other assets are versioned
+# with ?v= (a week). Applied only if nginx accepts it; otherwise removed again.
+# Opt out with VORTEX_NGINX_ASSETS=off.
+NGINX_ASSETS=/etc/nginx/conf.d/vortexops-assets.conf
+if [ "$(env_value VORTEX_NGINX_ASSETS)" = "off" ]; then
+  echo "VORTEX_NGINX_ASSETS=off: leaving nginx as it is"
+elif ! command -v nginx >/dev/null 2>&1; then
+  echo "nginx not found: static asset caching skipped"
+elif ! sudo -n true 2>/dev/null; then
+  echo "No passwordless sudo: to compress and cache static files, copy deploy/nginx-assets.conf to $NGINX_ASSETS and reload nginx"
+elif sudo -n cmp -s deploy/nginx-assets.conf "$NGINX_ASSETS" 2>/dev/null; then
+  echo "nginx static asset caching already in place"
+else
+  sudo -n cp deploy/nginx-assets.conf "$NGINX_ASSETS"
+  # Ubuntu's nginx.conf already says "gzip on" (and may set gzip_types/vary/
+  # proxied); a directive set twice fails nginx -t, so drop ours one at a time
+  # until nginx accepts the file, then reload. Never leave a broken config.
+  for directive in gzip gzip_vary gzip_proxied gzip_comp_level gzip_types; do
+    if sudo -n nginx -t >/dev/null 2>&1; then break; fi
+    sudo -n sed -i "/^[[:space:]]*$directive[[:space:]]/d" "$NGINX_ASSETS"   # one directive per line
+  done
+  if sudo -n nginx -t >/dev/null 2>&1; then
+    sudo -n systemctl reload nginx && echo "nginx: static files now compressed and cached"
+  else
+    sudo -n rm -f "$NGINX_ASSETS"
+    echo "nginx did not accept the asset caching drop-in; removed it, nothing changed"
+  fi
+fi
+
 php artisan health:check >/dev/null
 
 if [ "$maintenance_enabled" -eq 1 ]; then

@@ -15,6 +15,12 @@
             if ($links) $groups[$group->getLabel() ?: 'Navigation'] = $links;
         }
     }
+    // Streamers only need the inventory list itself under Inventory.
+    if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner() && ! $user?->isStreamerAssistant() && isset($groups['Inventory'])) {
+        $inventoryList = \App\Filament\Resources\InventoryItemResource::getUrl('index');
+        $groups['Inventory'] = array_values(array_filter($groups['Inventory'], fn ($link) => strtok($link[1], '?') === $inventoryList));
+        if ($groups['Inventory'] === []) unset($groups['Inventory']);
+    }
     if (! ($fulfillmentOnly ?? false) && \App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess()
         && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
         $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];

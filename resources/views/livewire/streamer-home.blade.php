@@ -76,52 +76,6 @@
         <div class="pt-3"><livewire:app.filament.widgets.streamer-pay-period-widget wire:key="streamer-pay-period" lazy /></div>
     @endif
 
-    <div class="flex flex-wrap items-center gap-3 py-2"><livewire:inventory-recent-changes wire:key="streamer-dashboard-inventory-changes" /></div>
-
-    <section class="vsh-performance" aria-labelledby="vsh-performance-title">
-        <div class="vsh-performance-head">
-            <div><h2 id="vsh-performance-title">Your performance</h2><p>{{ $n['dates'] }} · {{ \App\Support\BusinessTime::zone() }}</p></div>
-            <label class="vsh-period">
-                <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
-                <span class="sr-only">Performance period</span>
-                <select wire:model.live="period" aria-label="Performance period">
-                    @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-                </select>
-            </label>
-        </div>
-        <div class="vsh-stats vsh-performance-stats" wire:loading.class="opacity-60" wire:target="period">
-            @foreach ([
-                ['heroicon-o-shopping-cart', 'violet', 'Gross sales', $money($n['gross']), 'Full sales of shows you hosted or cohosted. This is not your personal pay.'],
-                ['heroicon-o-document-check', 'green', 'Paid pay runs', $money($n['paid']), 'Only payouts marked paid, grouped by show date rather than payment date.'],
-                ['heroicon-o-calendar-days', 'violet', 'Shows', number_format($n['shows']), 'Shows you hosted or cohosted that have started in this period. Upcoming and cancelled shows are excluded.'],
-                ['heroicon-o-video-camera', 'blue', 'Streaming hours', number_format($n['hours'], 1).'h', 'Imported show duration, using your reported hours when duration is unavailable. This is not payroll hours worked.'],
-                ['heroicon-o-arrow-trending-up', 'green', 'Sales / streaming hour', $n['gross_per_hour'] === null ? '—' : $money($n['gross_per_hour']), 'Combined sales divided by matching streaming hours. Shows with no duration are excluded from both sides.'],
-                ['heroicon-o-banknotes', 'amber', 'Whatnot earnings', $n['earnings'] === null ? 'Pending' : $money($n['earnings']), 'Settled earnings where available, otherwise the Whatnot estimate, before product costs and pay. This is not your personal payout.'],
-            ] as [$icon, $tone, $label, $value, $tip])
-                <div class="vsh-stat">
-                    <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5" /></span>
-                    <div class="min-w-0">
-                        <p class="vsh-stat-label">{{ $label }} <span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-4 w-4" /></span></p>
-                        <p class="vsh-stat-value">{{ $value }}</p>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-        <div class="vsh-performance-summary">
-            <span><small>Average sales / show</small><b>{{ $n['gross_per_show'] === null ? '—' : $money($n['gross_per_show']) }}</b></span>
-            <span><small>Net units sold</small><b>{{ number_format($n['units']) }}</b></span>
-            <span class="vsh-performance-best"><small>Top show by sales</small><b>{{ $n['best_show'] ?? 'No shows yet' }}</b>@if ($n['best_gross'] !== null)<small>{{ $money($n['best_gross']) }}</small>@endif</span>
-        </div>
-        <p class="vsh-performance-note">Show sales and earnings include your cohosted shows. Paid pay totals include only your own payouts marked paid, grouped by show date. {{ $n['timed_shows'] }} of {{ $n['shows'] }} shows have streaming hours.@if ($n['earnings_pending']) {{ $n['earnings_pending'] }} shows are awaiting Whatnot earnings and excluded from the earnings total.@endif</p>
-        <p class="vsh-performance-note" wire:loading wire:target="period" role="status">Updating your performance…</p>
-    </section>
-
-    <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
-
-    @if (\App\Livewire\StreamerLeaderboard::canView())
-        @vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'streamer-home-leaderboard'" />
-    @endif
-
     {{-- Every report, as cards. --}}
     <section class="vsh-reports" aria-labelledby="vsh-reports-title">
         <div class="vsh-reports-head">
@@ -252,6 +206,52 @@
             </div>
         @endif
     </section>
+
+    <div class="flex flex-wrap items-center gap-3 py-2"><livewire:inventory-recent-changes wire:key="streamer-dashboard-inventory-changes" /></div>
+
+    <section class="vsh-performance" aria-labelledby="vsh-performance-title">
+        <div class="vsh-performance-head">
+            <div><h2 id="vsh-performance-title">Your performance</h2><p>{{ $n['dates'] }} · {{ \App\Support\BusinessTime::zone() }}</p></div>
+            <label class="vsh-period">
+                <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
+                <span class="sr-only">Performance period</span>
+                <select wire:model.live="period" aria-label="Performance period">
+                    @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                </select>
+            </label>
+        </div>
+        <div class="vsh-stats vsh-performance-stats" wire:loading.class="opacity-60" wire:target="period">
+            @foreach ([
+                ['heroicon-o-shopping-cart', 'violet', 'Gross sales', $money($n['gross']), 'Full sales of shows you hosted or cohosted. This is not your personal pay.'],
+                ['heroicon-o-document-check', 'green', 'Paid pay runs', $money($n['paid']), 'Only payouts marked paid, grouped by show date rather than payment date.'],
+                ['heroicon-o-calendar-days', 'violet', 'Shows', number_format($n['shows']), 'Shows you hosted or cohosted that have started in this period. Upcoming and cancelled shows are excluded.'],
+                ['heroicon-o-video-camera', 'blue', 'Streaming hours', number_format($n['hours'], 1).'h', 'Imported show duration, using your reported hours when duration is unavailable. This is not payroll hours worked.'],
+                ['heroicon-o-arrow-trending-up', 'green', 'Sales / streaming hour', $n['gross_per_hour'] === null ? '—' : $money($n['gross_per_hour']), 'Combined sales divided by matching streaming hours. Shows with no duration are excluded from both sides.'],
+                ['heroicon-o-banknotes', 'amber', 'Whatnot earnings', $n['earnings'] === null ? 'Pending' : $money($n['earnings']), 'Settled earnings where available, otherwise the Whatnot estimate, before product costs and pay. This is not your personal payout.'],
+            ] as [$icon, $tone, $label, $value, $tip])
+                <div class="vsh-stat">
+                    <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5" /></span>
+                    <div class="min-w-0">
+                        <p class="vsh-stat-label">{{ $label }} <span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-4 w-4" /></span></p>
+                        <p class="vsh-stat-value">{{ $value }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        <div class="vsh-performance-summary">
+            <span><small>Average sales / show</small><b>{{ $n['gross_per_show'] === null ? '—' : $money($n['gross_per_show']) }}</b></span>
+            <span><small>Net units sold</small><b>{{ number_format($n['units']) }}</b></span>
+            <span class="vsh-performance-best"><small>Top show by sales</small><b>{{ $n['best_show'] ?? 'No shows yet' }}</b>@if ($n['best_gross'] !== null)<small>{{ $money($n['best_gross']) }}</small>@endif</span>
+        </div>
+        <p class="vsh-performance-note">Show sales and earnings include your cohosted shows. Paid pay totals include only your own payouts marked paid, grouped by show date. {{ $n['timed_shows'] }} of {{ $n['shows'] }} shows have streaming hours.@if ($n['earnings_pending']) {{ $n['earnings_pending'] }} shows are awaiting Whatnot earnings and excluded from the earnings total.@endif</p>
+        <p class="vsh-performance-note" wire:loading wire:target="period" role="status">Updating your performance…</p>
+    </section>
+
+    <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
+
+    @if (\App\Livewire\StreamerLeaderboard::canView())
+        @vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'streamer-home-leaderboard'" lazy />
+    @endif
 
     {{-- Choose a dashboard buddy: asked once, changeable from the banner or Profile. --}}
     @if ($buddyPrompt)

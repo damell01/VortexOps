@@ -58,7 +58,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function getSubheading(): ?string
     {
-        return 'Choose what was used during this show. Items can come directly from Main Warehouse inventory.';
+        return 'Enter your hours, add any items you used (optional), then submit.';
     }
 
     public function getView(): string
@@ -201,7 +201,17 @@ class EndOfStreamForm extends Page implements HasForms
         return $id !== null && in_array(\App\Models\Streamer::find($id)?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
     }
 
+    private array $reportStreamerMemo = [];
+
     private function reportStreamerId(): ?int
+    {
+        $key = $this->show?->id ?? 0;
+        if (array_key_exists($key, $this->reportStreamerMemo)) return $this->reportStreamerMemo[$key];
+
+        return $this->reportStreamerMemo[$key] = $this->resolveReportStreamerId();
+    }
+
+    private function resolveReportStreamerId(): ?int
     {
         $entry = $this->show ? StreamerLogEntry::where('show_id', $this->show->id)->first() : null;
         if ($entry?->streamer_id) return (int) $entry->streamer_id;
@@ -210,7 +220,14 @@ class EndOfStreamForm extends Page implements HasForms
         return $this->show?->streamers()->value('streamers.id');
     }
 
+    private $reportLocationIdsMemo = null;
+
     private function reportLocationIds()
+    {
+        return $this->reportLocationIdsMemo ??= $this->resolveReportLocationIds();
+    }
+
+    private function resolveReportLocationIds()
     {
         $locations = collect(\App\Support\InventoryVisibility::reportLocationIdsForStreamer($this->reportStreamerId()));
         $user = auth()->user();
@@ -275,13 +292,22 @@ class EndOfStreamForm extends Page implements HasForms
             : 'This show has no streamer assigned, and your account is not linked to a streamer profile.';
     }
 
+    /** The report row for this show, looked up once per request (the page asks for it many times while rendering). */
+    private array $logEntryMemo = [];
+
     public function logEntry(): ?StreamerLogEntry
     {
         if (! $this->show) return null;
         $this->authorizeShow();
+        if (array_key_exists($this->show->id, $this->logEntryMemo)) return $this->logEntryMemo[$this->show->id];
         $streamerId = $this->reportStreamerId();
         if (! $streamerId) return null;
-        return StreamerLogEntry::firstOrCreate(['show_id' => $this->show->id], ['streamer_id' => $streamerId, 'status' => 'pending']);
+
+        $entry = StreamerLogEntry::firstOrCreate(['show_id' => $this->show->id], ['streamer_id' => $streamerId, 'status' => 'pending']);
+        // A row created just now lacks the database's column defaults; read it back once so they're there.
+        if ($entry->wasRecentlyCreated) $entry->refresh();
+
+        return $this->logEntryMemo[$this->show->id] = $entry;
     }
 
     private ?string $authorizedShowKey = null;
@@ -346,7 +372,7 @@ class EndOfStreamForm extends Page implements HasForms
         if (! $this->show) return [];
         return ['orders' => $this->show->units_sold, 'sales' => $this->show->gross_revenue, 'earnings' => $this->show->completed_earnings,
             'buyers' => $this->show->buyers_count, 'giveaways' => $this->show->giveaways_count,
-            'shipments' => $this->show->shipments()->count(), 'analytics_synced_at' => $this->show->last_analytics_synced_at];
+            'shipments' => $this->showShipmentCount(), 'analytics_synced_at' => $this->show->last_analytics_synced_at];
     }
 
     public function addLineItem(int $inventoryItemId, int $quantity = 1, string $disposition = 'sold'): void
@@ -411,7 +437,14 @@ class EndOfStreamForm extends Page implements HasForms
      *
      * @return array{minutes:int,entries:\Illuminate\Support\Collection,open:bool}
      */
+    private array $clockRecordMemo = [];
+
     public function getClockRecordProperty(): array
+    {
+        return $this->clockRecordMemo[$this->show?->id ?? 0] ??= $this->resolveClockRecord();
+    }
+
+    private function resolveClockRecord(): array
     {
         $entry = $this->logEntry();
         $userId = $entry?->streamer()->value('user_id') ?? auth()->id();
@@ -434,7 +467,16 @@ class EndOfStreamForm extends Page implements HasForms
         $this->saveDetails();
     }
 
-    private function suggestedShipments(): ?int { $count = (int) ($this->show?->shipments()->count() ?? 0); return $count > 0 ? $count : null; }
+    private array $shipmentCountMemo = [];
+
+    private function showShipmentCount(): int
+    {
+        if (! $this->show) return 0;
+
+        return $this->shipmentCountMemo[$this->show->id] ??= (int) $this->show->shipments()->count();
+    }
+
+    private function suggestedShipments(): ?int { $count = $this->showShipmentCount(); return $count > 0 ? $count : null; }
 
     public function loadDetails(): void
     {
@@ -503,7 +545,7 @@ class EndOfStreamForm extends Page implements HasForms
             return;
         }
         $lines = $entry->items()->with('inventoryItem')->get();
-        if ($lines->isEmpty()) { Notification::make()->title('No items added')->body('Add at least one item used during this show.')->warning()->send(); return; }
+        // Items are optional: a report can go in with just the time and shipments.
         try {
             $problems = \Illuminate\Support\Facades\DB::transaction(function () use ($entry) {
                 StreamerLogEntry::whereKey($entry->id)->lockForUpdate()->firstOrFail();

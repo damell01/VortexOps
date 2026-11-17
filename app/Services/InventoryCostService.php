@@ -48,56 +48,49 @@ class InventoryCostService
     }
 
     /**
-     * Get cost breakdown for an item across all active pallet receipts.
+     * Cost of what is on hand right now, by vendor: one row per wave (lot)
+     * that still has units on the shelf, valued at what that wave cost.
      *
-     * Archived/deleted pallets intentionally do not participate. Their pallet
-     * lines can remain for audit/history, but the normal Pallet relation resolves
-     * to null because Pallet uses SoftDeletes. Filtering them here prevents the
-     * inventory scanner from dereferencing a missing pallet.
+     * Waves that have sold out are not part of it — if the first wave ($100)
+     * sold out and the second ($50) is on the shelf, this says $50, the same
+     * as the item's average cost. (It used to add up every pallet line ever
+     * received, so a long-gone wave kept pulling the figure.)
      */
     public function getCostBreakdown(Product $item): array
     {
-        $lines = PalletLine::where('inventory_item_id', $item->id)
-            ->whereHas('pallet')
-            ->with('pallet.vendor')
+        $lots = \App\Models\InventoryLot::query()
+            ->where('product_id', $item->id)
+            ->where('status', \App\Models\InventoryLot::STATUS_ACTIVE)
+            ->where('remaining_quantity', '>', 0)
+            ->with(['palletLine:id,pallet_id,line_number', 'palletLine.pallet:id,reference,received_date,vendor_id', 'palletLine.pallet.vendor:id,name'])
+            ->orderBy('received_at')->orderBy('id')
             ->get();
 
         $breakdown = [];
-        foreach ($lines as $line) {
-            $pallet = $line->pallet;
-            if (! $pallet) {
-                continue;
-            }
-
-            $vendor = $pallet->vendor;
-            $vendorKey = $vendor ? "{$vendor->id}:{$vendor->name}" : 'unknown';
-
-            if (! isset($breakdown[$vendorKey])) {
-                $breakdown[$vendorKey] = [
-                    'vendor_id' => $vendor?->id,
-                    'vendor_name' => $vendor?->name ?? 'Unknown',
-                    'receipts' => [],
-                    'total_qty' => 0,
-                    'weighted_total_cost' => 0,
-                    'average_cost' => 0,
-                ];
-            }
-
-            $qty = (float) $line->case_count * (float) $line->quantity_per_case;
-            $unitCost = (float) ($line->unit_cost ?? 0);
-            $totalCost = $qty * $unitCost;
-
+        foreach ($lots as $lot) {
+            $pallet = $lot->palletLine?->pallet;
+            $vendor = $pallet?->vendor;
+            $vendorKey = $vendor ? "{$vendor->id}:{$vendor->name}" : ($lot->source === \App\Models\InventoryLot::SOURCE_SYNTHETIC ? 'earlier' : 'unknown');
+            $breakdown[$vendorKey] ??= [
+                'vendor_id' => $vendor?->id,
+                'vendor_name' => $vendor?->name ?? ($vendorKey === 'earlier' ? 'Earlier stock' : 'Unknown'),
+                'receipts' => [],
+                'total_qty' => 0,
+                'weighted_total_cost' => 0,
+                'average_cost' => 0,
+            ];
+            $qty = (float) $lot->remaining_quantity;
+            $unitCost = (float) $lot->unit_cost;
             $breakdown[$vendorKey]['receipts'][] = [
-                'pallet_reference' => $pallet->reference,
-                'received_date' => $pallet->received_date,
+                'pallet_reference' => $pallet?->reference,
+                'received_date' => $pallet?->received_date ?? $lot->received_at,
                 'quantity' => $qty,
                 'unit_cost' => $unitCost,
-                'total_cost' => $totalCost,
-                'line_number' => $line->line_number,
+                'total_cost' => $qty * $unitCost,
+                'line_number' => $lot->palletLine?->line_number,
             ];
-
             $breakdown[$vendorKey]['total_qty'] += $qty;
-            $breakdown[$vendorKey]['weighted_total_cost'] += $totalCost;
+            $breakdown[$vendorKey]['weighted_total_cost'] += $qty * $unitCost;
         }
 
         foreach ($breakdown as $key => $data) {

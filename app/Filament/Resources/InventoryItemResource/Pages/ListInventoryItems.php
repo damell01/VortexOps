@@ -195,7 +195,8 @@ class ListInventoryItems extends ListRecords
 
         return match ($this->catalogSort) {
             'newest' => $query->orderByDesc('created_at')->orderBy('id'),
-            'value' => $query->orderByDesc('unit_cost')->orderBy('id'),
+            // Highest cost = the average of what is on hand (list cost until first received).
+            'value' => $query->orderByRaw('CASE WHEN COALESCE(average_cost, 0) > 0 THEN average_cost ELSE COALESCE(unit_cost, 0) END DESC')->orderBy('id'),
             default => $query->orderBy('name')->orderBy('id'),
         };
     }

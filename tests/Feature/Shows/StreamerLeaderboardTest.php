@@ -189,7 +189,8 @@ class StreamerLeaderboardTest extends TestCase
             ->assertSet('page', 2)
             ->call('goToPage', -1)
             ->assertSet('page', 1);
-        Livewire::test(\App\Filament\Pages\DashboardImproved::class)->assertSee('Top Net Shows')->assertSee('This week')->assertSee('This month');
+        // The dashboard loads it just after the page (lazy) so show reports come up first; its content is checked above.
+        Livewire::test(\App\Filament\Pages\DashboardImproved::class)->assertSeeHtml('streamer-leaderboard');
     }
 
     public function test_leaderboard_has_its_own_page_linked_under_shows_for_everyone_with_the_tab(): void

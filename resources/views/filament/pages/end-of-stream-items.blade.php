@@ -6,7 +6,6 @@
     $reportEntry = $this->logEntry();
     $reportSubmitted = $reportEntry?->isSubmitted() && $reportEntry?->status !== 'changes_requested';
     $dispositions = \App\Models\StreamerLogItem::DISPOSITIONS;
-    $steps = [1 => 'Items', 2 => 'Time & notes', 3 => 'Review'];
     $isAdminViewer = auth()->user()?->isAdmin() || auth()->user()?->isOwner();
 @endphp
 
@@ -53,6 +52,40 @@
         </div>
     @else
         <div class="vxw" data-vx-eos-report>
+            @php
+                // Reuse payroll's show formula; previewing never creates a payout.
+                $shareStreamer = $isAdminViewer ? $reportEntry?->streamer : auth()->user()?->streamer;
+                $shareEligible = !$reportBlocked && $shareStreamer
+                    && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
+                    && $this->show->streamers->contains('id', $shareStreamer->id);
+                $shareRevenue = \App\Support\ProfitShareFormula::earningsForShow($this->show);
+                $shareEstimate = null;
+                $shareWorking = null;
+                $sharePending = false;
+                $sharePrimary = true;
+                if ($shareEligible) {
+                    $participants = $this->show->streamers;
+                    $hasPrimary = $participants->contains(fn ($s) => (bool) ($s->pivot->is_primary ?? false));
+                    $participant = $participants->firstWhere('id', $shareStreamer->id);
+                    $sharePrimary = $participants->count() <= 1 || ($hasPrimary
+                        ? (bool) ($participant->pivot->is_primary ?? false)
+                        : $participants->first()?->id === $shareStreamer->id);
+                    $sharePending = $shareRevenue === null
+                        || $lines->contains(fn ($line) => $line->inventory_item_id === null && $line->unit_cost === null)
+                        || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
+                        ;
+                    if (!$sharePending) {
+                        $shareWorking = \App\Support\ProfitShareFormula::forShow(
+                            grossRevenue: (float) $shareRevenue,
+                            productCost: (float) $summary['productCost'],
+                            hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
+                            shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
+                            percentage: (float) ($shareStreamer->payout_percentage ?? 0),
+                        );
+                        $shareEstimate = $sharePrimary ? $shareWorking['earnings'] : 0.0;
+                    }
+                }
+            @endphp
             {{-- Show header + Whatnot reference numbers --}}
             <section class="vxw-card">
                 <div class="vxw-card-body">
@@ -94,72 +127,20 @@
                         ['Giveaways', $whatnot['giveaways'] !== null ? number_format($whatnot['giveaways']) : '—'],
                         ['Shipments', number_format($whatnot['shipments'] ?? 0)],
                     ] as [$label, $value])
-                        <div class="vxw-stat">
+                        <div class="vxw-stat" title="From Whatnot, for reference. Items you log don't have to match Whatnot orders one-for-one.">
                             <div class="vxw-stat-label">{{ $label }}</div>
                             <div class="vxw-stat-value" style="font-size:17px">{{ $value }}</div>
                         </div>
                     @endforeach
-                </div>
-                <div class="vxw-card-foot" style="justify-content:flex-start;gap:8px">
-                    <x-filament::icon icon="heroicon-m-information-circle" class="h-4 w-4 text-[var(--vxw-faint)]" />
-                    <span class="vxw-meta">Whatnot numbers are for reference. Items you log don't have to match Whatnot orders one-for-one.</span>
+                    @if ($shareEligible)
+                        <div class="vxw-stat vx-eos-share" aria-live="polite" aria-atomic="true" title="{{ $sharePending ? 'Fill in hours, shipments and item costs to see your estimate.' : 'Updates as you fill out this report. Subject to admin review.' }}">
+                            <div class="vxw-stat-label">Your est. share</div>
+                            <div class="vxw-stat-value" style="font-size:17px">{{ $sharePending ? 'Pending' : '$' . number_format($shareEstimate, 2) }}</div>
+                        </div>
+                    @endif
                 </div>
             </section>
 
-            @php
-                // Reuse payroll's show formula; previewing never creates a payout.
-                $shareStreamer = $isAdminViewer ? $reportEntry?->streamer : auth()->user()?->streamer;
-                $shareEligible = !$reportBlocked && $shareStreamer
-                    && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
-                    && $this->show->streamers->contains('id', $shareStreamer->id);
-                $shareRevenue = \App\Support\ProfitShareFormula::earningsForShow($this->show);
-                $shareEstimate = null;
-                $shareWorking = null;
-                $sharePending = false;
-                $sharePrimary = true;
-                if ($shareEligible) {
-                    $participants = $this->show->streamers;
-                    $hasPrimary = $participants->contains(fn ($s) => (bool) ($s->pivot->is_primary ?? false));
-                    $participant = $participants->firstWhere('id', $shareStreamer->id);
-                    $sharePrimary = $participants->count() <= 1 || ($hasPrimary
-                        ? (bool) ($participant->pivot->is_primary ?? false)
-                        : $participants->first()?->id === $shareStreamer->id);
-                    $sharePending = $shareRevenue === null
-                        || $lines->contains(fn ($line) => $line->inventory_item_id === null && $line->unit_cost === null)
-                        || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
-                        || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
-                    if (!$sharePending) {
-                        $shareWorking = \App\Support\ProfitShareFormula::forShow(
-                            grossRevenue: (float) $shareRevenue,
-                            productCost: (float) $summary['productCost'],
-                            hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
-                            shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
-                            percentage: (float) ($shareStreamer->payout_percentage ?? 0),
-                        );
-                        $shareEstimate = $sharePrimary ? $shareWorking['earnings'] : 0.0;
-                    }
-                }
-            @endphp
-            @if ($shareEligible)
-                <section class="vxw-card" aria-live="polite" aria-atomic="true">
-                    <div class="vxw-card-body">
-                        <div class="vxw-eyebrow">Estimated profit share</div>
-                        <div class="vxw-h1">{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</div>
-                        <p class="vxw-sub">{{ $sharePending ? 'Complete item costs, hours, and shipments to see your estimate.' : 'Updates as you fill out this report. Subject to admin review.' }}</p>
-                        @if ($shareWorking)
-                            <dl class="vxw-dl mt-4">
-                                <div><dt>Earnings</dt><dd>${{ number_format($shareWorking['gross_revenue'], 2) }}</dd></div>
-                                <div><dt>Item costs</dt><dd>− ${{ number_format($shareWorking['product_cost'], 2) }}</dd></div>
-                                <div class="is-total"><dt>Profit used for share</dt><dd>${{ number_format($shareWorking['net_revenue'], 2) }}</dd></div>
-                                <div><dt>× your profit share percentage</dt><dd></dd></div>
-                            </dl>
-                        @endif
-                        @if (!$sharePrimary)
-                            <p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>
-                        @endif
-                    </div>
-                </section>
-            @endif
 
             @if (! $reportBlocked && $this->show && ! \App\Support\ShowReportingGoLive::covers($this->show->show_date))
                 <div class="vxw-alert vxw-alert--info">
@@ -186,22 +167,84 @@
                     </div>
                 </div>
             @else
-                <nav class="vxw-wizard" aria-label="Report steps">
-                    @foreach ($steps as $n => $label)
-                        <button type="button" wire:click="goToStep({{ $n }})" @class(['is-done' => $this->step > $n]) @if($this->step === $n) aria-current="step" @endif>
-                            <span class="vxw-stage-dot">@if($this->step > $n)<x-filament::icon icon="heroicon-m-check" />@else{{ $n }}@endif</span>
-                            <span>{{ $label }}</span>
-                        </button>
-                    @endforeach
-                </nav>
 
                 <div class="vxw-split">
                     <main class="grid gap-4">
-                        @if ($this->step === 1)
+                        {{-- One page, no steps: time & shipments first (the part that matters), items optional, then notes and Submit. --}}
+                            {{-- Hours Worked is what the person says they worked.
+                                 The clock is shown beside it to compare, and the
+                                 show's Whatnot length only as a reference: it is
+                                 never filled in or paid. --}}
+                            @php $clock = $this->clockRecord; @endphp
                             <section class="vxw-card">
                                 <div class="vxw-card-head">
                                     <div>
-                                        <h3 class="vxw-h2">What did you use?</h3>
+                                        <h3 class="vxw-h2">{{ $isAdminViewer ? 'Time & shipments' : 'Your time' }}</h3>
+                                    </div>
+                                </div>
+                                <div class="vxw-card-body grid gap-3 sm:grid-cols-2 {{ $isAdminViewer && $this->splitsShipments ? 'xl:grid-cols-4' : '' }}">
+                                    <div class="vxw-field">
+                                        <label class="vxw-label" for="eos-hours">Hours worked</label>
+                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.live.debounce.500ms="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
+                                        <div class="vxw-hint">
+                                            @if ($clock['minutes'] > 0)
+                                                Clocked for this show: <b>{{ \App\Models\TimeEntry::formatMinutes($clock['minutes']) }}</b> ({{ number_format($clock['minutes'] / 60, 2) }} hrs)
+                                                @if ((string) round($clock['minutes'] / 60, 2) !== (string) $hoursStreamed)
+                                                    · <button type="button" wire:click="useClockedHours" class="vxw-link">Use clocked time</button>
+                                                @endif
+                                            @elseif ($clock['open'])
+                                                You're still clocked in for this show.
+                                            @else
+                                                No clock record for this show (<a class="vxw-link" href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}">Timekeeping</a>). @if ($this->show?->show_duration) Whatnot says {{ number_format($this->show->show_duration / 60, 2) }} hrs. @endif
+                                            @endif
+                                        </div>
+                                        @if ($hoursStreamed === '')<div class="vxw-hint" style="color:var(--vxw-warn, #b45309)">Without hours worked, no hourly pay is added for this show.</div>@endif
+                                    </div>
+                                    {{-- Streamers only give hours (and items). Shipments are counted from the
+                                         show on their own; admins can correct them, and the envelope / package
+                                         split, here when reviewing. --}}
+                                    @if ($isAdminViewer)
+                                    <label class="vxw-field">
+                                        <span class="vxw-label">Shipments</span>
+                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="shipments" class="vxw-input vxw-num" />
+                                        <span class="vxw-hint">This show has {{ number_format($whatnot['shipments'] ?? 0) }} on record.</span>
+                                    </label>
+                                    @if ($this->splitsShipments)
+                                        {{-- Envelopes and packages are paid at different rates. --}}
+                                        <label class="vxw-field">
+                                            <span class="vxw-label">Envelopes (PWE)</span>
+                                            <input id="eos-pwe" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="pweCount" class="vxw-input vxw-num" placeholder="0" />
+                                            <span class="vxw-hint">Shipments sent in a plain white envelope.</span>
+                                        </label>
+                                        <label class="vxw-field">
+                                            <span class="vxw-label">Packages</span>
+                                            <input id="eos-packages" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="labelCount" class="vxw-input vxw-num" placeholder="0" />
+                                            <span class="vxw-hint">
+                                                Shipments sent as a labelled package.
+                                                @if ($pweCount === '' && $labelCount === '')
+                                                    <span style="color:var(--vxw-warn, #b45309)">Leave both blank and every shipment is paid as a package.</span>
+                                                @elseif ((int) $pweCount + (int) $labelCount !== (int) $shipments && $shipments !== '')
+                                                    <span style="color:var(--vxw-warn, #b45309)">Envelopes + packages = {{ (int) $pweCount + (int) $labelCount }}, but shipments says {{ (int) $shipments }}.</span>
+                                                @endif
+                                            </span>
+                                        </label>
+                                    @endif
+                                    @else
+                                        <div class="vxw-field">
+                                            <span class="vxw-label">Shipments</span>
+                                            <div class="vxw-stat-value" style="font-size:17px;padding:6px 0">{{ number_format((int) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0))) }}</div>
+                                            <span class="vxw-hint">Counted from the show for you. Nothing to fill in.</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </section>
+
+
+
+                            <section class="vxw-card">
+                                <div class="vxw-card-head">
+                                    <div>
+                                        <h3 class="vxw-h2">What did you use? <span class="vxw-pill" style="font-size:11px;vertical-align:middle">Optional</span></h3>
                                         <p class="vxw-sub">Search or scan the items from this show. Change the type for giveaways or promos.</p>
                                     </div>
                                     <div class="flex flex-wrap gap-2">
@@ -321,106 +364,91 @@
                                     </div>
                                 @endif
                             </section>
-                        @endif
 
-                        @if ($this->step === 2)
-                            {{-- Hours Worked is what the person says they worked.
-                                 The clock is shown beside it to compare, and the
-                                 show's Whatnot length only as a reference: it is
-                                 never filled in or paid. --}}
-                            @php $clock = $this->clockRecord; @endphp
-                            <section class="vxw-card">
-                                <div class="vxw-card-head">
-                                    <div>
-                                        <h3 class="vxw-h2">Hours Worked &amp; Shipments</h3>
-                                        <p class="vxw-sub">Enter the hours you worked on this show. Your clock record is shown to compare — if they differ by more than 15 minutes an admin checks before payroll.</p>
-                                    </div>
-                                </div>
-                                <div class="vxw-card-body grid gap-4 sm:grid-cols-2">
-                                    <div class="vxw-field">
-                                        <label class="vxw-label" for="eos-hours">Hours worked</label>
-                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.live.debounce.500ms="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
-                                        <div class="vxw-hint">
-                                            @if ($clock['minutes'] > 0)
-                                                Clocked for this show: <b>{{ \App\Models\TimeEntry::formatMinutes($clock['minutes']) }}</b> ({{ number_format($clock['minutes'] / 60, 2) }} hrs)
-                                                @if ((string) round($clock['minutes'] / 60, 2) !== (string) $hoursStreamed)
-                                                    · <button type="button" wire:click="useClockedHours" class="vxw-link">Use clocked time</button>
-                                                @endif
-                                            @elseif ($clock['open'])
-                                                You're still clocked in for this show.
-                                            @else
-                                                No clock record linked to this show. Link your time on <a class="vxw-link" href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}">Timekeeping</a>, or an admin will review these hours.
-                                            @endif
-                                        </div>
-                                        <div class="vxw-hint">Reference only — show length on Whatnot: {{ $this->show?->show_duration ? number_format($this->show->show_duration / 60, 2) . ' hrs' : 'not recorded' }}</div>
-                                        @if ($hoursStreamed === '')<div class="vxw-hint" style="color:var(--vxw-warn, #b45309)">Without hours worked, no hourly pay is added for this show.</div>@endif
-                                    </div>
-                                    <label class="vxw-field">
-                                        <span class="vxw-label">Shipments</span>
-                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="shipments" class="vxw-input vxw-num" />
-                                        <span class="vxw-hint">Counted from this show's shipments: {{ number_format($whatnot['shipments'] ?? 0) }}</span>
-                                    </label>
-                                    @if ($this->splitsShipments)
-                                        {{-- Envelopes and packages are paid at different rates. --}}
-                                        <label class="vxw-field">
-                                            <span class="vxw-label">Envelopes (PWE)</span>
-                                            <input id="eos-pwe" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="pweCount" class="vxw-input vxw-num" placeholder="0" />
-                                            <span class="vxw-hint">Shipments sent in a plain white envelope.</span>
-                                        </label>
-                                        <label class="vxw-field">
-                                            <span class="vxw-label">Packages</span>
-                                            <input id="eos-packages" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="labelCount" class="vxw-input vxw-num" placeholder="0" />
-                                            <span class="vxw-hint">
-                                                Shipments sent as a labelled package.
-                                                @if ($pweCount === '' && $labelCount === '')
-                                                    <span style="color:var(--vxw-warn, #b45309)">Leave both blank and every shipment is paid as a package.</span>
-                                                @elseif ((int) $pweCount + (int) $labelCount !== (int) $shipments && $shipments !== '')
-                                                    <span style="color:var(--vxw-warn, #b45309)">Envelopes + packages = {{ (int) $pweCount + (int) $labelCount }}, but shipments says {{ (int) $shipments }}.</span>
-                                                @endif
-                                            </span>
-                                        </label>
+
+
+
+                    </main>
+
+                    <aside class="vxw-aside">
+                        <div class="vxw-desktop-only grid">
+                            @if($reportSubmitted)
+                                <button type="button" class="vxw-btn vxw-btn--primary w-full justify-center" disabled>Report submitted</button>
+                            @else
+                                <button type="button" class="vxw-btn vxw-btn--primary w-full justify-center" style="min-height:46px" wire:click="submit" wire:confirm="Submit this show report?" wire:loading.attr="disabled" wire:target="submit">
+                                    <span wire:loading wire:target="submit" class="vxw-spin" aria-hidden="true"></span>
+                                    Submit show report
+                                </button>
+                            @endif
+                        </div>
+                        <section class="vxw-card">
+                            <div class="vxw-card-head"><h3 class="vxw-h2">Report summary</h3></div>
+                            <div class="vxw-card-body" style="padding-block:6px 12px">
+                                <dl class="vxw-dl">
+                                    <div><dt>Sold</dt><dd>{{ $summary['sold'] }}</dd></div>
+                                    <div><dt>Giveaways</dt><dd>{{ $summary['giveaway'] }}</dd></div>
+                                    <div><dt>Promo</dt><dd>{{ $summary['promo'] }}</dd></div>
+                                    <div><dt>Other</dt><dd>{{ $summary['other'] }}</dd></div>
+                                    <div class="is-total"><dt>Total units</dt><dd>{{ $summary['units'] }}</dd></div>
+                                    @if ($summary['units'] > 0)
+                                        <div><dt>Inventory cost</dt><dd>${{ number_format($summary['productCost'], 2) }}</dd></div>
+                                        <div><dt>Giveaway cost</dt><dd>${{ number_format($summary['giveawayCost'], 2) }}</dd></div>
                                     @endif
-                                </div>
-                            </section>
 
+                                </dl>
+                            </div>
+                            <div class="vxw-card-foot" style="justify-content:flex-start">
+                                @if($summary['items'] === 0)
+                                    <span class="vxw-meta">Add show items to begin.</span>
+                                @elseif($summary['unmatched'] > 0)
+                                    <span class="vxw-meta vxw-tone-warn">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</span>
+                                @else
+                                    <span class="vxw-meta vxw-tone-ok">Everything is ready.</span>
+                                @endif
+                            </div>
+                        </section>
+                        @if ($shareEligible && ($shareWorking || ! $sharePrimary))
+                            <details class="vxw-card vx-eos-share-detail">
+                                <summary class="vxw-card-head" style="cursor:pointer"><h3 class="vxw-h2">How your share is worked out</h3></summary>
+                                <div class="vxw-card-body" style="padding-top:0">
+                                    @if ($shareWorking)
+                                        <dl class="vxw-dl">
+                                            <div><dt>Earnings</dt><dd>${{ number_format($shareWorking['gross_revenue'], 2) }}</dd></div>
+                                            <div><dt>Item costs</dt><dd>− ${{ number_format($shareWorking['product_cost'], 2) }}</dd></div>
+                                            <div class="is-total"><dt>Profit used for share</dt><dd>${{ number_format($shareWorking['net_revenue'], 2) }}</dd></div>
+                                            <div><dt>× your profit share percentage</dt><dd></dd></div>
+                                        </dl>
+                                    @endif
+                                    @if (! $sharePrimary)<p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>@endif
+                                </div>
+                            </details>
+                        @endif
                             <section class="vxw-card">
                                 <div class="vxw-card-head">
                                     <div>
                                         <h3 class="vxw-h2">Show notes <span class="vxw-meta font-normal">(optional)</span></h3>
-                                        <p class="vxw-sub">Anything operations should know. Saves as you type.</p>
+                                        
                                     </div>
                                 </div>
                                 <div class="vxw-card-body">
                                     <label class="sr-only" for="eos-notes">Show notes</label>
-                                    <textarea id="eos-notes" rows="5" wire:model.live.debounce.700ms="logNotes" class="vxw-textarea" placeholder="Inventory issues, unusual giveaways, an item not in the catalog…"></textarea>
+                                    <textarea id="eos-notes" rows="3" wire:model.live.debounce.700ms="logNotes" class="vxw-textarea" placeholder="Inventory issues, unusual giveaways, an item not in the catalog…"></textarea>
                                 </div>
                             </section>
-                        @endif
-
-                        @if ($this->step === 3)
                             @php
                                 $preview = $this->deductionPreview;
                             @endphp
                             <section class="vxw-card">
                                 <div class="vxw-card-head">
                                     <div>
-                                        <h3 class="vxw-h2">Review &amp; submit</h3>
-                                        <p class="vxw-sub">Check the items logged against this show before sending it for approval.</p>
+                                        <h3 class="vxw-h2">Before you submit</h3>
+                                        <p class="vxw-sub">{{ $summary['units'] > 0 ? 'What this report takes from inventory, and anything fulfillment should know.' : 'Anything fulfillment should know. No items logged — that is fine, they are optional.' }}</p>
                                     </div>
                                     @if($reportSubmitted)<span class="vxw-pill vxw-pill--ok vxw-pill--dot">Submitted</span>@endif
                                 </div>
-                                <div class="vxw-stats" style="border-top:0">
-                                    @foreach ([['Sold', $summary['sold']], ['Giveaway', $summary['giveaway']], ['Promo', $summary['promo']], ['Other', $summary['other']]] as [$label, $value])
-                                        <div class="vxw-stat"><div class="vxw-stat-label">{{ $label }}</div><div class="vxw-stat-value">{{ number_format($value) }}</div></div>
-                                    @endforeach
-                                </div>
-                                <div class="vxw-stats">
-                                    <div class="vxw-stat"><div class="vxw-stat-label">Total units</div><div class="vxw-stat-value">{{ number_format($summary['units']) }}</div></div>
-                                    <div class="vxw-stat"><div class="vxw-stat-label">Inventory cost</div><div class="vxw-stat-value">${{ number_format($summary['productCost'], 2) }}</div></div>
-                                    <div class="vxw-stat"><div class="vxw-stat-label">Giveaway cost</div><div class="vxw-stat-value">${{ number_format($summary['giveawayCost'], 2) }}</div></div>
-                                </div>
                                 <div class="vxw-card-body grid gap-4" style="border-top:1px solid var(--vxw-border)">
-                                    @if (! empty($preview))
+                                    @if ($summary['units'] <= 0)
+                                    @elseif (! empty($preview))
                                         <div class="vxw-alert vxw-alert--warn">
                                             <x-filament::icon icon="heroicon-o-exclamation-triangle" />
                                             <div>
@@ -453,77 +481,16 @@
                                     </div>
                                 </div>
                             </section>
-                        @endif
-
-                        {{-- Desktop step navigation --}}
-                        <div class="vxw-desktop-only flex items-center justify-between gap-3">
-                            @if ($this->step > 1)
-                                <button type="button" class="vxw-btn" wire:click="goToStep({{ $this->step - 1 }})"><x-filament::icon icon="heroicon-m-arrow-left" /> Back</button>
-                            @else
-                                <span></span>
-                            @endif
-                            @if ($this->step < 3)
-                                <button type="button" class="vxw-btn vxw-btn--primary" wire:click="goToStep({{ $this->step + 1 }})" wire:loading.attr="disabled" wire:target="goToStep">
-                                    {{ $this->step === 1 ? 'Continue to time & notes' : 'Review report' }} <x-filament::icon icon="heroicon-m-arrow-right" />
-                                </button>
-                            @elseif($reportSubmitted)
-                                <button type="button" class="vxw-btn vxw-btn--primary" disabled>Report submitted</button>
-                            @else
-                                <button type="button" class="vxw-btn vxw-btn--primary" wire:click="submit" wire:confirm="Submit this show report?" wire:loading.attr="disabled" wire:target="submit">
-                                    <span wire:loading wire:target="submit" class="vxw-spin" aria-hidden="true"></span>
-                                    Submit show report
-                                </button>
-                            @endif
-                        </div>
-                    </main>
-
-                    <aside class="vxw-aside">
-                        <section class="vxw-card">
-                            <div class="vxw-card-head"><h3 class="vxw-h2">Report summary</h3></div>
-                            <div class="vxw-card-body" style="padding-block:6px 12px">
-                                <dl class="vxw-dl">
-                                    <div><dt>Sold</dt><dd>{{ $summary['sold'] }}</dd></div>
-                                    <div><dt>Giveaways</dt><dd>{{ $summary['giveaway'] }}</dd></div>
-                                    <div><dt>Promo</dt><dd>{{ $summary['promo'] }}</dd></div>
-                                    <div><dt>Other</dt><dd>{{ $summary['other'] }}</dd></div>
-                                    <div class="is-total"><dt>Total units</dt><dd>{{ $summary['units'] }}</dd></div>
-                                    @if ($shareEligible)
-                                        <div class="is-total" aria-live="polite" aria-atomic="true">
-                                            <dt>Estimated profit share</dt>
-                                            <dd>{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</dd>
-                                        </div>
-                                    @endif
-
-                                </dl>
-                            </div>
-                            <div class="vxw-card-foot" style="justify-content:flex-start">
-                                @if($summary['items'] === 0)
-                                    <span class="vxw-meta">Add show items to begin.</span>
-                                @elseif($summary['unmatched'] > 0)
-                                    <span class="vxw-meta vxw-tone-warn">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</span>
-                                @else
-                                    <span class="vxw-meta vxw-tone-ok">Everything is ready.</span>
-                                @endif
-                            </div>
-                        </section>
                     </aside>
                 </div>
 
                 {{-- Phone: primary action always within thumb reach --}}
                 <div class="vxw-actionbar" data-vx-mobile-actions>
-                    @if($this->step === 1)
-                        <button type="button" class="vxw-btn" wire:click="toggleBrowse">Add items</button>
-                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="goToStep(2)">Continue</button>
-                    @elseif($this->step === 2)
-                        <button type="button" class="vxw-btn" wire:click="goToStep(1)">Back</button>
-                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="goToStep(3)">Review</button>
+                    <button type="button" class="vxw-btn" wire:click="toggleBrowse">Add items</button>
+                    @if($reportSubmitted)
+                        <button type="button" class="vxw-btn vxw-btn--primary" disabled>Submitted</button>
                     @else
-                        <button type="button" class="vxw-btn" wire:click="goToStep(2)">Back</button>
-                        @if($reportSubmitted)
-                            <button type="button" class="vxw-btn vxw-btn--primary" disabled>Submitted</button>
-                        @else
-                            <button type="button" class="vxw-btn vxw-btn--primary" wire:click="submit" wire:confirm="Submit this show report?" wire:loading.attr="disabled" wire:target="submit">Submit report</button>
-                        @endif
+                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="submit" wire:confirm="Submit this show report?" wire:loading.attr="disabled" wire:target="submit">Submit report</button>
                     @endif
                 </div>
             @endif

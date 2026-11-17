@@ -221,13 +221,12 @@ class ShowCostAndHoursComeFromTheSystemTest extends TestCase
         $this->assertSame(3, $this->entry()->number_of_shipments);
     }
 
-    public function test_the_fields_are_on_the_step_the_streamer_fills_in(): void
+    public function test_the_streamer_sees_hours_with_whatnots_length_for_reference_and_shipments_counted_for_them(): void
     {
         $this->form()
-            ->call('goToStep', 2)
             ->assertSee('Hours worked')
-            ->assertSee('show length on Whatnot: 4.45 hrs')
-            ->assertSee('shipments: 0');
+            ->assertSee('Whatnot says 4.45 hrs')
+            ->assertSee('Counted from the show for you');
     }
 
     public function test_the_streamer_can_type_over_the_suggestion_and_it_sticks(): void

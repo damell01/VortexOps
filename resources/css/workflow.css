@@ -420,3 +420,17 @@ button.vxw-tile:active, a.vxw-tile:active { transform: scale(.99); }
   .vx-payroll-show-cards, .vx-payroll-people-cards { padding: 12px; }
   .vx-payroll-line-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Show report: one screen. The side panel (summary, notes, Submit) stays in
+   view and scrolls on its own when it is taller than the window. */
+@media (min-width: 1024px) {
+  [data-vx-eos-report] .vxw-split > .vxw-aside { max-height: calc(100vh - 108px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-bottom: 4px; }
+}
+[data-vx-eos-report] .vxw-aside { gap: 12px; }
+[data-vx-eos-report] .vxw-aside .vxw-card-head { padding-block: 10px; }
+[data-vx-eos-report] .vx-eos-share { background: color-mix(in srgb, #7c3aed 8%, transparent); }
+[data-vx-eos-report] .vx-eos-share .vxw-stat-value { color: #6d28d9; }
+.dark [data-vx-eos-report] .vx-eos-share .vxw-stat-value { color: #c4b5fd; }
+[data-vx-eos-report] .vx-eos-share-detail > summary { list-style: none; }
+[data-vx-eos-report] .vx-eos-share-detail > summary::-webkit-details-marker { display: none; }
+[data-vx-eos-report] .vxw-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }

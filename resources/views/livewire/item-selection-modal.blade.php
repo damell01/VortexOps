@@ -125,7 +125,7 @@
                                 </div>
                                 <div class="mt-3 flex items-center justify-between text-sm">
                                     <span class="text-gray-600 dark:text-gray-400">
-                                        Avg Cost: <span class="font-mono font-semibold">${{ number_format($item->average_cost ?? $item->unit_cost ?? 0, 2) }}</span>
+                                        Avg Cost: <span class="font-mono font-semibold">${{ number_format((float) ($item->costBasis() ?? 0), 2) }}</span>
                                     </span>
                                     @if($item->stock_sum_quantity)
                                         <span class="text-green-600 dark:text-green-400 font-medium">

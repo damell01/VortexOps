@@ -169,6 +169,9 @@ class EndOfStreamCatalogScalesTest extends TestCase
         $count = count(DB::getQueryLog());
         DB::disableQueryLog();
 
-        $this->assertLessThan(40, $count, "rendering the picker took {$count} queries");
+        // A fixed cost per render, never per item. The one-page report (time,
+        // items and review together) reads the clock record and the stock check
+        // on every render, which is a few more fixed queries than the old steps.
+        $this->assertLessThan(45, $count, "rendering the picker took {$count} queries");
     }
 }

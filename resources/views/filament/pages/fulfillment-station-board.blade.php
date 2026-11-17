@@ -284,11 +284,11 @@
                     @else
                         <button type="button" class="vxf-big vxf-big--go" wire:click="packNext" wire:loading.attr="disabled" @disabled(! $current || $current->status === 'packed' || $current->status === 'held')>
                             @php $openPkgs = $this->currentPackages->where('status', '!=', 'packed')->count(); $allPkgs = $this->currentPackages->count(); @endphp
-                            <x-heroicon-o-check-circle /> <span>Mark Packed @if ($openPkgs > 1)<small style="display:block;font-size:12px;font-weight:600;opacity:.85">package {{ $allPkgs - $openPkgs + 1 }} of {{ $allPkgs }}</small>@endif</span>
+                            <x-heroicon-o-check-circle /> <span>Packed · next buyer @if ($allPkgs > 1)<small style="display:block;font-size:12px;font-weight:600;opacity:.85">all {{ $allPkgs }} packages</small>@endif</span>
                         </button>
                         <div class="vxf-pair">
                             <button type="button" class="vxf-big" wire:click="step(-1)" aria-label="Previous buyer"><x-heroicon-o-arrow-left /> Prev</button>
-                            <button type="button" class="vxf-big" wire:click="step(1)" aria-label="Next buyer">Next <x-heroicon-o-arrow-right /></button>
+                            <button type="button" class="vxf-big" wire:click="step(1)" aria-label="Next buyer (marks this buyer packed)" title="Next marks this buyer packed and moves on">Next <x-heroicon-o-arrow-right /></button>
                         </div>
                         <button type="button" class="vxf-big" x-on:click="focusScan()"><x-heroicon-o-qr-code /> Scan Item</button>
                     @endif
@@ -330,7 +330,7 @@
                 <ol>
                     <li><b>A</b><span><strong>Pack buyers in letter order.</strong> The big letter is the buyer you're on. It starts at A.</span></li>
                     <li><b><x-heroicon-o-qr-code /></b><span><strong>Scan each item.</strong> The scan box is always ready. If scanning isn't set up for a buyer, check against the packing slip.</span></li>
-                    <li><b><x-heroicon-o-check /></b><span><strong>Press Mark Packed.</strong> It packs the next package, then moves on to the next buyer by itself.</span></li>
+                    <li><b><x-heroicon-o-check /></b><span><strong>Packed, or just Next.</strong> Either one marks the whole buyer packed (every package) and brings up the next buyer. No tapping each item. Prev goes back without packing.</span></li>
                     <li><b><x-heroicon-o-flag /></b><span><strong>Something wrong? Flag Issue.</strong> That buyer is put on hold and a manager is told. Keep packing the rest.</span></li>
                     <li><b><x-heroicon-o-pause /></b><span><strong>Taking a break? Pause.</strong> The timer stops until you resume.</span></li>
                     <li><b><x-heroicon-o-check-badge /></b><span><strong>All done? Finish Show.</strong> Look over the review screen and confirm the show is done. The fulfillment admin then signs it off.</span></li>

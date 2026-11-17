@@ -253,32 +253,46 @@ class FulfillmentStationBoard extends Page
         $this->scanCode = '';
     }
 
+    /**
+     * Prev / Next through the buyers. Next means "done with this one": a buyer
+     * still waiting or being packed is marked packed (every package) on the
+     * way past, so a show can be clicked through without a Packed tap per
+     * item. Held buyers (an open issue) are never packed this way, and Prev
+     * never packs anything.
+     */
     public function step(int $direction): void
     {
+        $current = $this->current;
+        if ($direction > 0 && $current && in_array($current->status, ['waiting', 'packing'], true)) {
+            $this->packNext();
+
+            return;
+        }
         $list = $this->buyers->values();
         $index = $list->search(fn ($b) => $b->id === $this->current?->id);
         $next = $list->get(max(0, min($list->count() - 1, ($index === false ? 0 : $index) + $direction)));
         if ($next) $this->selectBuyer($next->id);
     }
 
-    /** Pack the current buyer's next open package, or the buyer when it has no package records. */
+    /**
+     * Pack the current buyer — all of their packages at once — and bring up the
+     * next buyer still to pack. (It used to pack one package per tap.)
+     */
     public function packNext(): void
     {
         $buyer = $this->current;
-        if (! $buyer) return;
-        $package = $this->currentPackages->first(fn ($p) => $p->status !== 'packed');
-        $this->act(function () use ($buyer, $package) {
+        if (! $buyer || $buyer->status === 'held') return;
+        $this->act(function () use ($buyer) {
             $service = app(FulfillmentRunService::class);
-            $package ? $service->packPackage($this->runId, $package->id, auth()->user()) : $service->markPacked($this->runId, $buyer->id, auth()->user());
-            $fresh = FulfillmentRunBuyer::query()->find($buyer->id);
-            if ($fresh?->status === 'packed') {
-                $this->say("{$buyer->letter} · {$buyer->buyer_username} packed", true);
-                $next = $this->buyers->first(fn ($b) => $b->id !== $buyer->id && ! in_array($b->status, ['packed', 'held'], true));
-                $this->clearComputed();
-                if ($next) app(FulfillmentRunService::class)->selectBuyer($this->runId, $next->id, auth()->user());
-            } else {
-                $this->say('Package packed', true);
-            }
+            if ($buyer->status !== 'packed') $service->markPacked($this->runId, $buyer->id, auth()->user());
+            $this->say("{$buyer->letter} · {$buyer->buyer_username} packed", true);
+            $this->clearComputed();
+            $list = $this->buyers->values();
+            $at = $list->search(fn ($b) => $b->id === $buyer->id);
+            // The next one after this buyer still to pack, else any earlier one that was skipped.
+            $next = $list->slice(($at === false ? -1 : $at) + 1)->first(fn ($b) => ! in_array($b->status, ['packed', 'held'], true))
+                ?? $list->first(fn ($b) => $b->id !== $buyer->id && ! in_array($b->status, ['packed', 'held'], true));
+            if ($next) $service->selectBuyer($this->runId, $next->id, auth()->user());
         });
     }
 

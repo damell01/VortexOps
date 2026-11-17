@@ -850,6 +850,26 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertNotSame($run->buyers()->where('letter', 'B')->value('id'), $run->fresh()->current_buyer_id);
     }
 
+    public function test_clicking_next_through_a_show_packs_each_buyer_without_a_tap_per_item(): void
+    {
+        $run = $this->started();
+        $page = Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id]);
+        $alpha = $run->buyers()->where('buyer_username', 'Alpha_Rips')->firstOrFail();
+        $page->call('selectBuyer', $alpha->id)->call('packNext');
+        $this->assertSame('packed', $alpha->fresh()->status, 'one tap packs every package of the buyer');
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('fulfillment_run_packages')->where('buyer_id', $alpha->id)->where('status', '!=', 'packed')->count());
+
+        // Prev never packs.
+        $packed = $run->buyers()->where('status', 'packed')->count();
+        $page->call('step', -1);
+        $this->assertSame($packed, $run->buyers()->where('status', 'packed')->count());
+
+        // Next all the way through: everyone ends up packed.
+        foreach (range(1, $run->buyers()->count() + 1) as $i) $page->call('step', 1);
+        $this->assertSame(0, $run->buyers()->where('status', '!=', 'packed')->count());
+        $this->assertSame((int) $run->fresh()->expected_packages, (int) $run->fresh()->completed_packages);
+    }
+
     public function test_footage_lookup_finds_where_and_when_an_order_was_packed(): void
     {
         $run = $this->started();

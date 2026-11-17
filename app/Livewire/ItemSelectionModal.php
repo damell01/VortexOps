@@ -83,7 +83,7 @@ class ItemSelectionModal extends Component
         $item = InventoryItem::find($itemId);
         if ($item) {
             $this->selectedItemId = $itemId;
-            $this->unitCost = (float) ($item->average_cost ?? $item->unit_cost ?? 0);
+            $this->unitCost = (float) ($item->costBasis() ?? 0); // on-hand average; list cost until first received
         }
     }
 

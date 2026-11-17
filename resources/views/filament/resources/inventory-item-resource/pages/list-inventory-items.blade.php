@@ -163,7 +163,7 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
                         </div>
                         <div class="vx-product-body">
                             <div class="vx-product-title">{{ $item->name }}</div>
-                            <div class="vx-product-meta">Item cost: <strong>${{ number_format((float) $item->unit_cost, 2) }}</strong></div>
+                            <div class="vx-product-meta" title="Average cost of what is on hand now">Avg cost: <strong>${{ number_format((float) ($item->costBasis() ?? 0), 2) }}</strong></div>
                         </div>
                     </article>
                 @endforeach
@@ -295,7 +295,7 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
       <div class="vx-product-body">
        @if($fulfillmentCatalogOnly)<div class="vx-product-title">{{ $item->name }}</div>@else<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>@endif
        @if($fulfillmentCatalogOnly)
-        <div class="vx-product-meta">Item Cost: <strong>${{ number_format((float)$item->unit_cost, 2) }}</strong></div>
+        <div class="vx-product-meta" title="Average cost of what is on hand now">Avg cost: <strong>${{ number_format((float)($item->costBasis() ?? 0), 2) }}</strong></div>
        @else
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
        <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->created_at && $item->created_at->gte(now()->subDays(7)))<span class="vx-type" title="Added within the last seven days">New</span>@endif@if($onHand > 0 && $item->last_receipt_at && \Illuminate\Support\Carbon::parse($item->last_receipt_at)->gte(now()->subDays(7)))<span class="vx-type" title="Inventory received within the last seven days">Recently received</span>@endif@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
@@ -303,7 +303,7 @@ body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom
        @endif
        @unless($fulfillmentCatalogOnly)<div class="vx-card-figs">
         <div class="vx-card-fig is-qty {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="vx-metric-value">{{ number_format($onHand) }}</div></div>
-        <div class="vx-card-fig"><div class="vx-metric-label">Item Cost</div><div class="vx-metric-value" title="Item cost ${{ number_format((float)$item->unit_cost,2) }}">${{ number_format((float)$item->unit_cost,2) }}</div></div>
+        <div class="vx-card-fig"><div class="vx-metric-label">Avg Cost</div><div class="vx-metric-value" title="Average cost of what is on hand now: ${{ number_format((float)($item->costBasis() ?? 0),2) }}">${{ number_format((float)($item->costBasis() ?? 0),2) }}</div></div>
         <div class="vx-card-fig"><div class="vx-metric-label">Value</div><div class="vx-metric-value" title="Total value ${{ number_format($onHand*(float)$item->costBasis(),2) }}">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
        </div>@endunless
       </div>

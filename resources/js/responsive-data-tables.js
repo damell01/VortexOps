@@ -54,7 +54,10 @@ function decorateTable(table) {
     // decorateList). Audit logs and tables that opt out keep the cards.
     if (!readableLog && table.closest('.fi-ta-content-ctn') && !table.closest('[data-vx-keep-cards]')) {
         if (table.classList.contains('vx-mobile-readable')) table.classList.remove('vx-mobile-readable');
-        decorateList(table, headers);
+        // Phones only: on a wider screen the table stays a table, with none
+        // of the list extras ("3 more", date headers) left in its cells.
+        if (window.matchMedia('(max-width: 767px)').matches) decorateList(table, headers);
+        else undecorateList(table);
         return;
     }
     if (table.classList.contains('vx-mlist')) table.classList.remove('vx-mlist');
@@ -153,6 +156,13 @@ const moneyLabels = ['amount', 'total', 'net', 'payout', 'pay', 'revenue', 'gros
 const badgeLabels = ['status', 'next', 'type', 'role', 'stage', 'state', 'priority', 'condition', 'result'];
 const subLabels = ['date', 'when', 'created', 'updated', 'streamer', 'vendor', 'business', 'channel', 'show', 'email', 'period', 'week', 'location', 'po'];
 const MONEY = /^[-−(]?\s*\$\s?[\d,]+(\.\d+)?\)?$/;
+
+function undecorateList(table) {
+    if (!table.classList.contains('vx-mlist') && !table.querySelector('.vx-ml-more, tr.vx-ml-group')) return;
+    table.classList.remove('vx-mlist');
+    table.querySelectorAll('.vx-ml-more, :scope > tbody > tr.vx-ml-group').forEach((el) => el.remove());
+    table.querySelectorAll('.vx-ml-open').forEach((el) => el.classList.remove('vx-ml-open'));
+}
 
 function decorateList(table, headers) {
     if (!table.classList.contains('vx-mlist')) table.classList.add('vx-mlist');
@@ -381,3 +391,7 @@ if (document.readyState === 'loading') {
 
 document.addEventListener('livewire:navigated', () => decorateTables());
 
+
+// Crossing the phone width (rotating, resizing a window) switches tables
+// between the phone list and a plain table.
+window.matchMedia('(max-width: 767px)').addEventListener('change', () => decorateTables());

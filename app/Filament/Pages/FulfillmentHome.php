@@ -39,6 +39,97 @@ class FulfillmentHome extends Page
     public string $jobs = 'all';
     public string $queueSearch = '';
 
+    /** Which part of the manager's home opens first (?view=): the queue, the stations or today's summary. Tabs switch in the browser. */
+    public string $section = 'queue';
+
+    /** "Where's this package?" — buyer, order number or tracking number. */
+    public string $packageSearch = '';
+
+    /**
+     * Find a package by buyer (name starts with), Whatnot order number or tracking
+     * number, and say where it is: which show, which buyer letter, packed or not,
+     * by whom, and its shipment status. At most 8 results, newest show first.
+     */
+    #[\Livewire\Attributes\Computed]
+    public function packageHits(): array
+    {
+        $term = trim(ltrim($this->packageSearch, '@#'));
+        if (mb_strlen($term) < 3) return [];
+        $like = str_replace('%', '', $term); // '_' matches any one character, harmless here
+
+        $orders = \App\Models\WhatnotShowOrder::query()
+            ->select('id', 'show_id', 'whatnot_order_id', 'buyer_username', 'tracking_number', 'shipping_status', 'item_name')
+            ->whereNotNull('show_id')
+            ->where(fn ($q) => $q->where('whatnot_order_id', $term)
+                ->orWhere('tracking_number', 'like', $like.'%')
+                ->orWhere('buyer_username', 'like', $like.'%'))
+            ->orderByDesc('show_id')->limit(40)->get();
+
+        $shipments = \App\Models\Shipment::query()
+            ->select('id', 'show_id', 'whatnot_order_id', 'buyer_username', 'tracking_number', 'status', 'carrier')
+            ->whereNotNull('show_id')
+            ->where(fn ($q) => $q->where('tracking_number', 'like', $like.'%')->orWhere('buyer_username', 'like', $like.'%'))
+            ->orderByDesc('show_id')->limit(20)->get();
+
+        // One row per buyer per show.
+        $groups = [];
+        foreach ($orders as $o) {
+            $k = $o->show_id.'|'.mb_strtolower((string) $o->buyer_username);
+            $groups[$k] ??= ['show_id' => $o->show_id, 'buyer' => $o->buyer_username, 'orders' => [], 'tracking' => null, 'ship_status' => null, 'items' => []];
+            $groups[$k]['orders'][] = $o->whatnot_order_id;
+            if ($o->item_name && count($groups[$k]['items']) < 2) $groups[$k]['items'][] = $o->item_name;
+            $groups[$k]['tracking'] ??= $o->tracking_number;
+            $groups[$k]['ship_status'] ??= $o->shipping_status;
+        }
+        foreach ($shipments as $sh) {
+            $buyer = $sh->buyer_username ?? $orders->firstWhere('id', $sh->whatnot_order_id)?->buyer_username;
+            $k = $sh->show_id.'|'.mb_strtolower((string) $buyer);
+            $groups[$k] ??= ['show_id' => $sh->show_id, 'buyer' => $buyer, 'orders' => [], 'tracking' => null, 'ship_status' => null, 'items' => []];
+            $groups[$k]['tracking'] = $sh->tracking_number ?: $groups[$k]['tracking'];
+            $groups[$k]['ship_status'] = $sh->status ?: $groups[$k]['ship_status'];
+        }
+        uasort($groups, fn ($a, $b) => $b['show_id'] <=> $a['show_id']);
+        $groups = array_slice($groups, 0, 8, true);
+        if (! $groups) return [];
+
+        $showIds = array_unique(array_column($groups, 'show_id'));
+        $shows = \App\Models\Show::query()->select('id', 'title', 'show_date')->whereIn('id', $showIds)->get()->keyBy('id');
+        $runs = \App\Models\FulfillmentRun::query()->select('id', 'show_id', 'status', 'station_id')->whereIn('show_id', $showIds)
+            ->with('station:id,name')->get()->keyBy('show_id');
+        $buyers = \App\Models\FulfillmentRunBuyer::query()->select('id', 'run_id', 'buyer_username', 'letter', 'status', 'packed_by', 'packed_at')
+            ->whereIn('run_id', $runs->pluck('id'))->with('packer:id,name')->get()
+            ->keyBy(fn ($b) => $b->run_id.'|'.mb_strtolower((string) $b->buyer_username));
+        $tz = \App\Support\BusinessTime::zone();
+
+        return array_values(array_map(function (array $g) use ($shows, $runs, $buyers, $tz) {
+            $run = $runs->get($g['show_id']);
+            $buyer = $run ? $buyers->get($run->id.'|'.mb_strtolower((string) $g['buyer'])) : null;
+            [$state, $tone] = match (true) {
+                ! $run => ['Not in the Fulfillment Center yet', 'idle'],
+                $buyer?->status === 'packed' => ['Packed'.($buyer->packer ? ' by '.explode(' ', $buyer->packer->name)[0] : '').($buyer->packed_at ? ' · '.$buyer->packed_at->timezone($tz)->format('M j, g:i A') : ''), 'ready'],
+                $buyer?->status === 'packing' => ['Being packed now'.($run->station ? ' · '.$run->station->name : ''), 'packing'],
+                $buyer !== null => ['Waiting to be packed'.($run->status === 'packing' && $run->station ? ' · '.$run->station->name : ''), 'paused'],
+                in_array($run->status, ['completed', 'approved'], true) => ['Show finished packing', 'ready'],
+                default => ['Waiting to be packed · show not started', 'paused'],
+            };
+            $show = $shows->get($g['show_id']);
+
+            return [
+                'buyer' => $g['buyer'] ?: 'Unknown buyer',
+                'letter' => $buyer?->letter,
+                'show' => $show?->title ?? 'Show #'.$g['show_id'],
+                'show_date' => $show?->show_date?->format('M j'),
+                'show_id' => $g['show_id'],
+                'orders' => array_values(array_unique(array_filter($g['orders']))),
+                'items' => $g['items'],
+                'tracking' => $g['tracking'],
+                'ship_status' => $g['ship_status'] ? ucwords(str_replace('_', ' ', (string) $g['ship_status'])) : null,
+                'state' => $state,
+                'tone' => $tone,
+            ];
+        }, $groups));
+    }
+
     public function updatedQueueSearch(): void
     {
         $this->queuePage = 1;
@@ -98,6 +189,9 @@ class FulfillmentHome extends Page
 
     public function mount(): void
     {
+        $view = (string) request()->query('view', 'queue');
+        $this->section = in_array($view, ['queue', 'stations', 'today'], true) ? $view : 'queue';
+
         // The scheduler syncs every ten minutes; between runs, the first visit
         // in a couple of minutes picks up newly ready shows. Never on every load.
         if (\Illuminate\Support\Facades\Cache::add('fulfillment:home-sync', 1, 120)) {

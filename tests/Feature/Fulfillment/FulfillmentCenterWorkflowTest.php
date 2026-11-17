@@ -97,6 +97,33 @@ class FulfillmentCenterWorkflowTest extends TestCase
         return FulfillmentRun::query()->findOrFail($id);
     }
 
+    public function test_wheres_this_package_finds_a_buyer_by_name_order_or_tracking_and_says_if_it_is_packed(): void
+    {
+        $run = $this->started($this->show(['zoe_cards' => 1, 'Alpha_Rips' => 2], true));
+        $alpha = $run->buyers()->where('buyer_username', 'Alpha_Rips')->firstOrFail();
+        app(FulfillmentRunService::class)->markPacked($run->id, $alpha->id, $this->packer);
+        Shipment::query()->where('show_id', $run->show_id)->where('buyer_username', 'zoe_cards')->update(['tracking_number' => '9400111899223344556677', 'status' => 'in_transit']);
+        $zoeOrder = WhatnotShowOrder::query()->where('show_id', $run->show_id)->where('buyer_username', 'zoe_cards')->value('whatnot_order_id');
+
+        $home = Livewire::actingAs($this->manager)->test(FulfillmentHome::class);
+        $home->set('packageSearch', 'al')->assertSee('at least 3 characters');
+
+        $hits = $home->set('packageSearch', 'alpha')->instance()->packageHits;
+        $this->assertCount(1, $hits, 'one row per buyer per show, however many orders');
+        $this->assertSame($alpha->letter, $hits[0]['letter']);
+        $this->assertStringStartsWith('Packed by', $hits[0]['state']);
+        $this->assertCount(2, $hits[0]['orders']);
+        $home->assertSee('Alpha_Rips')->assertSee('Open show');
+
+        foreach (['9400111899223', $zoeOrder, '@zoe'] as $term) {
+            $hits = $home->set('packageSearch', $term)->instance()->packageHits;
+            $this->assertSame('zoe_cards', $hits[0]['buyer'] ?? null, "found by {$term}");
+            $this->assertSame('Waiting to be packed', explode(' · ', $hits[0]['state'])[0]);
+        }
+        $this->assertSame('In Transit', $hits[0]['ship_status']);
+        $home->set('packageSearch', 'nobody-here')->assertSee('Nothing matches');
+    }
+
     public function test_buyers_are_lettered_by_username_initial_once_per_username_with_orders_grouped(): void
     {
         $run = $this->started($this->show(['zoe_cards' => 1, 'Alpha_Rips' => 2, 'bigpullz' => 1, 'alpha_rips' => 1]));
@@ -273,7 +300,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
         app(FulfillmentRunService::class)->confirmDone($run->id, $this->packer);
 
         // Home lists it for the admin, not for packers.
-        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->assertSee('Ready for sign-off')->assertSee('Big Giveys Top Hit Tuesday');
+        Livewire::withQueryParams(['view' => 'today'])->actingAs($this->manager)->test(FulfillmentHome::class)->assertSee('Ready for sign-off')->assertSee('Big Giveys Top Hit Tuesday');
         Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->assertDontSee('Ready for sign-off');
 
         // A packer can't open the review or sign off.
@@ -308,7 +335,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
         Livewire::actingAs($this->manager)->test(\App\Filament\Pages\DashboardImproved::class)->assertRedirect(FulfillmentHome::getUrl());
         Livewire::actingAs($this->packer)->test(\App\Filament\Pages\DashboardImproved::class)->assertRedirect(FulfillmentHome::getUrl());
 
-        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
+        Livewire::withQueryParams(['view' => 'today'])->actingAs($this->manager)->test(FulfillmentHome::class)
             ->assertSee('Ready for sign-off')->assertDontSee('Sign off show')
             ->call('openSignoff', $run->id)->assertSet('signoffId', $run->id);
         // The review draws over Home (it lives in its own island, rendered with the page).
@@ -596,7 +623,7 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertMatchesRegularExpression('/href="[^"]*station=' . $this->station->id . '[^"]*"\s+aria-current="page"/', $single->getContent());
         $this->actingAs($this->packer)->get(route('fulfillment.whiteboard', ['station' => 999999]))->assertNotFound();
 
-        Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
+        Livewire::withQueryParams(['view' => 'stations'])->actingAs($this->manager)->test(FulfillmentHome::class)
             ->assertSee(route('fulfillment.whiteboard', ['station' => $this->station->id]), false);
     }
 

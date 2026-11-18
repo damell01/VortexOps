@@ -530,7 +530,7 @@
                     const timeFormatter=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'});
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
-                        open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
+                        open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, inboxSignature:null, error:'', threads:[], search:'', selected:null, messages:[], messageCache:{},
                         messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, usersPage:1, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, previewType:'image', previewName:'', files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
@@ -645,10 +645,35 @@
                         async load() {
                             if(this.loading) return;
                             this.loading=true;this.error='';
-                            try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
+                            try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);const signature=JSON.stringify(list);if(signature!==this.inboxSignature){this.threads=list;this.inboxSignature=signature;try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messageRevision=null;this.lastFullMessageRefresh=0;this.lastReactionRefreshAt=0;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        rememberMessages(id) {
+                            if(!id || !this.messages.length)return;
+                            const messages=this.messages.filter(m=>!m._pending && !m._failed && !String(m.id).startsWith('tmp-')).slice(-50);
+                            if(!messages.length)return;
+                            const cache={...this.messageCache};
+                            delete cache[id];
+                            cache[id]={messages,hasOlder:this.hasOlder};
+                            while(Object.keys(cache).length>5)delete cache[Object.keys(cache)[0]];
+                            this.messageCache=cache;
+                        },
+                        async openThread(t) {
+                            const previousId=String(this.selected?.id || '');
+                            if(previousId)this.rememberMessages(previousId);
+                            const id=String(t.id),cached=this.messageCache[id];
+                            this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};
+                            this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;
+                            this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);
+                            this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;
+                            this.messageRevision=null;this.lastFullMessageRefresh=0;this.lastReactionRefreshAt=0;
+                            this.messages=cached?.messages || [];this.messagesLoading=false;this.olderPage=1;
+                            this.hasOlder=cached?.hasOlder || false;this.historySearching=false;this.replyTo=null;
+                            this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;
+                            this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;
+                            if(cached)this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane)pane.scrollTop=pane.scrollHeight;});
+                            await this.loadMessages();
+                        },
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -692,6 +717,7 @@
                                 // Animate only messages that arrived while the conversation was open, never the history on first load.
                                 if(!firstLoad){const fresh=list.map(m=>String(m.id)).filter(i=>!knownIds.has(i));if(fresh.length){this.freshIds=[...this.freshIds,...fresh].slice(-20);setTimeout(()=>{this.freshIds=this.freshIds.filter(i=>!fresh.includes(i))},900);}}
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
+                                this.rememberMessages(id);
                                 if(firstLoad && this.unreadAtOpen>0){const theirs=this.messages.filter(m=>!this.isMine(m));const first=theirs[Math.max(0,theirs.length-this.unreadAtOpen)];this.firstUnreadId=first ? first.id : null;}
                                 this.$nextTick(()=>{
                                     const pane=this.$refs.messagePane;

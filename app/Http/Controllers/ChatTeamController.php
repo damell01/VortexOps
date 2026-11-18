@@ -22,6 +22,8 @@ class ChatTeamController
         // Fetch only a page at a time and search roles as well as names.
         $search = mb_substr(trim((string) $request->query('search', '')), 0, 80);
         $role = strtolower(trim((string) $request->query('role', '')));
+        $page = $request->integer('page', 1);
+        abort_unless($page >= 1 && $page <= 1000, 422);
         abort_unless(in_array($role, ['', 'fulfillment', 'stream', 'admin'], true), 422);
         $escape = fn (string $value) => addcslashes($value, '%_\\');
         $people = \App\Services\TeamCommunications::previewRecipients(User::query())->whereKeyNot($user->id)
@@ -30,12 +32,13 @@ class ChatTeamController
                 ->orWhereHas('roles', fn ($roles) => $roles->where('name', 'like', '%'.$escape(str_replace(' ', '_', $search)).'%'))))
             ->when($role !== '', fn ($query) => $query->whereHas('roles', fn ($roles) => $roles->where('name', 'like', '%'.$role.'%')))
             ->with('roles:id,name')
-            ->orderBy('name')->limit(61)->get(['id', 'name']);
+            ->orderBy('name')->orderBy('id')->offset(($page - 1) * 60)->limit(61)->get(['id', 'name']);
         $hasMore = $people->count() > 60;
         $people = $people->take(60);
 
         return response()->json([
             'has_more' => $hasMore,
+            'next_page' => $hasMore ? $page + 1 : null,
             'data' => $people->map(fn (User $person) => [
                 'id' => (string) $person->id,
                 'type' => 'user',

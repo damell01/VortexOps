@@ -95,6 +95,14 @@ class ChatTeamListTest extends TestCase
         User::factory()->count(62)->create();
 
         $this->actingAs($owner)->getJson('/admin/communications/team')
-            ->assertOk()->assertJsonCount(60, 'data')->assertJsonPath('has_more', true);
+            ->assertOk()->assertJsonCount(60, 'data')->assertJsonPath('has_more', true)
+            ->assertJsonPath('next_page', 2);
+        $second = $this->getJson('/admin/communications/team?page=2')
+            ->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('has_more', false)
+            ->assertJsonPath('next_page', null);
+        $firstIds = collect($this->getJson('/admin/communications/team')->json('data'))->pluck('id');
+        $secondIds = collect($second->json('data'))->pluck('id');
+        $this->assertCount(0, $firstIds->intersect($secondIds));
     }
 }

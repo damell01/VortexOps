@@ -150,7 +150,7 @@
                                     <strong x-text="userSearch || peopleRoleFilter ? 'No matching teammates' : 'No teammates available'"></strong>
                                     <span x-text="userSearch || peopleRoleFilter ? 'Try another search or choose Everyone.' : 'Ask an administrator to confirm messaging access.'"></span>
                                 </div>
-                                <p class="vxm-picker-state" x-show="!usersLoading && usersHasMore">Showing the first 60 teammates. Search by name to find more.</p>
+                                <button type="button" class="vxm-picker-more" x-show="usersHasMore" :disabled="usersLoading" x-on:click="loadMoreUsers()" x-text="usersLoading ? 'Loading…' : 'Show more teammates'"></button>
                             </div>
 
                         </div>
@@ -192,7 +192,7 @@
                                     </template>
                                     <p x-show="!availableGroupPeople().length" class="vxm-members-empty">No more teammates found.</p>
                                 </div>
-                                <p x-show="usersHasMore" class="vxm-members-empty">Only the first 60 teammates are listed. Use New conversation to search the directory.</p>
+                                <button type="button" class="vxm-picker-more" x-show="usersHasMore" :disabled="usersLoading" x-on:click="loadMoreUsers()" x-text="usersLoading ? 'Loading…' : 'Show more teammates'"></button>
                             </div>
                         </div>
                         <p class="vxm-members-error" x-show="error" x-text="error" role="alert"></p>
@@ -520,6 +520,8 @@
                 .vxm-file-icon{font-size:18px}
                 .vx-chatify-preview iframe{display:block;width:min(900px,90vw);height:min(75dvh,850px);max-width:100%;border:0;border-radius:10px;background:#fff}
                 @media(max-width:520px){.vxm-file-attachment{flex-wrap:wrap}.vxm-file-attachment>div{flex-basis:calc(100% - 40px)}}
+                .vxm-picker-more{display:block;width:100%;margin:7px 0;padding:11px;border:1px dashed #a78bda;border-radius:10px;background:#f7f1ff;color:#5b21a6;font-size:12px;font-weight:750;text-align:center;cursor:pointer}
+                .vxm-picker-more:hover{background:#eee2ff}.vxm-picker-more:disabled{opacity:.5;cursor:wait}
             </style>
             <script>
                 function vortexChatifyWidget() {
@@ -529,7 +531,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, previewType:'image', previewName:'', files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, usersPage:1, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, previewType:'image', previewName:'', files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -1098,6 +1100,29 @@
                                 const data=await response.json();
                                 if(requestId!==this.userRequestId)return;
                                 this.users=this.items(data).filter(u=>String(u.id)!==String(this.myId));
+                                this.usersPage=1;
+                                this.usersHasMore=Boolean(data.has_more);
+                                for(const user of this.users)this.userDirectory[String(user.id)]=user;
+                            }catch(e){if(requestId===this.userRequestId)this.error=e.message;}
+                            finally{if(requestId===this.userRequestId)this.usersLoading=false;}
+                        },
+                        async loadMoreUsers() {
+                            if(!this.usersHasMore || this.usersLoading)return;
+                            const requestId=++this.userRequestId,page=this.usersPage+1;
+                            this.usersLoading=true;
+                            try {
+                                const url=new URL(@json(url('/admin/communications/team')),location.origin);
+                                const search=this.userSearch.trim().slice(0,80);
+                                if(search)url.searchParams.set('search',search);
+                                if(this.peopleRoleFilter)url.searchParams.set('role',this.peopleRoleFilter);
+                                url.searchParams.set('page',String(page));
+                                const response=await fetch(url.toString(),{credentials:'same-origin',headers:{Accept:'application/json'}});
+                                if(!response.ok)throw new Error('Unable to load more teammates');
+                                const data=await response.json();
+                                if(requestId!==this.userRequestId)return;
+                                const all=[...this.users,...this.items(data)].filter(u=>String(u.id)!==String(this.myId));
+                                this.users=[...new Map(all.map(u=>[String(u.id),u])).values()];
+                                this.usersPage=page;
                                 this.usersHasMore=Boolean(data.has_more);
                                 for(const user of this.users)this.userDirectory[String(user.id)]=user;
                             }catch(e){if(requestId===this.userRequestId)this.error=e.message;}

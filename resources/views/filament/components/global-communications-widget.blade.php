@@ -65,7 +65,7 @@
                                         </template>
                                     </div>
                                 </template>
-                                <div class="vx-chatify-message-actions"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="reactionPickerId===message.id" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
+                                <div class="vx-chatify-message-actions" x-on:click.outside="if (reactionPickerId===message.id) reactionPickerId=null" x-on:keydown.escape="reactionPickerId=null"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="String(reactionPickerId===message.id)" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker" role="group" aria-label="Choose a reaction"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :aria-label="'React '+emoji" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
@@ -429,12 +429,24 @@
                     .vxm-picker-person{min-height:58px;padding:8px}
                     .vxm-picker-footer{min-height:52px;padding:8px 18px}
                 }
+                /* Compact, horizontal reaction picker. The prior unstyled span inherited a vertical stack. */
+                .vx-chatify-native .vx-chatify-message-actions{position:relative;display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+                .vx-chatify-native .vx-chatify-reaction-picker{position:absolute!important;left:0;bottom:calc(100% + 7px);z-index:90;display:inline-flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;gap:3px!important;width:max-content!important;max-width:calc(100vw - 52px);height:auto!important;min-height:0!important;margin:0!important;padding:5px 7px!important;border:1px solid #e4dbee;border-radius:999px;background:#fff;box-shadow:0 8px 26px rgba(36,18,65,.17);white-space:nowrap}
+                .vx-chatify-native .vx-chatify-message.is-mine .vx-chatify-reaction-picker{left:auto;right:0}
+                .vx-chatify-native .vx-chatify-reaction-picker>button{display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important;font-size:19px!important;line-height:1!important;cursor:pointer}
+                .vx-chatify-native .vx-chatify-reaction-picker>button:hover,.vx-chatify-native .vx-chatify-reaction-picker>button:focus-visible{background:#f0e8fd!important;transform:scale(1.06)}
+                .vx-chatify-native .vx-chatify-reaction-picker>button:focus-visible{outline:2px solid #8c50d8;outline-offset:1px}
+                @media(max-width:440px){.vx-chatify-native .vx-chatify-reaction-picker{gap:1px!important;padding:4px!important}.vx-chatify-native .vx-chatify-reaction-picker>button{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex-basis:30px!important;font-size:17px!important}}
             </style>
             <script>
                 function vortexChatifyWidget() {
+                    // Reuse the formatters rather than constructing Intl objects for every message on every Alpine update.
+                    const dateFormatter=new Intl.DateTimeFormat(undefined,{dateStyle:'medium'});
+                    const timeFormatter=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'});
+                    const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -529,11 +541,11 @@
                             this.unreadSnapshot=next;
                         },
                         unread(t) {return Number(t?.attributes?.unread_count || 0);},
-                        formatDate(v) {if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(d);},
-                        showDate(m,index) {return index===0 || this.formatDate(this.messages[index-1]?.attributes?.created_at)!==this.formatDate(m?.attributes?.created_at);},
+                        formatDate(v) {if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime()) ? '' : dateFormatter.format(d);},
+                        showDate(m,index) {const list=this.filteredMessages();return index===0 || this.formatDate(list[index-1]?.attributes?.created_at)!==this.formatDate(m?.attributes?.created_at);},
                         // The day is on the separator above; each message only needs its time.
-                        formatTime(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(d); },
-                        formatFull(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d); },
+                        formatTime(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : timeFormatter.format(d); },
+                        formatFull(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : fullFormatter.format(d); },
                         senderId(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id || '');},
                         // Messages from one person within five minutes read as one run: name and avatar once, time at the end.
                         sameRun(a,b) {if(!a||!b)return false;if(this.senderId(a)!==this.senderId(b))return false;const x=new Date(a.attributes?.created_at),y=new Date(b.attributes?.created_at);return x.toDateString()===y.toDateString() && Math.abs(y-x) <= 5*60*1000;},
@@ -546,7 +558,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -569,6 +581,15 @@
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
+                                // The API returns a fresh array on every poll. Skip the expensive Alpine
+                                // message-tree reconciliation when the server page has not changed.
+                                const signature=JSON.stringify(list);
+                                if(!firstLoad && signature===this.messagePageSignature && !this.pending.some(p=>p.conversationId===id)) {
+                                    this.pollCount++;
+                                    if(this.pollCount%6===0)this.loadReactionBatch(list);
+                                    return;
+                                }
+                                this.messagePageSignature=signature;
                                 const knownIds=new Set(this.messages.map(m=>String(m.id)));
                                 // A placeholder stays until the server's copy of it is in the list.
                                 const landed=p=>p._confirmed && list.some(m=>this.isMine(m) && (m.attributes?.body||'')===p.attributes.body && new Date(m.attributes?.created_at||0).getTime()>=new Date(p.attributes.created_at).getTime()-120000);

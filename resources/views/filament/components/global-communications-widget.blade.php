@@ -1,7 +1,7 @@
 @if(config('chatify-preview.available', false))
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if((config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false)) && (\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false)))
-        <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="reactionPickerId !== null ? reactionPickerId=null : (showNew ? showNew=false : close())" x-on:click.window="if (reactionPickerId !== null && !$event.target.closest('.vx-chatify-message-actions')) reactionPickerId=null">
+        <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="preview ? preview=null : (showMembers ? showMembers=false : (reactionPickerId !== null ? reactionPickerId=null : (showNew ? showNew=false : close())))" x-on:click.window="if (reactionPickerId !== null && !$event.target.closest('.vx-chatify-message-actions')) reactionPickerId=null">
             <button type="button" class="vx-chatify-launch" :class="{'is-open': open}" x-on:click="toggle()" x-effect="const n=totalUnread(); if(n>(lastUnread??n) && !open){$el.classList.remove('vxm-nudge');void $el.offsetWidth;$el.classList.add('vxm-nudge')} lastUnread=n" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
                 <svg class="vxm-launch-x" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -58,10 +58,15 @@
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
                                     <div class="vx-chatify-message-attachment">
                                         <template x-if="isImage(attachment)">
-                                            <button type="button" class="vx-chatify-image-button" x-on:click="preview=attachment.url" aria-label="Enlarge image"><img :src="attachment.url" :alt="attachment.original_name || 'Shared image'" loading="lazy"></button>
+                                            <button type="button" class="vx-chatify-image-button" x-on:click="openAttachmentPreview(attachment)" aria-label="Enlarge image"><img :src="attachment.url" :alt="attachment.original_name || 'Shared image'" loading="lazy"></button>
                                         </template>
                                         <template x-if="!isImage(attachment)">
-                                            <a :href="attachment.url" :download="attachment.original_name || null" x-text="attachment.original_name || 'Download attachment'"></a>
+                                            <div class="vxm-file-attachment">
+                                                <span class="vxm-file-icon" aria-hidden="true">📄</span>
+                                                <div><strong x-text="attachment.original_name || 'Shared file'"></strong><small x-text="formatBytes(attachment.size)"></small></div>
+                                                <button type="button" x-show="isPdf(attachment) && canPreviewAttachment(attachment)" x-on:click="openAttachmentPreview(attachment)">Preview</button>
+                                                <a :href="attachment.url" :download="attachment.original_name || null" aria-label="Download attachment">Download</a>
+                                            </div>
                                         </template>
                                     </div>
                                 </template>
@@ -99,7 +104,7 @@
                         <button type="submit" :class="{'vxm-whoosh': whoosh}" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))"><x-filament::icon icon="heroicon-o-paper-airplane" /><span x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></span></button>
                     </form>
                 </div>
-                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
+                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" :aria-label="previewType==='pdf' ? 'PDF preview' : 'Image preview'"><button type="button" x-on:click="preview=null" aria-label="Close attachment preview">✕</button><template x-if="previewType==='image'"><img :src="preview || ''" alt="Expanded chat image"></template><template x-if="previewType==='pdf'"><iframe :src="preview || ''" :title="previewName || 'PDF attachment'" loading="lazy"></iframe></template></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
                     <button type="button" x-on:click="openComposer()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
@@ -129,7 +134,7 @@
                             <div class="vxm-picker-list-heading"><strong x-text="creatingGroup ? 'Select people for your group' : 'Choose someone to message'"></strong><span x-text="usersLoading ? 'Loading…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' people'"></span></div>
                             <div class="vxm-picker-people" role="group" aria-label="Teammates to message" :aria-busy="String(usersLoading)">
                                 <p class="vxm-picker-state" x-show="usersLoading" role="status">Finding teammates…</p>
-                                <template x-for="user in (usersLoading ? [] : visibleUsers())" :key="user.id">
+                                <template x-for="user in visibleUsers()" :key="user.id">
                                     <button type="button" class="vxm-picker-person" :class="{'is-selected': recipients.includes(String(user.id))}" :aria-pressed="creatingGroup ? String(recipients.includes(String(user.id))) : null" :aria-label="creatingGroup ? 'Select '+userName(user) : 'Message '+userName(user)" :disabled="creating || (creatingGroup && !recipients.includes(String(user.id)) && recipients.length>=49)" x-on:click="choosePerson(user)">
                                         <span class="vxm-picker-avatar" aria-hidden="true" x-text="initials(userName(user))"></span>
                                         <span class="vxm-picker-person-info"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
@@ -509,6 +514,12 @@
                 @media(max-width:550px){.vxm-members-backdrop{padding:0}.vxm-members-dialog{max-height:100dvh;height:100dvh;border-radius:0}.vxm-members-choices{grid-template-columns:1fr}.vxm-members-body{padding:12px}.vxm-members-head,.vxm-members-footer{padding:12px}}
                 .vxm-delivery-status{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:11px;color:#805d3c}
                 .vxm-delivery-status button{border:1px solid currentColor;border-radius:6px;padding:2px 7px;font-weight:700}
+                .vxm-file-attachment{display:flex;align-items:center;gap:8px;max-width:100%;min-width:0;padding:8px 10px;border:1px solid #e5d9f3;border-radius:10px;background:rgba(255,255,255,.08)}
+                .vxm-file-attachment>div{flex:1;min-width:0}.vxm-file-attachment strong{display:block;overflow-wrap:anywhere;font-size:12px}.vxm-file-attachment small{display:block;font-size:10px;opacity:.75}
+                .vxm-file-attachment>button,.vxm-file-attachment>a{flex:0 0 auto;padding:5px 7px;border:1px solid #bca6df;border-radius:7px;font-size:11px;font-weight:700}
+                .vxm-file-icon{font-size:18px}
+                .vx-chatify-preview iframe{display:block;width:min(900px,90vw);height:min(75dvh,850px);max-width:100%;border:0;border-radius:10px;background:#fff}
+                @media(max-width:520px){.vxm-file-attachment{flex-wrap:wrap}.vxm-file-attachment>div{flex-basis:calc(100% - 40px)}}
             </style>
             <script>
                 function vortexChatifyWidget() {
@@ -518,7 +529,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, previewType:'image', previewName:'', files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -553,6 +564,10 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
+                        isPdf(a) {return a?.mime_type==='application/pdf' || /\.pdf(\?|$)/i.test(a?.url || '') || /\.pdf$/i.test(a?.original_name || '');},
+                        canPreviewAttachment(a) {try{return new URL(a?.url || '',location.origin).origin===location.origin}catch(e){return false}},
+                        openAttachmentPreview(a) {if(!a?.url)return;const pdf=this.isPdf(a);if(pdf && !this.canPreviewAttachment(a))return;this.preview=a.url;this.previewType=pdf?'pdf':'image';this.previewName=a.original_name || '';},
+                        formatBytes(size) {const n=Number(size || 0);if(!n || n<0)return 'Attachment';return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';},
                         init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && navigator.onLine){this.load();if(this.open && this.selected)this.checkForUpdates();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});}else{this.load();}this.startPolling();},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},

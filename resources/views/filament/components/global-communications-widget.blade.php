@@ -430,7 +430,7 @@
                     .vxm-picker-footer{min-height:52px;padding:8px 18px}
                 }
                 /* Compact, horizontal reaction picker. The prior unstyled span inherited a vertical stack. */
-                .vx-chatify-native .vx-chatify-message-actions{position:relative;display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+                .vx-chatify-native .vx-chatify-message-actions{align-items:center;flex-wrap:nowrap;gap:4px;min-width:0}
                 .vx-chatify-native .vx-chatify-reaction-picker{position:absolute!important;left:0;bottom:calc(100% + 7px);z-index:90;display:inline-flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;gap:3px!important;width:max-content!important;max-width:calc(100vw - 52px);height:auto!important;min-height:0!important;margin:0!important;padding:5px 7px!important;border:1px solid #e4dbee;border-radius:999px;background:#fff;box-shadow:0 8px 26px rgba(36,18,65,.17);white-space:nowrap}
                 .vx-chatify-native .vx-chatify-message.is-mine .vx-chatify-reaction-picker{left:auto;right:0}
                 .vx-chatify-native .vx-chatify-reaction-picker>button{display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;margin:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important;font-size:19px!important;line-height:1!important;cursor:pointer}

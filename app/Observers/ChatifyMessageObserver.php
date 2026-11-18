@@ -11,6 +11,7 @@ class ChatifyMessageObserver
 {
     public function deleted($message): void
     {
+        \App\Support\ChatRevision::touch((string) ($message->conversation_id ?? ''));
         // Chatify soft-deletes messages. Remove reactions so deleted content
         // cannot retain stale interaction data indefinitely.
         if (! \Illuminate\Support\Facades\Schema::hasTable('chat_message_reactions')) return;
@@ -19,8 +20,14 @@ class ChatifyMessageObserver
             ->delete();
     }
 
+    public function updated($message): void
+    {
+        \App\Support\ChatRevision::touch((string) ($message->conversation_id ?? ''));
+    }
+
     public function created($message): void
     {
+        \App\Support\ChatRevision::touch((string) ($message->conversation_id ?? ''));
         if (! config('chatify-preview.available', false) || ! config('chatify-preview.message_notifications_enabled', false) || ! config('chatify-preview.team_enabled', false)) return;
         $senderId = (int) ($message->user_id ?? 0);
         $sender = User::find($senderId);

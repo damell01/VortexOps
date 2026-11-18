@@ -451,7 +451,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -486,7 +486,7 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
-                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
+                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && navigator.onLine){this.load();if(this.open && this.selected)this.checkForUpdates();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});}else{this.load();}this.startPolling();},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {const q=this.search.toLowerCase();return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && (this.kind==='all' || this.kind==='unread' || (this.kind==='group' ? t?.attributes?.conversation_type==='group' : t?.attributes?.conversation_type!=='group')) && (this.label(t).toLowerCase().includes(q) || (q.length>1 && String(t?.relationships?.last_message?.attributes?.body || '').toLowerCase().includes(q)))).sort((a,b)=>(Number(this.isPinned(b))-Number(this.isPinned(a))) || (Number(this.isSelfChat(a) && !this.isPinned(a))-Number(this.isSelfChat(b) && !this.isPinned(b))));},
@@ -563,7 +563,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messageRevision=null;this.lastFullMessageRefresh=0;this.lastReactionRefreshAt=0;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -585,6 +585,7 @@
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
+                                this.lastFullMessageRefresh=Date.now();
                                 const list=this.items(data);
                                 // The API returns a fresh array on every poll. Skip the expensive Alpine
                                 // message-tree reconciliation when the server page has not changed.
@@ -782,6 +783,7 @@
                                 if(!response.ok)return;
                                 const data=await response.json();
                                 for(const id of ids){this.reactions[id]=data.reactions?.[id] || [];this.reactionIds[id]=true;}
+                                this.lastReactionRefreshAt=Date.now();
                             }catch(e){}
                         },
                         async loadReactions(id) {
@@ -985,7 +987,41 @@
                                 if(thread?.id)await this.openThread(thread);
                             }catch(e){this.error=e.message;}finally{this.creating=false;}
                         },
-                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},4000);},
+                        async checkForUpdates() {
+                            if(!this.open || !this.selected || this.revisionChecking || this.messagesLoading)return;
+                            const id=String(this.selected.id);
+                            this.revisionChecking=true;
+                            try {
+                                const data=await this.local('/conversations/'+encodeURIComponent(id)+'/revision');
+                                if(String(this.selected?.id)!==id)return;
+                                const revision=String(data.revision ?? '0');
+                                if(this.messageRevision===null)this.messageRevision=revision;
+                                else if(this.messageRevision!==revision) {
+                                    this.messageRevision=revision;
+                                    await this.loadMessages();
+                                    // Reaction changes are also published through the revision token.
+                                    this.loadReactionBatch(this.messages.slice(-50));
+                                } else if(Date.now()-this.lastFullMessageRefresh>60000)await this.loadMessages();
+                                if(Date.now()-this.lastReactionRefreshAt>30000)this.loadReactionBatch(this.messages.slice(-50));
+                            }catch(e) {
+                                // Cache, deployment, or endpoint outages must not stop message delivery.
+                                if(Date.now()-this.lastFullMessageRefresh>15000)await this.loadMessages();
+                            }finally{this.revisionChecking=false;}
+                        },
+                        startPolling() {
+                            if(this.timer)clearInterval(this.timer);
+                            this.timer=setInterval(()=>{
+                                if(document.hidden || !navigator.onLine)return;
+                                if(this.open && this.selected)this.checkForUpdates();
+                                // Keep the unread badge current even with the drawer closed.
+                                const inboxEvery=this.open ? 15000 : 45000;
+                                if(Date.now()-this.lastInboxRefresh>=inboxEvery)this.load();
+                            },4000);
+                            if(this.presenceTimer)clearInterval(this.presenceTimer);
+                            this.presenceTimer=setInterval(()=>{
+                                if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);
+                            },6500);
+                        },
                         toggle() {
                             if(this.open) {this.close();return;}
                             this.open=true;
@@ -994,7 +1030,7 @@
                             this.load();if(this.selected)this.loadMessages();
                             this.startPolling();
                         },
-                        close() {this.open=false;this.showNew=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},
+                        close() {this.open=false;this.showNew=false;this.preview=null;this.reactionPickerId=null;},
                         destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);if(this.onOnline)window.removeEventListener('online',this.onOnline);if(this.onOffline)window.removeEventListener('offline',this.onOffline);this.files.forEach(file=>this.releaseFile(file));}
                     };
                 }

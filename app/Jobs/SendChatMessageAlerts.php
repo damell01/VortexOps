@@ -72,7 +72,8 @@ class SendChatMessageAlerts implements ShouldQueue
         if (($prefs['push'] ?? false) && $user->wantsNotificationChannel('database')) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {
                 $deliveryKey = 'chat-push:'.$user->id.':'.$device->id.':'.$this->messageId;
-                if (Cache::has($deliveryKey)) continue;
+                // Atomic claim prevents two queue workers from sending the same alert.
+                if (! Cache::add($deliveryKey, true, now()->addMinutes(5))) continue;
                 try {
                     $delivered = $push->send($device, [
                         'title' => $title, 'body' => $body,
@@ -80,7 +81,9 @@ class SendChatMessageAlerts implements ShouldQueue
                         'url' => $url,
                     ]);
                     if ($delivered) Cache::put($deliveryKey, true, now()->addDay());
+                    else Cache::forget($deliveryKey);
                 } catch (\Throwable $e) {
+                    Cache::forget($deliveryKey);
                     Log::warning('Chat message push delivery failed', ['user_id' => $user->id, 'device_id' => $device->id, 'error' => $e->getMessage()]);
                 }
             }

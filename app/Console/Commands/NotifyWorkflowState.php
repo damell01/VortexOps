@@ -55,7 +55,7 @@ class NotifyWorkflowState extends Command
             title: $title,
             body: $body,
             tone: $tone,
-            links: ['Open Fulfillment Center' => \App\Filament\Pages\FulfillmentCenter::getUrl()],
+            links: ['Open Fulfillment Center' => \App\Filament\Resources\FulfillmentResource::getUrl('index')],
         ), [$user]);
     }
 }

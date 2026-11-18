@@ -537,8 +537,9 @@
                         },
                         receiveChatUpdate(event) {
                             const id=String(event?.data?.conversationId || '');
-                            if(!id || !this.open || !navigator.onLine)return;
-                            if(String(this.selected?.id)===id)this.loadMessages();
+                            if(!id || !navigator.onLine)return;
+                            if(this.open && String(this.selected?.id)===id)this.loadMessages();
+                            // A second tab may have read the conversation while this drawer is closed.
                             this.load();
                         },
                         async api(path, options={}) {
@@ -700,7 +701,7 @@
                                 if(firstLoad)this.loadPresence(id);
                                 this.error='';
                                 const newest=String(this.messages.at(-1)?.id || '');
-                                if(document.visibilityState==='visible' && newest && this.lastReadId!==id+':'+newest){this.lastReadId=id+':'+newest;this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{this.lastReadId=null});}
+                                if(document.visibilityState==='visible' && newest && this.lastReadId!==id+':'+newest){this.lastReadId=id+':'+newest;this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).then(()=>{this.signalChatUpdate(id);this.load();}).catch(()=>{this.lastReadId=null});}
                             } catch(e) {
                                 if(requestId===this.messageRequestId)this.error=e.message;
                             } finally {

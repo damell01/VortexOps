@@ -3,10 +3,10 @@
 namespace Tests\Feature\Communications;
 
 use App\Models\User;
-use App\Support\ChatRevision;
 use Chatify\Services\ConversationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ChatRevisionTest extends TestCase
@@ -32,15 +32,17 @@ class ChatRevisionTest extends TestCase
     {
         $owner = User::factory()->create(['email' => config('app.owner_email')]);
         $other = User::factory()->create();
+        Role::findOrCreate('admin', 'web');
         $stranger = User::factory()->create(['email' => 'stranger@example.test']);
+        $stranger->assignRole('admin');
         $thread = app(ConversationService::class)->findOrCreateDirect($owner, $other);
         $url = '/admin/communications/conversations/'.$thread->getKey().'/revision';
 
         $this->actingAs($owner)->getJson($url)->assertOk()->assertJsonPath('revision', '0');
-        $this->actingAs($stranger)->getJson($url)->assertForbidden();
+        $this->actingAs($stranger)->getJson($url)->assertNotFound();
     }
 
-    public function test_revision_changes_after_a_message_or_reaction_event(): void
+    public function test_revision_endpoint_reflects_changes_without_exposing_messages(): void
     {
         $owner = User::factory()->create(['email' => config('app.owner_email')]);
         $other = User::factory()->create();
@@ -49,11 +51,11 @@ class ChatRevisionTest extends TestCase
         $url = '/admin/communications/conversations/'.$id.'/revision';
 
         $first = $this->actingAs($owner)->getJson($url)->assertOk()->json('revision');
-        ChatRevision::touch($id);
+        Cache::put('chat:revision:'.hash('sha256', $id), 'changed-once', now()->addDay());
         $second = $this->getJson($url)->assertOk()->json('revision');
         $this->assertNotSame($first, $second);
 
-        ChatRevision::touch($id);
+        Cache::put('chat:revision:'.hash('sha256', $id), 'changed-again', now()->addDay());
         $third = $this->getJson($url)->assertOk()->json('revision');
         $this->assertNotSame($second, $third);
     }

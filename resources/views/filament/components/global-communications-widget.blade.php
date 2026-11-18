@@ -119,11 +119,12 @@
                                 <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="setComposeMode(false)"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /> Message someone</button>
                                 <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="setComposeMode(true)"><x-filament::icon icon="heroicon-o-user-group" /> New group</button>
                             </div>
-                            <label class="vxm-picker-search" for="vx-chat-recipient-search">
+                            <div class="vxm-picker-search">
+                                <label class="vxm-picker-sr-only" for="vx-chat-recipient-search">Find teammates</label>
                                 <x-filament::icon icon="heroicon-o-magnifying-glass" />
                                 <input id="vx-chat-recipient-search" x-ref="peopleSearchInput" type="search" x-model="userSearch" x-on:input.debounce.350ms="loadUsers(true)" placeholder="Search teammates by name or role…" autocomplete="off" />
                                 <button type="button" x-show="userSearch" x-cloak x-on:click.prevent="userSearch='';loadUsers(true);$refs.peopleSearchInput.focus()" aria-label="Clear search"><x-filament::icon icon="heroicon-o-x-mark" /></button>
-                            </label>
+                            </div>
                             <div class="vxm-picker-filters" role="group" aria-label="Filter teammates by role">
                                 <template x-for="role in [{name:'Everyone',value:''},{name:'Fulfillment',value:'fulfillment'},{name:'Streamers',value:'stream'},{name:'Admins',value:'admin'}]" :key="role.name">
                                     <button type="button" :class="{'is-active':peopleRoleFilter===role.value}" :aria-pressed="String(peopleRoleFilter===role.value)" x-on:click="setPeopleRoleFilter(role.value)" x-text="role.name"></button>
@@ -368,6 +369,7 @@
                 .vxm-picker-tabs button{display:flex;justify-content:center;align-items:center;gap:9px;min-height:43px;padding:9px 12px;border:1px solid #e7dfef;border-radius:11px;background:#fff;color:#514065;font-size:13px;font-weight:750}
                 .vxm-picker-tabs button svg{width:18px;height:18px;flex:none}
                 .vxm-picker-tabs button.is-active{border-color:#9d71e5;background:#f2eaff;color:#6c32b9;box-shadow:inset 0 0 0 1px #9d71e5}
+                .vxm-picker-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
                 .vxm-picker-search{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 13px;border:1px solid #dcd2e9;border-radius:12px;background:#fff;flex:none}
                 .vxm-picker-search:focus-within{border-color:#8750d7;box-shadow:0 0 0 3px rgba(124,58,237,.11)}
                 .vxm-picker-search>svg{flex:none;width:19px;height:19px;color:#857595}

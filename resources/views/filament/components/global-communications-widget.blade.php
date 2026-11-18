@@ -65,11 +65,12 @@
                                         </template>
                                     </div>
                                 </template>
-                                <div class="vx-chatify-message-actions"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="String(reactionPickerId===message.id)" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker" role="group" aria-label="Choose a reaction"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :aria-label="'React '+emoji" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
+                                <div class="vx-chatify-message-actions"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="String(reactionPickerId===message.id)" :disabled="message._pending || message._failed" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker" role="group" aria-label="Choose a reaction"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :aria-label="'React '+emoji" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
+                                <div class="vxm-delivery-status" x-show="message._pending || message._failed" x-cloak><span x-show="message._pending">Sending…</span><span x-show="message._failed">Not sent</span><button type="button" x-show="message._failed" x-on:click="retryFailed(message)">Retry</button></div>
                                 <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="reaction in reactionSummary(message.id)" :key="reaction.emoji"><button type="button" x-on:click="toggleReaction(message,reaction.emoji)" :aria-label="reaction.count+' reactions: '+reaction.emoji" :aria-pressed="reaction.mine" :class="reaction.mine ? 'is-mine' : ''"><span x-text="reaction.emoji"></span> <span x-text="reaction.count"></span></button></template></div><small class="vx-chatify-message-meta" x-show="isRunEnd(index) || message.attributes?.edited_at"><time :datetime="message.attributes?.created_at" :title="formatFull(message.attributes?.created_at)" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span class="vx-chatify-tick" :class="seenBy(message).length ? 'is-seen' : ''" x-show="isMine(message)" :aria-label="seenBy(message).length ? 'Seen' : 'Sent'" x-text="seenBy(message).length ? ' ✓✓' : ' ✓'"></span></small>
                             </div></div><small class="vx-chatify-seen-label" x-show="isMine(message) && index===lastMineIndex() && seenBy(message).length" x-text="seenLabel(message)"></small></div>
                         </template>
@@ -451,7 +452,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -766,12 +767,28 @@
                             return [...grouped.values()];
                         },
                         async toggleReaction(message,emoji) {
+                            const id=String(message?.id || '');
+                            if(!id || id.startsWith('tmp-'))return;
+                            const key=id+':'+emoji;
+                            if(this.reactingIds[key])return;
+                            this.reactingIds={...this.reactingIds,[key]:true};
+                            const previous=[...(this.reactions[id] || [])];
+                            const mine=r=>Number(r.user_id)===Number(this.myId) && r.emoji===emoji;
+                            this.reactions={...this.reactions,[id]:previous.some(mine)
+                                ? previous.filter(r=>!mine(r))
+                                : [...previous,{user_id:this.myId,emoji}]};
                             try {
-                                const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(message.id);
+                                const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(id);
                                 const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content || ''},body:JSON.stringify({emoji})});
-                                if(!response.ok)throw new Error('Could not update reaction');
-                                await this.loadReactions(message.id);this.signalChatUpdate(message.conversation_id || this.selected?.id);
-                            }catch(e){this.error=e.message;}
+                                if(!response.ok)throw new Error('Reaction not saved. Please try again.');
+                                await this.loadReactions(id);
+                                this.signalChatUpdate(message.conversation_id || this.selected?.id);
+                            }catch(e) {
+                                this.reactions={...this.reactions,[id]:previous};
+                                this.error=e.message;
+                            }finally {
+                                const pending={...this.reactingIds};delete pending[key];this.reactingIds=pending;
+                            }
                         },
                         async loadReactionBatch(messages) {
                             const ids=messages.slice(0,50).map(m=>m.id).filter(Boolean);
@@ -891,6 +908,18 @@
                                 this.loadMessages();
                                 this.bumpThread(conversationId,text);
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}
+                        },
+                        retryFailed(message) {
+                            if(!message?._failed)return;
+                            const body=String(message.attributes?.body || '');
+                            if(this.draft.trim() && this.draft.trim()!==body) {
+                                this.error='Finish or clear your current draft before retrying this message.';
+                                return;
+                            }
+                            this.messages=this.messages.filter(m=>m.id!==message.id);
+                            this.draft=body;
+                            this.error='';
+                            this.$nextTick(()=>this.send());
                         },
                         bumpThread(conversationId,text) {
                             const i=this.threads.findIndex(t=>String(t.id)===String(conversationId));

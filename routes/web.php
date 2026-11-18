@@ -174,7 +174,9 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->get('/admin/communications/
 Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/team', \App\Http\Controllers\ChatTeamController::class)->name('communications.team');
 // Seen + typing for one conversation (polled by the Messages widget while it is open).
 Route::middleware(['web', 'auth', 'throttle:240,1'])->match(['GET', 'POST'], '/admin/communications/conversations/{conversationId}/presence', \App\Http\Controllers\ChatPresenceController::class)->where('conversationId', '[A-Za-z0-9-]{1,64}')->name('communications.presence');
-// Cheap membership-checked change token: avoids repeatedly downloading entire conversations.\nRoute::middleware(['web', 'auth', 'throttle:240,1'])->get('/admin/communications/conversations/{conversationId}/revision', \\App\\Http\\Controllers\\ChatRevisionController::class)->where('conversationId', '[A-Za-z0-9-]{1,64}')->name('communications.revision');\n// Cards for links to shows, items and pay runs pasted into a message.
+// Cheap membership-checked change token: avoids repeatedly downloading entire conversations.
+Route::middleware(['web', 'auth', 'throttle:240,1'])->get('/admin/communications/conversations/{conversationId}/revision', \App\Http\Controllers\ChatRevisionController::class)->where('conversationId', '[A-Za-z0-9-]{1,64}')->name('communications.revision');
+// Cards for links to shows, items and pay runs pasted into a message.
 Route::middleware(['web', 'auth', 'throttle:120,1'])->post('/admin/communications/link-previews', \App\Http\Controllers\ChatLinkPreviewController::class)->name('communications.link-previews');
 
 Route::middleware(['web', 'auth', 'throttle:60,1'])->match(['GET', 'POST'], '/admin/communications/reactions/{messageId}', \App\Http\Controllers\ChatMessageReactionController::class)->name('communications.reactions');

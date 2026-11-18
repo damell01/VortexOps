@@ -44,6 +44,8 @@ class ChatMessageReactionController
             $active = $inserted > 0;
         }
 
+        \App\Support\ChatRevision::touch((string) $chat->conversation_id);
+
         return response()->json(['active' => $active]);
     }
 }

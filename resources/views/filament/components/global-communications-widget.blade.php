@@ -1,7 +1,7 @@
 @if(config('chatify-preview.available', false))
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if((config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false)) && (\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false)))
-        <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="reactionPickerId !== null ? reactionPickerId=null : (showNew ? showNew=false : close())" x-on:click.window="if (reactionPickerId !== null && !$event.target.closest('.vx-chatify-message-actions')) reactionPickerId=null">
+        <div class="vx-chatify-shell" :class="{'is-open': open, 'is-composing': showNew}" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="preview ? preview=null : (showMembers ? showMembers=false : (reactionPickerId !== null ? reactionPickerId=null : (showNew ? showNew=false : close())))" x-on:click.window="if (reactionPickerId !== null && !$event.target.closest('.vx-chatify-message-actions')) reactionPickerId=null">
             <button type="button" class="vx-chatify-launch" :class="{'is-open': open}" x-on:click="toggle()" x-effect="const n=totalUnread(); if(n>(lastUnread??n) && !open){$el.classList.remove('vxm-nudge');void $el.offsetWidth;$el.classList.add('vxm-nudge')} lastUnread=n" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
                 <svg class="vxm-launch-x" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -58,18 +58,24 @@
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
                                     <div class="vx-chatify-message-attachment">
                                         <template x-if="isImage(attachment)">
-                                            <button type="button" class="vx-chatify-image-button" x-on:click="preview=attachment.url" aria-label="Enlarge image"><img :src="attachment.url" :alt="attachment.original_name || 'Shared image'" loading="lazy"></button>
+                                            <button type="button" class="vx-chatify-image-button" x-on:click="openAttachmentPreview(attachment)" aria-label="Enlarge image"><img :src="attachment.url" :alt="attachment.original_name || 'Shared image'" loading="lazy"></button>
                                         </template>
                                         <template x-if="!isImage(attachment)">
-                                            <a :href="attachment.url" :download="attachment.original_name || null" x-text="attachment.original_name || 'Download attachment'"></a>
+                                            <div class="vxm-file-attachment">
+                                                <span class="vxm-file-icon" aria-hidden="true">📄</span>
+                                                <div><strong x-text="attachment.original_name || 'Shared file'"></strong><small x-text="formatBytes(attachment.size)"></small></div>
+                                                <button type="button" x-show="isPdf(attachment) && canPreviewAttachment(attachment)" x-on:click="openAttachmentPreview(attachment)">Preview</button>
+                                                <a :href="attachment.url" :download="attachment.original_name || null" aria-label="Download attachment">Download</a>
+                                            </div>
                                         </template>
                                     </div>
                                 </template>
-                                <div class="vx-chatify-message-actions"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="String(reactionPickerId===message.id)" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker" role="group" aria-label="Choose a reaction"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :aria-label="'React '+emoji" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
+                                <div class="vx-chatify-message-actions"><button type="button" x-on:click="reactionPickerId = reactionPickerId===message.id ? null : message.id" :aria-expanded="String(reactionPickerId===message.id)" :disabled="message._pending || message._failed" aria-label="Choose a reaction" title="React">☺ React</button><template x-if="reactionPickerId===message.id"><span class="vx-chatify-reaction-picker" role="group" aria-label="Choose a reaction"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji);reactionPickerId=null" :aria-label="'React '+emoji" :title="'React '+emoji" x-text="emoji"></button></template></span></template>
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
+                                <div class="vxm-delivery-status" x-show="message._pending || message._failed" x-cloak><span x-show="message._pending">Sending…</span><span x-show="message._failed">Not sent</span><button type="button" x-show="message._failed" x-on:click="retryFailed(message)">Retry</button></div>
                                 <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="reaction in reactionSummary(message.id)" :key="reaction.emoji"><button type="button" x-on:click="toggleReaction(message,reaction.emoji)" :aria-label="reaction.count+' reactions: '+reaction.emoji" :aria-pressed="reaction.mine" :class="reaction.mine ? 'is-mine' : ''"><span x-text="reaction.emoji"></span> <span x-text="reaction.count"></span></button></template></div><small class="vx-chatify-message-meta" x-show="isRunEnd(index) || message.attributes?.edited_at"><time :datetime="message.attributes?.created_at" :title="formatFull(message.attributes?.created_at)" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span class="vx-chatify-tick" :class="seenBy(message).length ? 'is-seen' : ''" x-show="isMine(message)" :aria-label="seenBy(message).length ? 'Seen' : 'Sent'" x-text="seenBy(message).length ? ' ✓✓' : ' ✓'"></span></small>
                             </div></div><small class="vx-chatify-seen-label" x-show="isMine(message) && index===lastMineIndex() && seenBy(message).length" x-text="seenLabel(message)"></small></div>
                         </template>
@@ -98,7 +104,7 @@
                         <button type="submit" :class="{'vxm-whoosh': whoosh}" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))"><x-filament::icon icon="heroicon-o-paper-airplane" /><span x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></span></button>
                     </form>
                 </div>
-                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
+                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" :aria-label="previewType==='pdf' ? 'PDF preview' : 'Image preview'"><button type="button" x-on:click="preview=null" aria-label="Close attachment preview">✕</button><template x-if="previewType==='image'"><img :src="preview || ''" alt="Expanded chat image"></template><template x-if="previewType==='pdf'"><iframe :src="preview || ''" :title="previewName || 'PDF attachment'" loading="lazy"></iframe></template></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
                     <button type="button" x-on:click="openComposer()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
@@ -128,7 +134,7 @@
                             <div class="vxm-picker-list-heading"><strong x-text="creatingGroup ? 'Select people for your group' : 'Choose someone to message'"></strong><span x-text="usersLoading ? 'Loading…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' people'"></span></div>
                             <div class="vxm-picker-people" role="group" aria-label="Teammates to message" :aria-busy="String(usersLoading)">
                                 <p class="vxm-picker-state" x-show="usersLoading" role="status">Finding teammates…</p>
-                                <template x-for="user in (usersLoading ? [] : visibleUsers())" :key="user.id">
+                                <template x-for="user in visibleUsers()" :key="user.id">
                                     <button type="button" class="vxm-picker-person" :class="{'is-selected': recipients.includes(String(user.id))}" :aria-pressed="creatingGroup ? String(recipients.includes(String(user.id))) : null" :aria-label="creatingGroup ? 'Select '+userName(user) : 'Message '+userName(user)" :disabled="creating || (creatingGroup && !recipients.includes(String(user.id)) && recipients.length>=49)" x-on:click="choosePerson(user)">
                                         <span class="vxm-picker-avatar" aria-hidden="true" x-text="initials(userName(user))"></span>
                                         <span class="vxm-picker-person-info"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
@@ -155,6 +161,43 @@
                             <div><button type="button" class="vxm-picker-cancel" x-on:click="showNew=false">Cancel</button><button type="button" class="vxm-picker-create" x-show="creatingGroup" x-cloak x-on:click="createConversation()" :disabled="!recipients.length || creating || usersLoading" x-text="creating ? 'Creating…' : 'Create group'"></button></div>
                         </footer>
                     </div>
+                </div>
+                <div class="vxm-members-backdrop" x-show="showMembers" x-cloak x-on:click.self="showMembers=false">
+                    <section class="vxm-members-dialog" role="dialog" aria-modal="true" aria-label="Group members" x-trap.noscroll="showMembers">
+                        <header class="vxm-members-head"><div><strong>Group members</strong><small x-text="groupMembers.length + ' people in this group'"></small></div><button type="button" x-on:click="showMembers=false" aria-label="Close group members">✕</button></header>
+                        <div class="vxm-members-body">
+                            <div class="vxm-members-name" x-show="canManageGroup('edit_info')">
+                                <label for="vxm-group-name">Group name</label>
+                                <div><input id="vxm-group-name" x-ref="groupNameInput" type="text" maxlength="120" x-model="groupNameDraft" placeholder="Group name"><button type="button" x-on:click="saveGroupName()" :disabled="!groupNameDraft.trim() || groupNameDraft.trim()===label(selected)">Save</button></div>
+                            </div>
+                            <h3>People in this group</h3>
+                            <div class="vxm-members-list">
+                                <template x-for="member in groupMembers" :key="member.id">
+                                    <div class="vxm-members-person">
+                                        <span class="vxm-members-avatar" x-text="initials(groupMemberName(member))"></span>
+                                        <div><strong x-text="groupMemberName(member)"></strong><small x-text="member.attributes?.role || 'Member'"></small></div>
+                                        <select x-show="canManageGroup('manage_admins') && groupMemberUserId(member)!==String(myId)" :value="member.attributes?.role || 'member'" x-on:change="changeGroupRole(member,$event.target.value)" aria-label="Group member role"><option value="member">Member</option><option value="moderator">Moderator</option><option value="admin">Admin</option></select>
+                                        <button type="button" x-show="canManageGroup('remove_members') && groupMemberUserId(member)!==String(myId)" x-on:click="removeGroupMember(member)" title="Remove from group" aria-label="Remove group member">Remove</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div x-show="canManageGroup('add_members')" class="vxm-members-add">
+                                <h3>Add teammates</h3>
+                                <input type="search" x-model="memberSearch" placeholder="Find someone to add…" aria-label="Search teammates to add">
+                                <div class="vxm-members-choices">
+                                    <template x-for="user in availableGroupPeople()" :key="user.id">
+                                        <button type="button" :class="{'is-selected':membersToAdd.includes(String(user.id))}" :aria-pressed="String(membersToAdd.includes(String(user.id)))" x-on:click="toggleMemberToAdd(user)">
+                                            <span class="vxm-members-avatar" x-text="initials(userName(user))"></span><strong x-text="userName(user)"></strong><span x-text="membersToAdd.includes(String(user.id)) ? '✓' : '+'"></span>
+                                        </button>
+                                    </template>
+                                    <p x-show="!availableGroupPeople().length" class="vxm-members-empty">No more teammates found.</p>
+                                </div>
+                                <p x-show="usersHasMore" class="vxm-members-empty">Only the first 60 teammates are listed. Use New conversation to search the directory.</p>
+                            </div>
+                        </div>
+                        <p class="vxm-members-error" x-show="error" x-text="error" role="alert"></p>
+                        <footer class="vxm-members-footer"><button type="button" x-on:click="showMembers=false">Close</button><button type="button" class="is-primary" x-show="canManageGroup('add_members')" :disabled="!membersToAdd.length" x-on:click="addGroupMembers()" x-text="'Add '+membersToAdd.length+' selected'"></button></footer>
+                    </section>
                 </div>
 
         </div>
@@ -442,6 +485,41 @@
                 .dark .vx-chatify-native .vx-chatify-reaction-picker{background:#30233e;border-color:#604a78;box-shadow:0 8px 26px rgba(0,0,0,.4)}
                 .dark .vx-chatify-native .vx-chatify-reaction-picker>button:hover,.dark .vx-chatify-native .vx-chatify-reaction-picker>button:focus-visible{background:#50366e!important}
                 @media(max-width:440px){.vx-chatify-native .vx-chatify-reaction-picker{gap:1px!important;padding:4px!important}.vx-chatify-native .vx-chatify-reaction-picker>button{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex-basis:30px!important;font-size:17px!important}}
+                /* Group management uses a real, centered dialog instead of browser prompts. */
+                .vxm-members-backdrop{position:fixed;inset:0;z-index:2147483002;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(20,12,40,.58);backdrop-filter:blur(3px)}
+                .vxm-members-backdrop[x-cloak]{display:none!important}
+                .vxm-members-dialog{display:flex;flex-direction:column;width:min(620px,100%);max-height:min(720px,calc(100dvh - 36px));min-height:0;overflow:hidden;border-radius:18px;background:#fff;color:#302140;box-shadow:0 20px 70px rgba(15,9,30,.3)}
+                .vxm-members-head,.vxm-members-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 20px;border-bottom:1px solid #eee7f5}
+                .vxm-members-head strong{display:block;font-size:17px}.vxm-members-head small{display:block;font-size:12px;color:#786c86}
+                .vxm-members-head>button{width:32px;height:32px;border-radius:9px;font-size:20px}
+                .vxm-members-body{flex:1;min-height:0;overflow-y:auto;padding:16px 20px;scrollbar-width:thin}
+                .vxm-members-body h3{margin:16px 0 8px;font-size:13px;font-weight:750}
+                .vxm-members-name label{display:block;margin-bottom:5px;font-size:12px;font-weight:700}
+                .vxm-members-name>div{display:flex;gap:8px}
+                .vxm-members-name input,.vxm-members-add>input{width:100%;min-width:0;padding:10px 12px;border:1px solid #ddd3e8;border-radius:10px;background:#fff;color:#302140}
+                .vxm-members-name button,.vxm-members-footer button{padding:9px 13px;border:1px solid #ddd3e8;border-radius:10px;font-weight:700}
+                .vxm-members-footer{justify-content:flex-end;border-top:1px solid #eee7f5;border-bottom:0}
+                .vxm-members-footer .is-primary{background:#6d28d9;color:#fff;border-color:#6d28d9}
+                .vxm-members-footer button:disabled,.vxm-members-name button:disabled{opacity:.45;cursor:not-allowed}
+                .vxm-members-list,.vxm-members-choices{display:grid;gap:6px}
+                .vxm-members-person,.vxm-members-choices>button{display:flex;align-items:center;gap:10px;min-width:0;padding:8px;border:1px solid #eee7f5;border-radius:11px}
+                .vxm-members-person>div{flex:1;min-width:0}.vxm-members-person strong,.vxm-members-choices strong{display:block;font-size:13px;overflow-wrap:anywhere}.vxm-members-person small{display:block;font-size:11px;color:#81738e}
+                .vxm-members-person>button{padding:6px 8px;color:#9b354c;font-size:12px}.vxm-members-person select{max-width:112px;font-size:12px}
+                .vxm-members-avatar{display:grid;place-items:center;flex:0 0 35px;height:35px;border-radius:50%;background:#f0e8ff;color:#5b2b9d;font-size:12px;font-weight:800}
+                .vxm-members-choices{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px}
+                .vxm-members-choices>button{text-align:left;cursor:pointer}.vxm-members-choices>button strong{flex:1}
+                .vxm-members-choices>button.is-selected{background:#f1e9ff;border-color:#8b5cf6}
+                .vxm-members-empty{font-size:12px;color:#81738e;margin:8px 0}
+                .vxm-members-error{padding:6px 20px;color:#a2233d;font-size:12px}
+                @media(max-width:550px){.vxm-members-backdrop{padding:0}.vxm-members-dialog{max-height:100dvh;height:100dvh;border-radius:0}.vxm-members-choices{grid-template-columns:1fr}.vxm-members-body{padding:12px}.vxm-members-head,.vxm-members-footer{padding:12px}}
+                .vxm-delivery-status{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:11px;color:#805d3c}
+                .vxm-delivery-status button{border:1px solid currentColor;border-radius:6px;padding:2px 7px;font-weight:700}
+                .vxm-file-attachment{display:flex;align-items:center;gap:8px;max-width:100%;min-width:0;padding:8px 10px;border:1px solid #e5d9f3;border-radius:10px;background:rgba(255,255,255,.08)}
+                .vxm-file-attachment>div{flex:1;min-width:0}.vxm-file-attachment strong{display:block;overflow-wrap:anywhere;font-size:12px}.vxm-file-attachment small{display:block;font-size:10px;opacity:.75}
+                .vxm-file-attachment>button,.vxm-file-attachment>a{flex:0 0 auto;padding:5px 7px;border:1px solid #bca6df;border-radius:7px;font-size:11px;font-weight:700}
+                .vxm-file-icon{font-size:18px}
+                .vx-chatify-preview iframe{display:block;width:min(900px,90vw);height:min(75dvh,850px);max-width:100%;border:0;border-radius:10px;background:#fff}
+                @media(max-width:520px){.vxm-file-attachment{flex-wrap:wrap}.vxm-file-attachment>div{flex-basis:calc(100% - 40px)}}
             </style>
             <script>
                 function vortexChatifyWidget() {
@@ -451,7 +529,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, previewType:'image', previewName:'', files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -459,8 +537,9 @@
                         },
                         receiveChatUpdate(event) {
                             const id=String(event?.data?.conversationId || '');
-                            if(!id || !this.open || !navigator.onLine)return;
-                            if(String(this.selected?.id)===id)this.loadMessages();
+                            if(!id || !navigator.onLine)return;
+                            if(this.open && String(this.selected?.id)===id)this.loadMessages();
+                            // A second tab may have read the conversation while this drawer is closed.
                             this.load();
                         },
                         async api(path, options={}) {
@@ -486,7 +565,11 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
-                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
+                        isPdf(a) {return a?.mime_type==='application/pdf' || /\.pdf(\?|$)/i.test(a?.url || '') || /\.pdf$/i.test(a?.original_name || '');},
+                        canPreviewAttachment(a) {try{return new URL(a?.url || '',location.origin).origin===location.origin}catch(e){return false}},
+                        openAttachmentPreview(a) {if(!a?.url)return;const pdf=this.isPdf(a);if(pdf && !this.canPreviewAttachment(a))return;this.preview=a.url;this.previewType=pdf?'pdf':'image';this.previewName=a.original_name || '';},
+                        formatBytes(size) {const n=Number(size || 0);if(!n || n<0)return 'Attachment';return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';},
+                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}this.onOnline=()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}};this.onOffline=()=>{this.connected=false;};window.addEventListener('online',this.onOnline);window.addEventListener('offline',this.onOffline);try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && navigator.onLine){this.load();if(this.open && this.selected)this.checkForUpdates();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});}else{this.load();}this.startPolling();},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {const q=this.search.toLowerCase();return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && (this.kind==='all' || this.kind==='unread' || (this.kind==='group' ? t?.attributes?.conversation_type==='group' : t?.attributes?.conversation_type!=='group')) && (this.label(t).toLowerCase().includes(q) || (q.length>1 && String(t?.relationships?.last_message?.attributes?.body || '').toLowerCase().includes(q)))).sort((a,b)=>(Number(this.isPinned(b))-Number(this.isPinned(a))) || (Number(this.isSelfChat(a) && !this.isPinned(a))-Number(this.isSelfChat(b) && !this.isPinned(b))));},
@@ -563,7 +646,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();try{sessionStorage.setItem('vx-chat-inbox-'+this.myId,JSON.stringify(list.slice(0,50)))}catch(e){}}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.unreadAtOpen=this.unread(t);this.firstUnreadId=null;this.presence={read:[],typing:[]};this.reactionPickerId=null;this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messagePageSignature=null;this.messageRevision=null;this.lastFullMessageRefresh=0;this.lastReactionRefreshAt=0;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files.forEach(file=>this.releaseFile(file));this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -585,6 +668,7 @@
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
+                                this.lastFullMessageRefresh=Date.now();
                                 const list=this.items(data);
                                 // The API returns a fresh array on every poll. Skip the expensive Alpine
                                 // message-tree reconciliation when the server page has not changed.
@@ -617,7 +701,7 @@
                                 if(firstLoad)this.loadPresence(id);
                                 this.error='';
                                 const newest=String(this.messages.at(-1)?.id || '');
-                                if(document.visibilityState==='visible' && newest && this.lastReadId!==id+':'+newest){this.lastReadId=id+':'+newest;this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{this.lastReadId=null});}
+                                if(document.visibilityState==='visible' && newest && this.lastReadId!==id+':'+newest){this.lastReadId=id+':'+newest;this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).then(()=>{this.signalChatUpdate(id);this.load();}).catch(()=>{this.lastReadId=null});}
                             } catch(e) {
                                 if(requestId===this.messageRequestId)this.error=e.message;
                             } finally {
@@ -688,7 +772,7 @@
                         },
                         async openGroupMembers() {
                             if(!this.selected)return;
-                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';await this.loadUsers();
+                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';this.groupNameDraft=this.label(this.selected);this.userSearch='';await this.loadUsers(true);
                             await this.refreshGroupMembers();
                         },
                         async refreshGroupMembers() {
@@ -696,11 +780,9 @@
                             try {this.groupMembers=this.items(await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants?per_page=100'));}
                             catch(e){this.error=e.message;}
                         },
-                        async changeGroupRole(member) {
+                        async changeGroupRole(member,role=null) {
                             if(!this.selected || !this.canManageGroup('manage_admins'))return;
-                            const role=window.prompt('Group role: member, moderator, or admin',member.attributes?.role || 'member');
-                            if(role===null)return;
-                            const choice=role.trim().toLowerCase();
+                            const choice=String(role ?? '').trim().toLowerCase();
                             if(!['member','moderator','admin'].includes(choice)){this.error='Choose member, moderator, or admin.';return;}
                             try {
                                 // Scoped admin permissions avoid granting full-admin rights accidentally.
@@ -726,17 +808,40 @@
                                 this.membersToAdd=[];await this.refreshGroupMembers();await this.load();
                             }catch(e){this.error=e.message;}
                         },
+                        groupMemberUserId(member) {
+                            return String(member?.relationships?.user?.data?.id || member?.relationships?.user?.id || member?.attributes?.user_id || member?.id || '');
+                        },
+                        groupMemberName(member) {
+                            return member?.relationships?.user?.data?.attributes?.name
+                                || member?.relationships?.user?.attributes?.name
+                                || member?.attributes?.name || 'Teammate';
+                        },
+                        availableGroupPeople() {
+                            const current=new Set(this.groupMembers.map(m=>this.groupMemberUserId(m)));
+                            const q=this.memberSearch.trim().toLowerCase();
+                            return this.users.filter(u=>!current.has(String(u.id))
+                                && (!q || this.userName(u).toLowerCase().includes(q)));
+                        },
+                        toggleMemberToAdd(user) {
+                            const id=String(user.id);
+                            this.membersToAdd=this.membersToAdd.includes(id)
+                                ? this.membersToAdd.filter(i=>i!==id) : [...this.membersToAdd,id];
+                        },
                         async renameGroup() {
-                            if(!this.selected)return;
-                            const current=this.label(this.selected);
-                            const name=window.prompt('Group name',current);
-                            if(name===null)return;
-                            const clean=name.trim();
+                            if(!this.selected || !this.canManageGroup('edit_info'))return;
+                            await this.openGroupMembers();
+                            this.$nextTick(()=>this.$refs.groupNameInput?.focus());
+                        },
+                        async saveGroupName() {
+                            if(!this.selected || !this.canManageGroup('edit_info'))return;
+                            const clean=this.groupNameDraft.trim();
                             if(!clean || clean.length>120){this.error='Enter a group name of 1–120 characters.';return;}
+                            if(clean===this.label(this.selected))return;
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(this.selected.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:clean})});
                                 if(data?.data)this.selected=data.data;
                                 await this.load();
+                                this.error='';
                             }catch(e){this.error=e.message;}
                         },
                         async leaveGroup() {
@@ -765,12 +870,28 @@
                             return [...grouped.values()];
                         },
                         async toggleReaction(message,emoji) {
+                            const id=String(message?.id || '');
+                            if(!id || id.startsWith('tmp-'))return;
+                            const key=id+':'+emoji;
+                            if(this.reactingIds[key])return;
+                            this.reactingIds={...this.reactingIds,[key]:true};
+                            const previous=[...(this.reactions[id] || [])];
+                            const mine=r=>Number(r.user_id)===Number(this.myId) && r.emoji===emoji;
+                            this.reactions={...this.reactions,[id]:previous.some(mine)
+                                ? previous.filter(r=>!mine(r))
+                                : [...previous,{user_id:this.myId,emoji}]};
                             try {
-                                const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(message.id);
+                                const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(id);
                                 const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content || ''},body:JSON.stringify({emoji})});
-                                if(!response.ok)throw new Error('Could not update reaction');
-                                await this.loadReactions(message.id);this.signalChatUpdate(message.conversation_id || this.selected?.id);
-                            }catch(e){this.error=e.message;}
+                                if(!response.ok)throw new Error('Reaction not saved. Please try again.');
+                                await this.loadReactions(id);
+                                this.signalChatUpdate(message.conversation_id || this.selected?.id);
+                            }catch(e) {
+                                this.reactions={...this.reactions,[id]:previous};
+                                this.error=e.message;
+                            }finally {
+                                const pending={...this.reactingIds};delete pending[key];this.reactingIds=pending;
+                            }
                         },
                         async loadReactionBatch(messages) {
                             const ids=messages.slice(0,50).map(m=>m.id).filter(Boolean);
@@ -782,6 +903,7 @@
                                 if(!response.ok)return;
                                 const data=await response.json();
                                 for(const id of ids){this.reactions[id]=data.reactions?.[id] || [];this.reactionIds[id]=true;}
+                                this.lastReactionRefreshAt=Date.now();
                             }catch(e){}
                         },
                         async loadReactions(id) {
@@ -890,6 +1012,18 @@
                                 this.bumpThread(conversationId,text);
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}
                         },
+                        retryFailed(message) {
+                            if(!message?._failed)return;
+                            const body=String(message.attributes?.body || '');
+                            if(this.draft.trim() && this.draft.trim()!==body) {
+                                this.error='Finish or clear your current draft before retrying this message.';
+                                return;
+                            }
+                            this.messages=this.messages.filter(m=>m.id!==message.id);
+                            this.draft=body;
+                            this.error='';
+                            this.$nextTick(()=>this.send());
+                        },
                         bumpThread(conversationId,text) {
                             const i=this.threads.findIndex(t=>String(t.id)===String(conversationId));
                             if(i<0){this.load();return;}
@@ -985,7 +1119,44 @@
                                 if(thread?.id)await this.openThread(thread);
                             }catch(e){this.error=e.message;}finally{this.creating=false;}
                         },
-                        startPolling() {if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>{if(!this.open || document.hidden || !navigator.onLine)return;if(this.selected)this.loadMessages();if(Date.now()-this.lastInboxRefresh>=15000)this.load();},5000);if(this.presenceTimer)clearInterval(this.presenceTimer);this.presenceTimer=setInterval(()=>{if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);},4000);},
+                        async checkForUpdates() {
+                            if(!this.open || !this.selected || this.revisionChecking || this.messagesLoading)return;
+                            const id=String(this.selected.id);
+                            this.revisionChecking=true;
+                            try {
+                                const data=await this.local('/conversations/'+encodeURIComponent(id)+'/revision');
+                                if(String(this.selected?.id)!==id)return;
+                                const revision=String(data.revision ?? '0');
+                                if(this.messageRevision===null){
+                                    // One reconciliation closes the gap between first message fetch and revision baseline.
+                                    this.messageRevision=revision;
+                                    await this.loadMessages();
+                                }else if(this.messageRevision!==revision) {
+                                    this.messageRevision=revision;
+                                    await this.loadMessages();
+                                    // Reaction changes are also published through the revision token.
+                                    this.loadReactionBatch(this.messages.slice(-50));
+                                } else if(Date.now()-this.lastFullMessageRefresh>60000)await this.loadMessages();
+                                if(Date.now()-this.lastReactionRefreshAt>30000)this.loadReactionBatch(this.messages.slice(-50));
+                            }catch(e) {
+                                // Cache, deployment, or endpoint outages must not stop message delivery.
+                                if(Date.now()-this.lastFullMessageRefresh>15000)await this.loadMessages();
+                            }finally{this.revisionChecking=false;}
+                        },
+                        startPolling() {
+                            if(this.timer)clearInterval(this.timer);
+                            this.timer=setInterval(()=>{
+                                if(document.hidden || !navigator.onLine)return;
+                                if(this.open && this.selected)this.checkForUpdates();
+                                // Keep the unread badge current even with the drawer closed.
+                                const inboxEvery=this.open ? 15000 : 45000;
+                                if(Date.now()-this.lastInboxRefresh>=inboxEvery)this.load();
+                            },4000);
+                            if(this.presenceTimer)clearInterval(this.presenceTimer);
+                            this.presenceTimer=setInterval(()=>{
+                                if(this.open && this.selected && !document.hidden && navigator.onLine)this.loadPresence(this.selected.id);
+                            },6500);
+                        },
                         toggle() {
                             if(this.open) {this.close();return;}
                             this.open=true;
@@ -994,7 +1165,7 @@
                             this.load();if(this.selected)this.loadMessages();
                             this.startPolling();
                         },
-                        close() {this.open=false;this.showNew=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}},
+                        close() {this.open=false;this.showNew=false;this.preview=null;this.reactionPickerId=null;},
                         destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.presenceTimer){clearInterval(this.presenceTimer);this.presenceTimer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);if(this.onOnline)window.removeEventListener('online',this.onOnline);if(this.onOffline)window.removeEventListener('offline',this.onOffline);this.files.forEach(file=>this.releaseFile(file));}
                     };
                 }

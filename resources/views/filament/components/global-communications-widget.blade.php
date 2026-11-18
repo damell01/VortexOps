@@ -157,6 +157,43 @@
                         </footer>
                     </div>
                 </div>
+                <div class="vxm-members-backdrop" x-show="showMembers" x-cloak x-on:click.self="showMembers=false">
+                    <section class="vxm-members-dialog" role="dialog" aria-modal="true" aria-label="Group members" x-trap.noscroll="showMembers">
+                        <header class="vxm-members-head"><div><strong>Group members</strong><small x-text="groupMembers.length + ' people in this group'"></small></div><button type="button" x-on:click="showMembers=false" aria-label="Close group members">✕</button></header>
+                        <div class="vxm-members-body">
+                            <div class="vxm-members-name" x-show="canManageGroup('edit_info')">
+                                <label for="vxm-group-name">Group name</label>
+                                <div><input id="vxm-group-name" x-ref="groupNameInput" type="text" maxlength="120" x-model="groupNameDraft" placeholder="Group name"><button type="button" x-on:click="saveGroupName()" :disabled="!groupNameDraft.trim() || groupNameDraft.trim()===label(selected)">Save</button></div>
+                            </div>
+                            <h3>People in this group</h3>
+                            <div class="vxm-members-list">
+                                <template x-for="member in groupMembers" :key="member.id">
+                                    <div class="vxm-members-person">
+                                        <span class="vxm-members-avatar" x-text="initials(groupMemberName(member))"></span>
+                                        <div><strong x-text="groupMemberName(member)"></strong><small x-text="member.attributes?.role || 'Member'"></small></div>
+                                        <select x-show="canManageGroup('manage_admins') && groupMemberUserId(member)!==String(myId)" :value="member.attributes?.role || 'member'" x-on:change="changeGroupRole(member,$event.target.value)" aria-label="Group member role"><option value="member">Member</option><option value="moderator">Moderator</option><option value="admin">Admin</option></select>
+                                        <button type="button" x-show="canManageGroup('remove_members') && groupMemberUserId(member)!==String(myId)" x-on:click="removeGroupMember(member)" title="Remove from group" aria-label="Remove group member">Remove</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div x-show="canManageGroup('add_members')" class="vxm-members-add">
+                                <h3>Add teammates</h3>
+                                <input type="search" x-model="memberSearch" placeholder="Find someone to add…" aria-label="Search teammates to add">
+                                <div class="vxm-members-choices">
+                                    <template x-for="user in availableGroupPeople()" :key="user.id">
+                                        <button type="button" :class="{'is-selected':membersToAdd.includes(String(user.id))}" :aria-pressed="String(membersToAdd.includes(String(user.id)))" x-on:click="toggleMemberToAdd(user)">
+                                            <span class="vxm-members-avatar" x-text="initials(userName(user))"></span><strong x-text="userName(user)"></strong><span x-text="membersToAdd.includes(String(user.id)) ? '✓' : '+'"></span>
+                                        </button>
+                                    </template>
+                                    <p x-show="!availableGroupPeople().length" class="vxm-members-empty">No more teammates found.</p>
+                                </div>
+                                <p x-show="usersHasMore" class="vxm-members-empty">Only the first 60 teammates are listed. Use New conversation to search the directory.</p>
+                            </div>
+                        </div>
+                        <p class="vxm-members-error" x-show="error" x-text="error" role="alert"></p>
+                        <footer class="vxm-members-footer"><button type="button" x-on:click="showMembers=false">Close</button><button type="button" class="is-primary" x-show="canManageGroup('add_members')" :disabled="!membersToAdd.length" x-on:click="addGroupMembers()" x-text="'Add '+membersToAdd.length+' selected'"></button></footer>
+                    </section>
+                </div>
 
         </div>
         @once
@@ -443,6 +480,35 @@
                 .dark .vx-chatify-native .vx-chatify-reaction-picker{background:#30233e;border-color:#604a78;box-shadow:0 8px 26px rgba(0,0,0,.4)}
                 .dark .vx-chatify-native .vx-chatify-reaction-picker>button:hover,.dark .vx-chatify-native .vx-chatify-reaction-picker>button:focus-visible{background:#50366e!important}
                 @media(max-width:440px){.vx-chatify-native .vx-chatify-reaction-picker{gap:1px!important;padding:4px!important}.vx-chatify-native .vx-chatify-reaction-picker>button{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex-basis:30px!important;font-size:17px!important}}
+                /* Group management uses a real, centered dialog instead of browser prompts. */
+                .vxm-members-backdrop{position:fixed;inset:0;z-index:2147483002;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(20,12,40,.58);backdrop-filter:blur(3px)}
+                .vxm-members-backdrop[x-cloak]{display:none!important}
+                .vxm-members-dialog{display:flex;flex-direction:column;width:min(620px,100%);max-height:min(720px,calc(100dvh - 36px));min-height:0;overflow:hidden;border-radius:18px;background:#fff;color:#302140;box-shadow:0 20px 70px rgba(15,9,30,.3)}
+                .vxm-members-head,.vxm-members-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 20px;border-bottom:1px solid #eee7f5}
+                .vxm-members-head strong{display:block;font-size:17px}.vxm-members-head small{display:block;font-size:12px;color:#786c86}
+                .vxm-members-head>button{width:32px;height:32px;border-radius:9px;font-size:20px}
+                .vxm-members-body{flex:1;min-height:0;overflow-y:auto;padding:16px 20px;scrollbar-width:thin}
+                .vxm-members-body h3{margin:16px 0 8px;font-size:13px;font-weight:750}
+                .vxm-members-name label{display:block;margin-bottom:5px;font-size:12px;font-weight:700}
+                .vxm-members-name>div{display:flex;gap:8px}
+                .vxm-members-name input,.vxm-members-add>input{width:100%;min-width:0;padding:10px 12px;border:1px solid #ddd3e8;border-radius:10px;background:#fff;color:#302140}
+                .vxm-members-name button,.vxm-members-footer button{padding:9px 13px;border:1px solid #ddd3e8;border-radius:10px;font-weight:700}
+                .vxm-members-footer{justify-content:flex-end;border-top:1px solid #eee7f5;border-bottom:0}
+                .vxm-members-footer .is-primary{background:#6d28d9;color:#fff;border-color:#6d28d9}
+                .vxm-members-footer button:disabled,.vxm-members-name button:disabled{opacity:.45;cursor:not-allowed}
+                .vxm-members-list,.vxm-members-choices{display:grid;gap:6px}
+                .vxm-members-person,.vxm-members-choices>button{display:flex;align-items:center;gap:10px;min-width:0;padding:8px;border:1px solid #eee7f5;border-radius:11px}
+                .vxm-members-person>div{flex:1;min-width:0}.vxm-members-person strong,.vxm-members-choices strong{display:block;font-size:13px;overflow-wrap:anywhere}.vxm-members-person small{display:block;font-size:11px;color:#81738e}
+                .vxm-members-person>button{padding:6px 8px;color:#9b354c;font-size:12px}.vxm-members-person select{max-width:112px;font-size:12px}
+                .vxm-members-avatar{display:grid;place-items:center;flex:0 0 35px;height:35px;border-radius:50%;background:#f0e8ff;color:#5b2b9d;font-size:12px;font-weight:800}
+                .vxm-members-choices{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px}
+                .vxm-members-choices>button{text-align:left;cursor:pointer}.vxm-members-choices>button strong{flex:1}
+                .vxm-members-choices>button.is-selected{background:#f1e9ff;border-color:#8b5cf6}
+                .vxm-members-empty{font-size:12px;color:#81738e;margin:8px 0}
+                .vxm-members-error{padding:6px 20px;color:#a2233d;font-size:12px}
+                @media(max-width:550px){.vxm-members-backdrop{padding:0}.vxm-members-dialog{max-height:100dvh;height:100dvh;border-radius:0}.vxm-members-choices{grid-template-columns:1fr}.vxm-members-body{padding:12px}.vxm-members-head,.vxm-members-footer{padding:12px}}
+                .vxm-delivery-status{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:11px;color:#805d3c}
+                .vxm-delivery-status button{border:1px solid currentColor;border-radius:6px;padding:2px 7px;font-weight:700}
             </style>
             <script>
                 function vortexChatifyWidget() {
@@ -452,7 +518,7 @@
                     const fullFormatter=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
                     return {
                         open:false, lastUnread:null, freshIds:[], whoosh:false, lastReadId:null, reactionIds:{}, pollCount:0, pending:[], expanded:(()=>{try{return localStorage.getItem('vx-chat-expanded')==='1'}catch(e){return false}})(), kind:'all', emojiOpen:false, showMessageSearch:false, emojiSet:['👍','🙏','✅','🔥','🎉','😂','😅','👀','❤️','📦','💰','⚡'], connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
+                        messagesLoading:false, messagePageSignature:null, revisionChecking:false, messageRevision:null, lastFullMessageRefresh:0, lastReactionRefreshAt:0, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, onOnline:null, onOffline:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], groupNameDraft:'', membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], usersLoading:false, usersHasMore:false, userRequestId:0, userDirectory:{}, peopleRoleFilter:'', userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactingIds:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0, presence:{read:[],typing:[]}, presenceTimer:null, cards:{}, cardsRequested:{}, firstUnreadId:null, unreadAtOpen:0, typingSentAt:0, thumbs:new WeakMap(),
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         signalChatUpdate(conversationId) {
                             if(!conversationId)return;
@@ -690,7 +756,7 @@
                         },
                         async openGroupMembers() {
                             if(!this.selected)return;
-                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';await this.loadUsers();
+                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';this.groupNameDraft=this.label(this.selected);await this.loadUsers();
                             await this.refreshGroupMembers();
                         },
                         async refreshGroupMembers() {
@@ -698,11 +764,9 @@
                             try {this.groupMembers=this.items(await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants?per_page=100'));}
                             catch(e){this.error=e.message;}
                         },
-                        async changeGroupRole(member) {
+                        async changeGroupRole(member,role=null) {
                             if(!this.selected || !this.canManageGroup('manage_admins'))return;
-                            const role=window.prompt('Group role: member, moderator, or admin',member.attributes?.role || 'member');
-                            if(role===null)return;
-                            const choice=role.trim().toLowerCase();
+                            const choice=String(role ?? '').trim().toLowerCase();
                             if(!['member','moderator','admin'].includes(choice)){this.error='Choose member, moderator, or admin.';return;}
                             try {
                                 // Scoped admin permissions avoid granting full-admin rights accidentally.
@@ -728,17 +792,40 @@
                                 this.membersToAdd=[];await this.refreshGroupMembers();await this.load();
                             }catch(e){this.error=e.message;}
                         },
+                        groupMemberUserId(member) {
+                            return String(member?.relationships?.user?.data?.id || member?.relationships?.user?.id || member?.attributes?.user_id || member?.id || '');
+                        },
+                        groupMemberName(member) {
+                            return member?.relationships?.user?.data?.attributes?.name
+                                || member?.relationships?.user?.attributes?.name
+                                || member?.attributes?.name || 'Teammate';
+                        },
+                        availableGroupPeople() {
+                            const current=new Set(this.groupMembers.map(m=>this.groupMemberUserId(m)));
+                            const q=this.memberSearch.trim().toLowerCase();
+                            return this.users.filter(u=>!current.has(String(u.id))
+                                && (!q || this.userName(u).toLowerCase().includes(q)));
+                        },
+                        toggleMemberToAdd(user) {
+                            const id=String(user.id);
+                            this.membersToAdd=this.membersToAdd.includes(id)
+                                ? this.membersToAdd.filter(i=>i!==id) : [...this.membersToAdd,id];
+                        },
                         async renameGroup() {
-                            if(!this.selected)return;
-                            const current=this.label(this.selected);
-                            const name=window.prompt('Group name',current);
-                            if(name===null)return;
-                            const clean=name.trim();
+                            if(!this.selected || !this.canManageGroup('edit_info'))return;
+                            await this.openGroupMembers();
+                            this.$nextTick(()=>this.$refs.groupNameInput?.focus());
+                        },
+                        async saveGroupName() {
+                            if(!this.selected || !this.canManageGroup('edit_info'))return;
+                            const clean=this.groupNameDraft.trim();
                             if(!clean || clean.length>120){this.error='Enter a group name of 1–120 characters.';return;}
+                            if(clean===this.label(this.selected))return;
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(this.selected.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:clean})});
                                 if(data?.data)this.selected=data.data;
                                 await this.load();
+                                this.error='';
                             }catch(e){this.error=e.message;}
                         },
                         async leaveGroup() {

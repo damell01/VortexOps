@@ -711,13 +711,13 @@
                                 const landed=p=>p._confirmed && list.some(m=>this.isMine(m) && (m.attributes?.body||'')===p.attributes.body && new Date(m.attributes?.created_at||0).getTime()>=new Date(p.attributes.created_at).getTime()-120000);
                                 this.pending=this.pending.filter(p=>!landed(p));
                                 this.messages=[...this.mergeMessages(this.olderPage>1?this.messages:[],list),...this.pending.filter(p=>p.conversationId===id)];
-                                this.rememberMessages(id);
                                 // Reactions: new messages now, everything again every ~30 seconds.
                                 this.pollCount++;const fullReactions=firstLoad || this.pollCount%6===0;
                                 this.loadReactionBatch(fullReactions ? list : list.filter(m=>!this.reactionIds[m.id]));
                                 // Animate only messages that arrived while the conversation was open, never the history on first load.
                                 if(!firstLoad){const fresh=list.map(m=>String(m.id)).filter(i=>!knownIds.has(i));if(fresh.length){this.freshIds=[...this.freshIds,...fresh].slice(-20);setTimeout(()=>{this.freshIds=this.freshIds.filter(i=>!fresh.includes(i))},900);}}
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
+                                this.rememberMessages(id);
                                 if(firstLoad && this.unreadAtOpen>0){const theirs=this.messages.filter(m=>!this.isMine(m));const first=theirs[Math.max(0,theirs.length-this.unreadAtOpen)];this.firstUnreadId=first ? first.id : null;}
                                 this.$nextTick(()=>{
                                     const pane=this.$refs.messagePane;

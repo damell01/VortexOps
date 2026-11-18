@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\VortexAlert;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class WorkflowAssignmentNotificationTest extends TestCase
@@ -18,7 +19,9 @@ class WorkflowAssignmentNotificationTest extends TestCase
     {
         Notification::fake();
 
+        Role::findOrCreate('fulfillment', 'web');
         $worker = User::factory()->create();
+        $worker->assignRole('fulfillment');
         $show = Show::create([
             'title' => 'Packing assignment test',
             'show_date' => now()->toDateString(),

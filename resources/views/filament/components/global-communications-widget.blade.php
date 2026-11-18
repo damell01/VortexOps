@@ -772,7 +772,7 @@
                         },
                         async openGroupMembers() {
                             if(!this.selected)return;
-                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';this.groupNameDraft=this.label(this.selected);await this.loadUsers();
+                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';this.groupNameDraft=this.label(this.selected);this.userSearch='';await this.loadUsers(true);
                             await this.refreshGroupMembers();
                         },
                         async refreshGroupMembers() {
@@ -1127,8 +1127,11 @@
                                 const data=await this.local('/conversations/'+encodeURIComponent(id)+'/revision');
                                 if(String(this.selected?.id)!==id)return;
                                 const revision=String(data.revision ?? '0');
-                                if(this.messageRevision===null)this.messageRevision=revision;
-                                else if(this.messageRevision!==revision) {
+                                if(this.messageRevision===null){
+                                    // One reconciliation closes the gap between first message fetch and revision baseline.
+                                    this.messageRevision=revision;
+                                    await this.loadMessages();
+                                }else if(this.messageRevision!==revision) {
                                     this.messageRevision=revision;
                                     await this.loadMessages();
                                     // Reaction changes are also published through the revision token.

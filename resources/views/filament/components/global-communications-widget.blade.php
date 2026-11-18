@@ -125,12 +125,7 @@
                                 <input id="vx-chat-recipient-search" x-ref="peopleSearchInput" type="search" x-model="userSearch" x-on:input.debounce.350ms="loadUsers(true)" placeholder="Search teammates by name or role…" autocomplete="off" />
                                 <button type="button" x-show="userSearch" x-cloak x-on:click.prevent="userSearch='';loadUsers(true);$refs.peopleSearchInput.focus()" aria-label="Clear search"><x-filament::icon icon="heroicon-o-x-mark" /></button>
                             </div>
-                            <div class="vxm-picker-filters" role="group" aria-label="Filter teammates by role">
-                                <template x-for="role in [{name:'Everyone',value:''},{name:'Fulfillment',value:'fulfillment'},{name:'Streamers',value:'stream'},{name:'Admins',value:'admin'}]" :key="role.name">
-                                    <button type="button" :class="{'is-active':peopleRoleFilter===role.value}" :aria-pressed="String(peopleRoleFilter===role.value)" x-on:click="setPeopleRoleFilter(role.value)" x-text="role.name"></button>
-                                </template>
-                            </div>
-                            <div class="vxm-picker-list-heading"><strong>People</strong><span x-text="usersLoading ? 'Loading…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' teammates'"></span></div>
+                            <div class="vxm-picker-list-heading"><strong x-text="creatingGroup ? 'Select people for your group' : 'Choose someone to message'"></strong><span x-text="usersLoading ? 'Loading…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' people'"></span></div>
                             <div class="vxm-picker-people" role="group" aria-label="Teammates to message" :aria-busy="String(usersLoading)">
                                 <p class="vxm-picker-state" x-show="usersLoading" role="status">Finding teammates…</p>
                                 <template x-for="user in (usersLoading ? [] : visibleUsers())" :key="user.id">
@@ -139,7 +134,8 @@
                                         <span class="vxm-picker-person-info"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
                                         <span class="vxm-picker-person-action" aria-hidden="true">
                                             <span x-show="!creatingGroup"><x-filament::icon icon="heroicon-o-arrow-right" /></span>
-                                            <span x-show="creatingGroup" x-cloak><x-filament::icon icon="heroicon-o-check" /></span>
+                                            <span x-show="creatingGroup && !recipients.includes(String(user.id))" x-cloak><x-filament::icon icon="heroicon-o-plus" /></span>
+                                            <span x-show="creatingGroup && recipients.includes(String(user.id))" x-cloak><x-filament::icon icon="heroicon-o-check" /></span>
                                         </span>
                                     </button>
                                 </template>
@@ -150,25 +146,12 @@
                                 </div>
                                 <p class="vxm-picker-state" x-show="!usersLoading && usersHasMore">Showing the first 60 teammates. Search by name to find more.</p>
                             </div>
-                            <div class="vxm-picker-group-options" x-show="creatingGroup" x-cloak>
-                                <div class="vxm-picker-group-title"><label for="vx-chat-group-name">Group name <small>(optional)</small></label><input id="vx-chat-group-name" type="text" x-model="groupName" maxlength="120" placeholder="e.g. Fulfillment team"></div>
-                                <div class="vxm-picker-selected-heading"><strong>Selected teammates</strong><span x-text="recipients.length + ' / 49'"></span></div>
-                                <div class="vxm-picker-selected" aria-live="polite">
-                                    <span class="vxm-picker-selected-empty" x-show="!recipients.length">Click people above to add them.</span>
-                                    <template x-for="person in recipientPeople()" :key="person.id">
-                                        <button type="button" class="vxm-picker-chip" x-on:click="toggleRecipient(person)" :aria-label="'Remove '+userName(person)"><span x-text="userName(person)"></span><x-filament::icon icon="heroicon-o-x-mark" /></button>
-                                    </template>
-                                </div>
-                                <details class="vxm-picker-role-add" x-show="canCreateGroups">
-                                    <summary>Add an entire team role</summary>
-                                    <div><select aria-label="Team role" x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select><button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Add role</button></div>
-                                </details>
-                            </div>
+
                         </div>
                         <p class="vxm-picker-error" x-show="error" x-cloak x-text="error" role="alert"></p>
                         <footer class="vxm-picker-footer">
                             <span x-show="!creatingGroup" x-text="creating ? 'Opening conversation…' : 'Select any teammate to start chatting'"></span>
-                            <span x-show="creatingGroup" x-cloak x-text="recipients.length + (recipients.length===1 ? ' person selected' : ' people selected')"></span>
+                            <span x-show="creatingGroup" x-cloak x-text="recipients.length ? recipients.length + (recipients.length===1 ? ' teammate selected' : ' teammates selected') : 'Click names above to add people'"></span>
                             <div><button type="button" class="vxm-picker-cancel" x-on:click="showNew=false">Cancel</button><button type="button" class="vxm-picker-create" x-show="creatingGroup" x-cloak x-on:click="createConversation()" :disabled="!recipients.length || creating || usersLoading" x-text="creating ? 'Creating…' : 'Create group'"></button></div>
                         </footer>
                     </div>
@@ -364,7 +347,7 @@
                 .vxm-picker-close{display:grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid #e6dff0;border-radius:11px;background:#fff;color:#5e4b76}
                 .vxm-picker-close:hover{background:#f1e9fc}
                 .vxm-picker-close svg{width:18px;height:18px}
-                .vxm-picker-body{display:flex;flex:1 1 auto;flex-direction:column;gap:12px;min-height:0;min-width:0;overflow:hidden;padding:17px 22px 10px}
+                .vx-chatify-compose-backdrop .vxm-picker-body{display:flex;flex:1 1 auto;flex-direction:column;gap:12px;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:17px 22px 14px;scrollbar-width:thin;scrollbar-color:#cfc0e3 transparent}
                 .vxm-picker-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none}
                 .vxm-picker-tabs button{display:flex;justify-content:center;align-items:center;gap:9px;min-height:43px;padding:9px 12px;border:1px solid #e7dfef;border-radius:11px;background:#fff;color:#514065;font-size:13px;font-weight:750}
                 .vxm-picker-tabs button svg{width:18px;height:18px;flex:none}
@@ -383,7 +366,7 @@
                 .vxm-picker-list-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:none;margin:0 2px}
                 .vxm-picker-list-heading strong{font-size:13px;font-weight:800;color:#322340}
                 .vxm-picker-list-heading span{font-size:12px;color:#887b96}
-                .vxm-picker-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-content:start;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 12px 2px;scrollbar-width:thin;scrollbar-color:#cfc0e3 transparent}
+                .vx-chatify-compose-backdrop .vxm-picker-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-content:start;flex:0 0 auto;min-height:max-content;overflow:visible;padding:2px 4px 12px 2px;scrollbar-width:none}
                 .vxm-picker-person{display:flex;align-items:center;gap:11px;width:100%;min-width:0;min-height:69px;padding:11px 12px;border:1px solid #e9e2f0;border-radius:12px;background:#fff;text-align:left;cursor:pointer;transition:border-color .14s,background .14s,box-shadow .14s}
                 .vxm-picker-person:hover{background:#f9f5ff;border-color:#b48ae7;box-shadow:0 2px 8px rgba(67,27,112,.07)}
                 .vxm-picker-person:focus-visible{outline:3px solid #a67bdf;outline-offset:2px}
@@ -391,8 +374,8 @@
                 .vxm-picker-person:disabled{opacity:.55;cursor:wait}
                 .vxm-picker-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:12px;background:#ede3fb;color:#6429af;font-size:13px;font-weight:800}
                 .vxm-picker-person-info{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
-                .vxm-picker-person-info strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:750;color:#2d213e}
-                .vxm-picker-person-info small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#80728d}
+                .vxm-picker-person-info strong{display:block;overflow-wrap:anywhere;font-size:13px;font-weight:750;color:#2d213e}
+                .vxm-picker-person-info small{overflow-wrap:anywhere;font-size:11px;color:#80728d}
                 .vxm-picker-person-action{display:grid;place-items:center;flex:none;width:25px;height:25px;border-radius:8px;color:#8664b5}
                 .vxm-picker-person-action svg{width:17px;height:17px}
                 .vxm-picker-person.is-selected .vxm-picker-person-action{background:#7136c4;color:#fff}
@@ -433,7 +416,7 @@
                     .vxm-picker-header-copy h2{font-size:18px}
                     .vxm-picker-header-copy p{font-size:11px}
                     .vxm-picker-body{padding:13px 14px 8px;gap:10px}
-                    .vxm-picker-people{grid-template-columns:1fr;gap:7px}
+                    .vx-chatify-compose-backdrop .vxm-picker-people{grid-template-columns:1fr;gap:7px}
                     .vxm-picker-person{min-height:61px;padding:8px 10px}
                     .vxm-picker-footer{padding:10px 14px;min-height:58px}
                     .vxm-picker-footer>span{font-size:11px}
@@ -894,7 +877,6 @@
                         },
                         setComposeMode(group) {
                             this.creatingGroup=!!group;this.error='';
-                            if(group)this.loadGroupRoles();
                             if(!group)this.recipients=this.recipients.slice(0,1);
                         },
                         setPeopleRoleFilter(role) {

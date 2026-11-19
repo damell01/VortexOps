@@ -781,3 +781,35 @@ img, svg, video {
         touch-action: manipulation;
     }
 }
+
+
+/* iOS standalone PWA: opaque, readable navigation instead of a blurred glass strip. */
+@media (max-width: 767px) {
+    .fi-topbar, nav.fi-topbar {
+        background: #ffffff !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        filter: none !important;
+        opacity: 1 !important;
+        isolation: isolate;
+        z-index: 60 !important;
+        border-bottom: 1px solid #e9e4f1 !important;
+    }
+    .fi-topbar button, .fi-topbar a, .fi-topbar svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+        color: #35214e !important;
+        filter: none !important;
+    }
+    .fi-topbar button, .fi-topbar a[role="button"] {
+        min-width: 44px !important;
+        min-height: 44px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+    }
+    .fi-topbar .fi-icon-btn svg { width: 22px !important; height: 22px !important; }
+    .fi-sidebar-backdrop { z-index: 65 !important; }
+    .fi-sidebar { z-index: 66 !important; }
+}

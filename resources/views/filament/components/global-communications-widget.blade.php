@@ -202,6 +202,22 @@
 
         </div>
         @once
+            <script>
+                /* VisualViewport follows the iOS keyboard, including installed standalone PWAs. */
+                (() => {
+                    if (window.__vxChatViewportInstalled) return;
+                    window.__vxChatViewportInstalled = true;
+                    const sync = () => {
+                        const viewport = window.visualViewport;
+                        document.documentElement.style.setProperty('--vx-chat-visual-height', (viewport ? viewport.height : window.innerHeight) + 'px');
+                        document.documentElement.style.setProperty('--vx-chat-visual-top', (viewport ? viewport.offsetTop : 0) + 'px');
+                    };
+                    window.visualViewport?.addEventListener('resize', sync);
+                    window.visualViewport?.addEventListener('scroll', sync);
+                    window.addEventListener('orientationchange', sync);
+                    sync();
+                })();
+            </script>
             <style>
                 /* Dedicated centered composer; floating chat remains unchanged behind it. */
                 .vx-chatify-shell.is-composing{z-index:2147482999!important}
@@ -529,7 +545,7 @@
                     .vx-chatify-drawer {
                         position: fixed !important;
                         inset: 0 0 auto 0 !important;
-                        top: 0 !important;
+                        top: var(--vx-chat-visual-top, 0px) !important;
                         left: 0 !important;
                         right: 0 !important;
                         bottom: auto !important;
@@ -539,7 +555,6 @@
                         max-height: var(--vx-chat-visual-height, 100dvh) !important;
                         transform: none !important;
                         border-radius: 0 !important;
-                        display: flex !important;
                         flex-direction: column !important;
                         overflow: hidden !important;
                         padding-top: env(safe-area-inset-top, 0px);
@@ -547,7 +562,6 @@
                     }
                     .vx-chatify-drawer-head, .vx-chatify-conversation-head { flex-shrink: 0 !important; }
                     .vx-chatify-conversation {
-                        display: flex !important;
                         flex-direction: column !important;
                         flex: 1 1 auto !important;
                         min-height: 0 !important;

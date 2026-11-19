@@ -24,6 +24,14 @@ jobs:
           find app routes database/migrations tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build Vite assets for feature tests
+        run: |
+          npm ci
+          npm run build
       - name: Run Laravel tests
         env:
           APP_ENV: testing

@@ -288,6 +288,30 @@ class ProductSheetImporter
                     return [$best[0], $best[1]];
                 }
             }
+
+            // Some Google Sheets exports put an accidental label (for example
+            // "f") over the product names. Only infer the immediately preceding
+            // column when SKU and Cost are both present and actual product
+            // names appear beneath it. Never treat arbitrary labelled columns
+            // as product names without checking their data.
+            $skuColumn = $best[1]['sku'];
+            if ($skuColumn !== null && $skuColumn > 0 && $first === $skuColumn) {
+                $candidate = $skuColumn - 1;
+                $samples = array_slice($raw, $best[0] + 1, 30);
+                $namedRows = 0;
+                foreach ($samples as $sample) {
+                    $value = trim((string) ($sample[$candidate] ?? ''));
+                    if ($value !== '' && ! is_numeric($value) && ! str_starts_with($value, '=')) {
+                        $namedRows++;
+                    }
+                }
+
+                if ($namedRows >= 2) {
+                    $best[1]['name'] = $candidate;
+
+                    return [$best[0], $best[1]];
+                }
+            }
         }
 
         $looksLikeCalculations = collect(array_slice($raw, 0, 25))->flatten()

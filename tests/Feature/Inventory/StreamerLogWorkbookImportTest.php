@@ -33,7 +33,7 @@ class StreamerLogWorkbookImportTest extends TestCase
         ]);
         $book->createSheet()->setTitle('Hardcopy (Print)')->fromArray([['Streamer', 'Date']]);
         $book->createSheet()->setTitle('Product cost ref sheet')->fromArray([
-            [null, 'SKU', 'Type', 'Auction or BIN?', 'Cost', 'Sale price / Target'],
+            ['f', 'SKU', 'Type', 'Auction or BIN?', 'Cost', 'Sale price / Target'],
             ['Sharp Blade Coin Box (Per bag)', null, 'pack', 'Auction', 5.5, 15],
             ['Gem 2 Booster box', null, 'box', 'Both', 65, 106],
             ['Brillant fantasy Booster box Jumbo', null, 'box', 'Both', 41, null],
@@ -49,7 +49,7 @@ class StreamerLogWorkbookImportTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_picks_the_product_sheet_and_reads_the_unlabelled_name_column(): void
+    public function test_it_picks_the_product_sheet_and_reads_the_mislabelled_name_column(): void
     {
         $importer = app(ProductSheetImporter::class);
         $sheets = $importer->sheetNames($this->path);

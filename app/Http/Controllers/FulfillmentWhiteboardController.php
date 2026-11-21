@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\FulfillmentRun;
 use App\Models\FulfillmentStation;
+use App\Services\FulfillmentFlagService;
 use App\Support\BusinessTime;
 use App\Support\FulfillmentAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -59,12 +61,16 @@ class FulfillmentWhiteboardController extends Controller
         $runs = FulfillmentRun::query()
             ->where(fn ($q) => $q->whereIn('station_occupied_id', $stations->pluck('id'))
                 ->orWhere(fn ($r) => $r->where('status', FulfillmentRun::READY)->whereIn('station_id', $stations->pluck('id'))))
-            ->with(['show:id,title,show_date,start_time', 'packers:id,name', 'currentBuyer:id,letter,buyer_username', 'show.fulfillmentUsers:id,name'])
-            ->withCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')])
+            ->with(['show:id,title,show_date,start_time', 'packers:id,name', 'currentBuyer:id,letter,buyer_username,package_count', 'show.fulfillmentUsers:id,name'])
             ->get();
         $buyerRows = DB::table('fulfillment_run_buyers')->whereIn('run_id', $runs->pluck('id'))
             ->orderBy('run_id')->orderByRaw('LOWER(buyer_username)')->orderBy('id')
-            ->get(['id', 'run_id', 'letter', 'buyer_username', 'status'])->groupBy('run_id');
+            ->get(['id', 'run_id', 'letter', 'buyer_username', 'status', 'package_count'])->groupBy('run_id');
+        // One batched query each for issues and activity, regardless of station count.
+        $openIssues = DB::table('fulfillment_flags')->whereIn('run_id', $runs->pluck('id'))
+            ->where('status', 'open')->orderBy('id')->get(['run_id', 'type'])->groupBy('run_id');
+        $lastActions = DB::table('fulfillment_events')->whereIn('run_id', $runs->pluck('id'))
+            ->select('run_id')->selectRaw('MAX(created_at) AS last_at')->groupBy('run_id')->pluck('last_at', 'run_id');
         $todayStart = BusinessTime::local()->startOfDay()->utc();
 
         return [
@@ -78,7 +84,7 @@ class FulfillmentWhiteboardController extends Controller
                 'issues' => DB::table('fulfillment_flags')->where('status', 'open')->count(),
             ],
             'activity' => $this->activity($tz, $only),
-            'stations' => $stations->map(function (FulfillmentStation $station) use ($runs, $buyerRows, $tz) {
+            'stations' => $stations->map(function (FulfillmentStation $station) use ($runs, $buyerRows, $openIssues, $lastActions, $tz) {
                 $run = $runs->first(fn ($r) => (int) $r->station_occupied_id === $station->id)
                     ?? $runs->first(fn ($r) => $r->status === FulfillmentRun::READY && (int) $r->station_id === $station->id);
                 if (! $run) return ['id' => $station->id, 'name' => $station->name, 'status' => 'idle'];
@@ -89,28 +95,42 @@ class FulfillmentWhiteboardController extends Controller
                 $onStation = $run->isOnStation();
                 $currentIndex = $onStation && $run->current_buyer_id ? $buyers->search(fn ($b) => (int) $b->id === (int) $run->current_buyer_id) : false;
                 $next = $buyers->slice($currentIndex === false ? 0 : $currentIndex + 1)
-                    ->reject(fn ($b) => in_array($b->status, ['packed', 'held'], true))->take(3)
-                    ->map(fn ($b) => ['letter' => $b->letter, 'buyer' => $b->buyer_username])->values()->all();
+                    ->reject(fn ($b) => in_array($b->status, ['packed', 'held'], true))->take(5)
+                    ->map(fn ($b) => ['letter' => $b->letter, 'buyer' => $b->buyer_username, 'packages' => $b->package_count === null ? null : (int) $b->package_count])->values()->all();
                 $people = $run->packers->isNotEmpty() ? $run->packers : ($run->show?->fulfillmentUsers ?? collect());
+                $issues = $openIssues->get($run->id, collect());
+                $active = $onStation ? $run->activeSeconds() : null;
+                $remaining = $total ? max(0, $total - $done) : null;
+                // A pace based on only a few seconds is misleading. Require five
+                // minutes of active packing and at least one completed unit.
+                $pace = $active >= 300 && $done > 0 ? round($done * 3600 / $active, 1) : null;
+                $lastAction = $lastActions->get($run->id);
 
                 return [
                     'id' => $station->id, 'name' => $station->name, 'status' => $run->status,
-                    'issue' => (int) $run->open_flags_count > 0,
+                    'issue' => $issues->isNotEmpty(),
+                    'issue_count' => $issues->count(),
+                    'issue_label' => $issues->isNotEmpty() ? FulfillmentFlagService::label($issues->first()->type) : null,
                     'show' => $run->show?->title,
                     'stream' => trim(($run->show?->show_date?->format('M j') ?? '') . ($run->show?->start_time ? ', ' . $run->show->start_time->timezone($tz)->format('g:i A') : '')),
                     'started' => $run->started_at?->timezone($tz)->format('M j, g:i A'),
                     // Active packing time so far (pauses excluded), for the live timer.
-                    'elapsed' => $onStation ? $run->activeSeconds() : null,
+                    'elapsed' => $active,
+                    'wall_seconds' => $onStation && $run->started_at ? max(0, (int) $run->started_at->diffInSeconds(now())) : null,
+                    'last_activity_at' => $lastAction ? Carbon::parse($lastAction)->toIso8601String() : $run->started_at?->toIso8601String(),
                     'ticking' => $run->status === FulfillmentRun::PACKING,
                     'pause_reason' => $run->status === FulfillmentRun::PAUSED ? FulfillmentRun::pauseReasonLabel($run->pause_reason) : null,
                     'packer' => $people->pluck('name')->map(fn ($n) => explode(' ', trim($n))[0])->join(', ') ?: null,
                     'initials' => $people->take(3)->map(fn ($u) => mb_strtoupper(mb_substr(trim($u->name), 0, 1)))->values()->all(),
                     'letter' => $onStation ? $run->currentBuyer?->letter : null,
                     'buyer' => $onStation ? $run->currentBuyer?->buyer_username : null,
+                    'current_packages' => $onStation ? $run->currentBuyer?->package_count : null,
                     'next' => $onStation ? $next : [],
                     'buyers_done' => $buyers->where('status', 'packed')->count(),
                     'buyers_total' => $buyers->count() ?: null,
-                    'done' => $done, 'total' => $total ?: null, 'unit' => $byPackages ? 'packages' : 'buyers',
+                    'done' => $done, 'total' => $total ?: null, 'remaining' => $remaining,
+                    'pace' => $pace, 'eta_seconds' => $run->status === FulfillmentRun::PACKING && $pace && $remaining !== null ? (int) round($remaining * 3600 / $pace) : null,
+                    'unit' => $byPackages ? 'packages' : 'buyers',
                     'pct' => $total ? min(100, (int) round($done / $total * 100)) : 0,
                 ];
             })->values()->all(),

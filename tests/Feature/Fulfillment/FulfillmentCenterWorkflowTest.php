@@ -652,11 +652,16 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $this->assertSame('A', $card['letter']);
         $this->assertSame('Alpha_Rips', $card['buyer']);
         $this->assertSame([
-            'id', 'name', 'status', 'issue', 'show', 'stream', 'started', 'elapsed', 'ticking', 'pause_reason', 'packer', 'initials', 'letter', 'buyer', 'next',
-            'buyers_done', 'buyers_total', 'done', 'total', 'unit', 'pct',
+            'id', 'name', 'status', 'issue', 'issue_count', 'issue_label', 'show', 'stream', 'started',
+            'elapsed', 'wall_seconds', 'last_activity_at', 'ticking', 'pause_reason', 'packer', 'initials', 'letter', 'buyer', 'current_packages', 'next',
+            'buyers_done', 'buyers_total', 'done', 'total', 'remaining', 'pace', 'eta_seconds', 'unit', 'pct',
         ], array_keys($card));
-        // Next in line skips the current buyer; the ticker and summary carry no pay, values or addresses.
-        $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz'], ['letter' => 'Z', 'buyer' => 'zoe_cards']], $card['next']);
+        // The TV can show package counts and upcoming usernames, but no pay, values or addresses.
+        $this->assertSame(2, $card['current_packages']);
+        $this->assertSame([['letter' => 'B', 'buyer' => 'bigpullz', 'packages' => 1], ['letter' => 'Z', 'buyer' => 'zoe_cards', 'packages' => 1]], $card['next']);
+        $this->assertSame(4, $card['remaining']);
+        $this->assertNull($card['pace'], 'a pace should not appear after only a few seconds');
+        $this->assertNotNull($card['last_activity_at']);
         $this->assertSame(['packing' => 1, 'stations' => FulfillmentStation::query()->where('active', true)->count(), 'packed_today' => 0, 'buyers_today' => 0, 'issues' => 0], $json['summary']);
         $this->assertSame('started', $json['activity'][0]['type']);
         $this->assertSame(['id', 'type', 'at', 'station', 'letter', 'buyer', 'show', 'packages', 'text'], array_keys($json['activity'][0]));
@@ -666,6 +671,30 @@ class FulfillmentCenterWorkflowTest extends TestCase
         $outsider = User::factory()->create();
         $outsider->assignRole('streamer');
         $this->actingAs($outsider)->get(route('fulfillment.whiteboard'))->assertForbidden();
+    }
+
+    public function test_whiteboard_pace_elapsed_clocks_and_issue_labels_are_based_on_real_run_data(): void
+    {
+        $this->travelTo(now()->setTime(10, 0, 0));
+        $run = $this->started();
+        $this->travelTo(now()->setTime(10, 10, 0));
+        $alpha = $run->buyers()->where('buyer_username', 'Alpha_Rips')->firstOrFail();
+        app(FulfillmentRunService::class)->markPacked($run->id, $alpha->id, $this->packer);
+        app(FulfillmentFlagService::class)->report($this->manager, $run->show_id, 'label_issue', 'Damaged thermal label', $run->id, null, null, null, false);
+
+        $card = collect(app(\App\Http\Controllers\FulfillmentWhiteboardController::class)->payload()['stations'])
+            ->firstWhere('id', $this->station->id);
+        $this->assertSame(600, $card['elapsed']);
+        $this->assertSame(600, $card['wall_seconds']);
+        $this->assertSame(2, $card['done']);
+        $this->assertSame(2, $card['remaining']);
+        $this->assertEqualsWithDelta(12.0, $card['pace'], .1);
+        $this->assertSame(600, $card['eta_seconds']);
+        $this->assertTrue($card['issue']);
+        $this->assertSame(1, $card['issue_count']);
+        $this->assertSame('Shipping label issue', $card['issue_label']);
+        $this->assertNotNull($card['last_activity_at']);
+        $this->assertArrayNotHasKey('details', $card, 'issue details should stay off a shared TV');
     }
 
     public function test_whiteboard_offers_all_stations_or_one_and_cards_open_their_station(): void

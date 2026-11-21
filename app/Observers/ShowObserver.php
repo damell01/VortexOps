@@ -183,33 +183,31 @@ class ShowObserver
             ->whereHas('streamer', fn ($query) => $query->where('status', 'active'))
             ->get();
 
-        foreach ($aliases as $streamerAlias) {
-            $alias = $streamerAlias->alias;
+        $matches = $aliases->filter(function ($streamerAlias) use ($title) {
+            $alias = trim((string) $streamerAlias->alias);
+            if ($alias === '') return false;
             $pattern = '/(?<![a-z0-9])' . preg_quote(strtolower($alias), '/') . '(?![a-z0-9])/i';
-            if (preg_match($pattern, $title) !== 1) {
-                continue;
-            }
+            return preg_match($pattern, $title) === 1 && $streamerAlias->streamer !== null;
+        })->unique('streamer_id')->values();
 
-            $streamer = $streamerAlias->streamer;
-            if (! $streamer) {
-                continue;
-            }
+        // Never silently choose the first alias when two profiles match a title.
+        if ($matches->count() !== 1) return false;
 
-            $show->streamers()->syncWithoutDetaching([
-                $streamer->id => ['is_primary' => true],
-            ]);
+        $match = $matches->first();
+        $streamer = $match->streamer;
+        $show->streamers()->syncWithoutDetaching([
+            $streamer->id => ['is_primary' => true],
+        ]);
+        $show->updateQuietly([
+            'ai_streamer_suggestion' => [[
+                'streamer_id' => $streamer->id,
+                'streamer_name' => $streamer->name,
+                'confidence' => 'high',
+                'reason' => 'Confirmed Whatnot alias maps to '.$streamer->name,
+            ]],
+        ]);
 
-            $show->updateQuietly([
-                'ai_streamer_suggestion' => [[
-                    'streamer_id' => $streamer->id,
-                    'streamer_name' => $streamer->name,
-                    'confidence' => 'high',
-                    'reason' => "Whatnot alias \"{$alias}\" maps to {$streamer->name}",
-                ]],
-            ]);
-
-            return true;
-        }
+        return true;
 
         return false;
     }

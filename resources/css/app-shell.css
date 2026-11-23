@@ -131,3 +131,29 @@ html.vx-standalone :is([data-vx-install], #vx-install-banner) { display: none !i
 .vx-to-top:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
 @media (max-width: 1023px) { .vx-to-top { bottom: calc(84px + env(safe-area-inset-bottom)); right: .9rem; } }
 @media (prefers-reduced-motion: reduce) { .vx-to-top { transition: none; } }
+
+/* Home-screen app (PWA) on iPhone. The status bar is see-through
+   (black-translucent) so the app runs edge to edge, and iOS blurs whatever
+   scrolls underneath it. A fixed strip in the top bar's colour sits under the
+   clock and battery, so nothing scrolls beneath them and there is nothing to
+   blur. In Safari the strip has no height (no safe-area inset), so it is inert. */
+html.vx-standalone body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: env(safe-area-inset-top, 0px);
+    background: var(--vx-surface, #fff);
+    z-index: 2147483600;
+    pointer-events: none;
+}
+@media (display-mode: standalone) {
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0 0 auto 0;
+        height: env(safe-area-inset-top, 0px);
+        background: var(--vx-surface, #fff);
+        z-index: 2147483600;
+        pointer-events: none;
+    }
+}

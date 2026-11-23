@@ -162,6 +162,48 @@
             </div>
         </div>
 
+        {{-- Team messaging go-live (owner only). Applies on the next page load. --}}
+        @if (auth()->user()?->isOwner())
+            @php
+                $vxChatOn = \App\Support\TeamMessagingSwitch::enabled();
+                $vxAlertsOn = \App\Support\TeamMessagingSwitch::alerts();
+            @endphp
+            <div id="team-messaging" wire:key="section-team-messaging" class="vx-card overflow-hidden">
+                <div class="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Team messaging</h2>
+                            @if ($vxChatOn)
+                                <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">On for everyone</span>
+                            @else
+                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">Admins only</span>
+                            @endif
+                        </div>
+                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            Turn chat on for streamers and staff. Everyone signed in gets the chat bubble and can message teammates.
+                            Turning it off puts it back to admins only — no messages are deleted.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        @if ($vxChatOn)
+                            <x-filament::button color="gray" wire:click="setTeamMessaging(false)" wire:confirm="Turn team messaging off? Streamers and staff lose chat until you turn it back on. Messages are kept.">Turn off</x-filament::button>
+                        @else
+                            <x-filament::button wire:click="setTeamMessaging(true)" wire:confirm="Turn on messaging for everyone? Streamers and staff will see the chat bubble on their next page load.">Turn on for everyone</x-filament::button>
+                        @endif
+                    </div>
+                </div>
+                @if ($vxChatOn)
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 px-6 py-3 dark:border-gray-700">
+                        <p class="min-w-0 flex-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            <span class="font-semibold text-gray-700 dark:text-gray-200">Message alerts:</span>
+                            {{ $vxAlertsOn ? 'on — people who opt in get push or email for new messages (quiet hours respected).' : 'off — nobody is sent push or email for messages yet.' }}
+                        </p>
+                        <x-filament::button size="sm" color="gray" wire:click="setTeamMessageAlerts({{ $vxAlertsOn ? 'false' : 'true' }})">{{ $vxAlertsOn ? 'Turn alerts off' : 'Turn alerts on' }}</x-filament::button>
+                    </div>
+                @endif
+            </div>
+        @endif
+
         {{-- Workspace Modules & Features --}}
         <div id="modules" wire:key="section-modules" x-data="{ open: true }" class="vx-card overflow-hidden">
 

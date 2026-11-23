@@ -103,57 +103,76 @@
                     <button type="button" x-on:click="openComposer()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
             </section>
+                {{-- New message: iMessage-style. Tap a name to open that chat at once;
+                     tap the circle beside names (or add a second person) to build a group. --}}
                 <div class="vx-chatify-compose-backdrop" x-show="showNew" x-cloak x-transition:enter="vxm-fade-enter" x-transition:enter-start="vxm-fade-from" x-transition:leave="vxm-fade-leave" x-transition:leave-end="vxm-fade-from" x-on:click.self="showNew=false" role="presentation">
-                    <div class="vx-chatify-new-overlay vx-chat-compose vxm-compose vxm-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="vx-chat-compose-title" aria-describedby="vx-chat-compose-description" x-trap.noscroll="showNew">
-                        <header class="vxm-picker-header">
-                            <span class="vxm-picker-header-icon" aria-hidden="true"><x-filament::icon icon="heroicon-o-pencil-square" /></span>
-                            <div class="vxm-picker-header-copy">
-                                <small>TEAM MESSAGING</small>
-                                <h2 id="vx-chat-compose-title">New conversation</h2>
-                                <p id="vx-chat-compose-description" x-text="creatingGroup ? 'Choose teammates for your group.' : 'Click a teammate to open a message.'"></p>
-                            </div>
-                            <button type="button" class="vxm-picker-close" x-on:click="showNew=false" aria-label="Close new conversation"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+                    <div class="vxnm-sheet" role="dialog" aria-modal="true" aria-labelledby="vx-chat-compose-title" x-trap.noscroll="showNew">
+                        <header class="vxnm-head">
+                            <button type="button" class="vxnm-text-btn" x-on:click="showNew=false">Cancel</button>
+                            <h2 id="vx-chat-compose-title" x-text="recipients.length>1 ? 'New group' : 'New message'">New message</h2>
+                            <span class="vxnm-text-btn" aria-hidden="true" style="visibility:hidden">Cancel</span>
                         </header>
-                        <div class="vxm-picker-body">
-                            <div class="vxm-picker-tabs" role="group" aria-label="Conversation type">
-                                <button type="button" :class="{'is-active': !creatingGroup}" :aria-pressed="String(!creatingGroup)" x-on:click="setComposeMode(false)"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /> Message someone</button>
-                                <button type="button" :class="{'is-active': creatingGroup}" :aria-pressed="String(creatingGroup)" x-on:click="setComposeMode(true)"><x-filament::icon icon="heroicon-o-user-group" /> New group</button>
-                            </div>
-                            <div class="vxm-picker-search">
-                                <label class="vxm-picker-sr-only" for="vx-chat-recipient-search">Find teammates</label>
-                                <x-filament::icon icon="heroicon-o-magnifying-glass" />
-                                <input id="vx-chat-recipient-search" x-ref="peopleSearchInput" type="search" x-model="userSearch" x-on:input.debounce.350ms="loadUsers(true)" placeholder="Search teammates by name or role…" autocomplete="off" />
-                                <button type="button" x-show="userSearch" x-cloak x-on:click.prevent="userSearch='';loadUsers(true);$refs.peopleSearchInput.focus()" aria-label="Clear search"><x-filament::icon icon="heroicon-o-x-mark" /></button>
-                            </div>
-                            <div class="vxm-picker-list-heading"><strong x-text="creatingGroup ? 'Select people for your group' : 'Choose someone to message'"></strong><span x-text="usersLoading ? 'Loading…' : visibleUsers().length + (usersHasMore ? '+' : '') + ' people'"></span></div>
-                            <div class="vxm-picker-people" role="group" aria-label="Teammates to message" :aria-busy="String(usersLoading)">
-                                <p class="vxm-picker-state" x-show="usersLoading" role="status">Finding teammates…</p>
-                                <template x-for="user in (usersLoading ? [] : visibleUsers())" :key="user.id">
-                                    <button type="button" class="vxm-picker-person" :class="{'is-selected': recipients.includes(String(user.id))}" :aria-pressed="creatingGroup ? String(recipients.includes(String(user.id))) : null" :aria-label="creatingGroup ? 'Select '+userName(user) : 'Message '+userName(user)" :disabled="creating || (creatingGroup && !recipients.includes(String(user.id)) && recipients.length>=49)" x-on:click="choosePerson(user)">
-                                        <span class="vxm-picker-avatar" aria-hidden="true" x-text="initials(userName(user))"></span>
-                                        <span class="vxm-picker-person-info"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
-                                        <span class="vxm-picker-person-action" aria-hidden="true">
-                                            <span x-show="!creatingGroup"><x-filament::icon icon="heroicon-o-arrow-right" /></span>
-                                            <span x-show="creatingGroup && !recipients.includes(String(user.id))" x-cloak><x-filament::icon icon="heroicon-o-plus" /></span>
-                                            <span x-show="creatingGroup && recipients.includes(String(user.id))" x-cloak><x-filament::icon icon="heroicon-o-check" /></span>
-                                        </span>
-                                    </button>
-                                </template>
-                                <div class="vxm-picker-empty" x-show="!usersLoading && !visibleUsers().length" x-cloak>
-                                    <x-filament::icon icon="heroicon-o-user-group" />
-                                    <strong x-text="userSearch || peopleRoleFilter ? 'No matching teammates' : 'No teammates available'"></strong>
-                                    <span x-text="userSearch || peopleRoleFilter ? 'Try another search or choose Everyone.' : 'Ask an administrator to confirm messaging access.'"></span>
-                                </div>
-                                <p class="vxm-picker-state" x-show="!usersLoading && usersHasMore">Showing the first 60 teammates. Search by name to find more.</p>
-                            </div>
 
+                        <div class="vxnm-to" x-on:click="$refs.peopleSearchInput.focus()">
+                            <span class="vxnm-to-label">To:</span>
+                            <template x-for="person in recipientPeople()" :key="person.id">
+                                <span class="vxnm-chip"><span x-text="userName(person)"></span><button type="button" x-on:click.stop="toggleRecipient(person)" :aria-label="'Remove '+userName(person)">×</button></span>
+                            </template>
+                            <label class="vxm-picker-sr-only" for="vx-chat-recipient-search">Find teammates</label>
+                            <input id="vx-chat-recipient-search" x-ref="peopleSearchInput" type="search" x-model="userSearch" x-on:input.debounce.300ms="loadUsers(true)"
+                                x-on:keydown.backspace="if(!userSearch && recipients.length){recipients=recipients.slice(0,-1)}"
+                                x-on:keydown.enter.prevent="composerEnter()"
+                                :placeholder="recipients.length ? 'Add another person…' : 'Name or role'" autocomplete="off" enterkeyhint="go" />
                         </div>
-                        <p class="vxm-picker-error" x-show="error" x-cloak x-text="error" role="alert"></p>
-                        <footer class="vxm-picker-footer">
-                            <span x-show="!creatingGroup" x-text="creating ? 'Opening conversation…' : 'Select any teammate to start chatting'"></span>
-                            <span x-show="creatingGroup" x-cloak x-text="recipients.length ? recipients.length + (recipients.length===1 ? ' teammate selected' : ' teammates selected') : 'Click names above to add people'"></span>
-                            <div><button type="button" class="vxm-picker-cancel" x-on:click="showNew=false">Cancel</button><button type="button" class="vxm-picker-create" x-show="creatingGroup" x-cloak x-on:click="createConversation()" :disabled="!recipients.length || creating || usersLoading" x-text="creating ? 'Creating…' : 'Create group'"></button></div>
+
+                        <div class="vxnm-group-name" x-show="recipients.length>1" x-cloak x-transition.opacity.duration.150ms>
+                            <label for="vx-chat-group-name">Group name</label>
+                            <input id="vx-chat-group-name" type="text" x-model="groupName" maxlength="80" placeholder="Optional — e.g. Friday stream crew" />
+                        </div>
+
+                        <div class="vxnm-body" :aria-busy="String(usersLoading)">
+                            <section class="vxnm-recents" x-show="!userSearch && recentPeople().length" x-cloak aria-label="Recent">
+                                <h3>Recent</h3>
+                                <div class="vxnm-recents-row">
+                                    <template x-for="person in recentPeople()" :key="'r'+person.id">
+                                        <button type="button" class="vxnm-recent" x-on:click="choosePerson(person)" :disabled="creating" :aria-label="(recipients.length ? 'Add ' : 'Message ')+userName(person)">
+                                            <span class="vxnm-avatar is-lg" x-text="initials(userName(person))"></span>
+                                            <span class="vxnm-recent-name" x-text="userName(person).split(' ')[0]"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </section>
+
+                            <p class="vxnm-state" x-show="usersLoading" role="status">Finding teammates…</p>
+                            <template x-for="section in (usersLoading ? [] : peopleSections())" :key="section.letter">
+                                <section class="vxnm-section">
+                                    <h3 x-text="section.letter"></h3>
+                                    <template x-for="user in section.people" :key="user.id">
+                                        <div class="vxnm-person" :class="{'is-selected': recipients.includes(String(user.id))}">
+                                            <button type="button" class="vxnm-person-main" x-on:click="choosePerson(user)" :disabled="creating" :aria-label="(recipients.length ? 'Add ' : 'Message ')+userName(user)">
+                                                <span class="vxnm-avatar" x-text="initials(userName(user))"></span>
+                                                <span class="vxnm-person-text"><strong x-text="userName(user)"></strong><small x-text="user.attributes?.role || 'Teammate'"></small></span>
+                                            </button>
+                                            <button type="button" class="vxnm-select" x-on:click="toggleRecipient(user)" :aria-pressed="String(recipients.includes(String(user.id)))" :aria-label="(recipients.includes(String(user.id)) ? 'Remove ' : 'Add to group: ')+userName(user)" :title="recipients.includes(String(user.id)) ? 'Remove' : 'Add to group'">
+                                                <x-filament::icon icon="heroicon-m-check" />
+                                            </button>
+                                        </div>
+                                    </template>
+                                </section>
+                            </template>
+                            <div class="vxnm-empty" x-show="!usersLoading && !visibleUsers().length" x-cloak>
+                                <strong x-text="userSearch ? 'No one matches “'+userSearch+'”' : 'No teammates available'"></strong>
+                                <span x-text="userSearch ? 'Try a first name or a role.' : 'Ask an administrator to confirm messaging access.'"></span>
+                            </div>
+                            <p class="vxnm-state" x-show="!usersLoading && usersHasMore">Showing the first 60 people. Type a name to find more.</p>
+                        </div>
+
+                        <p class="vxm-picker-error vxnm-error" x-show="error" x-cloak x-text="error" role="alert"></p>
+                        <footer class="vxnm-foot" x-show="recipients.length" x-cloak>
+                            <button type="button" class="vxnm-start" x-on:click="createConversation()" :disabled="creating || usersLoading"
+                                x-text="creating ? 'Opening…' : (recipients.length>1 ? 'Start group with '+recipients.length+' people' : 'Message '+userName(recipientPeople()[0]||{}).split(' ')[0])"></button>
                         </footer>
+                        <p class="vxnm-hint" x-show="!recipients.length">Tap a name to message them. Tap <span class="vxnm-hint-dot" aria-hidden="true"></span> to add people to a group.</p>
                     </div>
                 </div>
 
@@ -442,6 +461,67 @@
                 .dark .vx-chatify-native .vx-chatify-reaction-picker{background:#30233e;border-color:#604a78;box-shadow:0 8px 26px rgba(0,0,0,.4)}
                 .dark .vx-chatify-native .vx-chatify-reaction-picker>button:hover,.dark .vx-chatify-native .vx-chatify-reaction-picker>button:focus-visible{background:#50366e!important}
                 @media(max-width:440px){.vx-chatify-native .vx-chatify-reaction-picker{gap:1px!important;padding:4px!important}.vx-chatify-native .vx-chatify-reaction-picker>button{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex-basis:30px!important;font-size:17px!important}}
+                /* ── New message (iMessage-style) ─────────────────────────────
+                   One list. Tap a name: that chat opens. Tap the circle: the person
+                   joins a group. Two or more people makes it a group. */
+                .vxnm-sheet{--c-bg:#fff;--c-bg2:#f6f5f9;--c-line:#e7e4ee;--c-ink:#17141f;--c-muted:#6d6879;--c-faint:#9a95a6;--c-accent:var(--primary-600,#7c3aed);--c-accent-soft:color-mix(in oklab,var(--primary-600,#7c3aed) 12%,transparent);
+                    position:relative;display:flex;flex-direction:column;width:min(520px,calc(100vw - 40px));height:min(680px,calc(100dvh - 40px));border-radius:18px;background:var(--c-bg);color:var(--c-ink);box-shadow:0 24px 60px -12px rgba(15,10,30,.4);overflow:hidden}
+                .dark .vxnm-sheet{--c-bg:#17151f;--c-bg2:#1f1c29;--c-line:#2c2838;--c-ink:#f3f1f8;--c-muted:#aaa4b8;--c-faint:#7d778c;--c-accent:var(--primary-400,#a78bfa);--c-accent-soft:color-mix(in oklab,var(--primary-500,#8b5cf6) 20%,transparent)}
+                .vxnm-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--c-line)}
+                .vxnm-head h2{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em;text-align:center}
+                .vxnm-text-btn{justify-self:start;min-height:36px;padding:0 6px;border:0;background:none;color:var(--c-accent);font-size:15px;font-weight:500;cursor:pointer;border-radius:8px}
+                .vxnm-text-btn:focus-visible,.vxnm-person-main:focus-visible,.vxnm-select:focus-visible,.vxnm-recent:focus-visible,.vxnm-start:focus-visible,.vxnm-chip button:focus-visible{outline:2px solid var(--c-accent);outline-offset:2px}
+                .vxnm-to{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:50px;padding:8px 16px;border-bottom:1px solid var(--c-line);cursor:text}
+                .vxnm-to-label{color:var(--c-muted);font-size:15px}
+                .vxnm-chip{display:inline-flex;align-items:center;gap:2px;height:28px;padding:0 4px 0 10px;border-radius:999px;background:var(--c-accent-soft);color:var(--c-accent);font-size:14px;font-weight:550;animation:vxnm-in .15s ease-out backwards}
+                .vxnm-chip button{display:grid;place-items:center;width:22px;height:22px;border:0;border-radius:999px;background:none;color:inherit;font-size:16px;line-height:1;cursor:pointer;opacity:.75}
+                .vxnm-chip button:hover{opacity:1;background:var(--c-accent-soft)}
+                .vxnm-to input{flex:1;min-width:120px;height:32px;padding:0!important;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;color:var(--c-ink)!important;font-size:15px!important}
+                .vxnm-to input::placeholder{color:var(--c-faint)}
+                .vxnm-to input::-webkit-search-cancel-button{display:none}
+                .vxnm-group-name{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--c-line);background:var(--c-bg2)}
+                .vxnm-group-name label{flex:none;color:var(--c-muted);font-size:13px}
+                .vxnm-group-name input{flex:1;min-width:0;height:32px;padding:0 10px!important;border:1px solid var(--c-line)!important;border-radius:8px!important;background:var(--c-bg)!important;color:var(--c-ink)!important;font-size:14px!important;box-shadow:none!important}
+                .vxnm-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px;scrollbar-width:thin}
+                .vxnm-body h3{position:sticky;top:0;z-index:1;margin:0;padding:6px 16px;background:var(--c-bg2);color:var(--c-muted);font-size:12px;font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+                .vxnm-recents h3{position:static;background:none;padding-top:12px}
+                .vxnm-recents-row{display:flex;gap:6px;overflow-x:auto;padding:4px 12px 12px;scrollbar-width:none}
+                .vxnm-recents-row::-webkit-scrollbar{display:none}
+                .vxnm-recent{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;padding:6px 2px;border:0;border-radius:12px;background:none;color:var(--c-ink);cursor:pointer;transition:background-color .15s,transform .12s}
+                .vxnm-recent:hover{background:var(--c-bg2)}
+                .vxnm-recent:active{transform:scale(.96)}
+                .vxnm-recent-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+                .vxnm-avatar{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:999px;background:linear-gradient(160deg,#a5a1b2,#7d7889);color:#fff;font-size:14px;font-weight:600;letter-spacing:.02em}
+                .vxnm-avatar.is-lg{width:52px;height:52px;font-size:17px}
+                .vxnm-person{display:flex;align-items:center;gap:4px;padding-right:12px;transition:background-color .15s}
+                .vxnm-person:hover{background:var(--c-bg2)}
+                .vxnm-person.is-selected{background:var(--c-accent-soft)}
+                .vxnm-person-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:58px;padding:8px 4px 8px 16px;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+                .vxnm-person-main:active{opacity:.7}
+                .vxnm-person+.vxnm-person .vxnm-person-text{box-shadow:0 -1px 0 var(--c-line)}
+                .vxnm-person-text{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1px;align-self:stretch}
+                .vxnm-person-text strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:550}
+                .vxnm-person-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-muted);font-size:12.5px}
+                .vxnm-select{display:grid;place-items:center;flex:none;width:30px;height:30px;border:1.5px solid var(--c-faint);border-radius:999px;background:none;color:transparent;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,transform .12s}
+                .vxnm-select svg{width:16px;height:16px}
+                .vxnm-select:hover{border-color:var(--c-accent)}
+                .vxnm-select:active{transform:scale(.9)}
+                .vxnm-select[aria-pressed="true"]{border-color:var(--c-accent);background:var(--c-accent);color:#fff}
+                .vxnm-state{margin:0;padding:14px 16px;color:var(--c-muted);font-size:13px}
+                .vxnm-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:40px 16px;text-align:center}
+                .vxnm-empty strong{font-size:14px}
+                .vxnm-empty span{color:var(--c-muted);font-size:13px}
+                .vxnm-error{margin:0;padding:8px 16px}
+                .vxnm-foot{padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--c-line);background:var(--c-bg)}
+                .vxnm-start{width:100%;min-height:46px;border:0;border-radius:12px;background:var(--primary-600,#7c3aed);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:filter .15s,transform .12s}
+                .vxnm-start:hover{filter:brightness(1.08)}
+                .vxnm-start:active{transform:scale(.99)}
+                .vxnm-start:disabled{opacity:.6;cursor:wait}
+                .vxnm-hint{margin:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--c-line);color:var(--c-muted);font-size:12.5px;text-align:center}
+                .vxnm-hint-dot{display:inline-block;width:12px;height:12px;margin:0 1px -1px;border:1.5px solid var(--c-faint);border-radius:999px}
+                @keyframes vxnm-in{from{opacity:0;scale:.9}}
+                @media(max-width:680px){.vxnm-sheet{width:100%;height:100dvh;border-radius:0}.vxnm-head{padding-top:calc(10px + env(safe-area-inset-top,0px))}.vxnm-person-main{min-height:62px}.vxnm-select{width:34px;height:34px}}
+                @media(prefers-reduced-motion:reduce){.vxnm-sheet *{transition:none!important;animation:none!important}}
             </style>
             <script>
                 function vortexChatifyWidget() {
@@ -918,18 +998,51 @@
                             return this.recipients.map(id=>this.userDirectory[id] || this.users.find(u=>String(u.id)===id)
                                 || {id,attributes:{name:'Teammate #'+id}}).filter(Boolean);
                         },
+                        // Tapping a name opens that chat straight away. Once someone is
+                        // already in the To: field, tapping adds to the group instead.
                         async choosePerson(user) {
-                            if(this.creating || this.usersLoading)return;
-                            if(this.creatingGroup){this.toggleRecipient(user);return;}
+                            if(this.creating)return;
+                            if(this.recipients.length){this.toggleRecipient(user);this.userSearch='';return;}
                             this.recipients=[String(user.id)];
                             await this.createConversation();
                         },
                         toggleRecipient(user) {
                             const id=String(user.id);
-                            if(this.recipients.includes(id)){this.recipients=this.recipients.filter(entry=>entry!==id);return;}
-                            if(!this.creatingGroup){this.recipients=[id];return;}
-                            if(this.recipients.length>=49){this.error='Group chats allow up to 49 other teammates.';return;}
-                            this.recipients=[...this.recipients,id];this.error='';
+                            this.userDirectory[id]??=user;
+                            if(this.recipients.includes(id)){this.recipients=this.recipients.filter(entry=>entry!==id);}
+                            else if(this.recipients.length>=49){this.error='Group chats allow up to 49 other teammates.';return;}
+                            else this.recipients=[...this.recipients,id];
+                            this.creatingGroup=this.recipients.length>1;this.error='';
+                            this.$nextTick(()=>this.$refs.peopleSearchInput?.focus());
+                        },
+                        composerEnter() {
+                            if(this.creating)return;
+                            const first=this.visibleUsers()[0];
+                            if(this.userSearch.trim() && first){this.choosePerson(first);return;}
+                            if(this.recipients.length)this.createConversation();
+                        },
+                        directThreadWith(id) {
+                            return this.threads.find(t=>t?.attributes?.conversation_type!=='group' && String(t?.relationships?.other_user?.id ?? t?.relationships?.other_user?.attributes?.id ?? '')===String(id));
+                        },
+                        recentPeople() {
+                            const seen=new Set(),people=[];
+                            for(const t of this.threads){
+                                if(t?.attributes?.conversation_type==='group' || this.isSelfChat(t))continue;
+                                const other=t?.relationships?.other_user,id=String(other?.id ?? other?.attributes?.id ?? '');
+                                if(!id || seen.has(id))continue;
+                                seen.add(id);
+                                people.push(this.userDirectory[id] || {id,attributes:{name:other?.attributes?.name || other?.name || this.label(t)}});
+                                if(people.length>=8)break;
+                            }
+                            return people;
+                        },
+                        peopleSections() {
+                            const groups={};
+                            for(const user of [...this.visibleUsers()].sort((a,b)=>this.userName(a).localeCompare(this.userName(b)))){
+                                const first=(this.userName(user).trim()[0] || '#').toUpperCase(),letter=/[A-Z]/.test(first)?first:'#';
+                                (groups[letter] ??= []).push(user);
+                            }
+                            return Object.keys(groups).sort().map(letter=>({letter,people:groups[letter]}));
                         },
                         async loadGroupRoles() {
                             if(!this.canCreateGroups || this.groupRoles.length)return;
@@ -972,7 +1085,10 @@
                         async createConversation() {
                             if(!this.recipients.length || this.creating)return;
                             if(this.recipients.length>49){this.error='Select no more than 49 teammates for a group.';return;}
-                            if(!this.creatingGroup && this.recipients.length!==1){this.error='Choose one teammate for a direct message.';return;}
+                            this.creatingGroup=this.recipients.length>1;
+                            // Already talking to this person: open that chat, don't make another.
+                            const existing=!this.creatingGroup && this.directThreadWith(this.recipients[0]);
+                            if(existing){this.showNew=false;this.recipients=[];this.groupName='';await this.openThread(existing);return;}
                             this.creating=true;this.error='';
                             try {
                                 const group=this.creatingGroup;

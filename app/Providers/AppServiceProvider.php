@@ -80,6 +80,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // First: the message observer below reads these flags once at boot.
+        \App\Support\TeamMessagingSwitch::apply();
+
         \App\Support\FulfillmentPulse::register();
         \App\Support\PokemonHooks::register();
 

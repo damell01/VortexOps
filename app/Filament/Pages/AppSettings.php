@@ -275,6 +275,38 @@ class AppSettings extends Page
         ];
     }
 
+    /** Owner-only, saved at once (not part of the form): see App\Support\TeamMessagingSwitch. */
+    public function setTeamMessaging(bool $on): void
+    {
+        abort_unless(auth()->user()?->isOwner(), 403);
+
+        Setting::set(\App\Support\TeamMessagingSwitch::ENABLED, $on ? '1' : '0');
+        if (! $on) {
+            Setting::set(\App\Support\TeamMessagingSwitch::ALERTS, '0');
+        }
+
+        activity('settings')->causedBy(auth()->user())->log($on ? 'Team messaging turned on' : 'Team messaging turned off');
+
+        \Filament\Notifications\Notification::make()
+            ->title($on ? 'Team messaging is on' : 'Team messaging is off')
+            ->body($on ? 'Teammates see chat on their next page load.' : 'Chat is back to admins only. Messages are kept.')
+            ->success()
+            ->send();
+    }
+
+    public function setTeamMessageAlerts(bool $on): void
+    {
+        abort_unless(auth()->user()?->isOwner(), 403);
+
+        Setting::set(\App\Support\TeamMessagingSwitch::ALERTS, $on ? '1' : '0');
+        activity('settings')->causedBy(auth()->user())->log($on ? 'Message alerts turned on' : 'Message alerts turned off');
+
+        \Filament\Notifications\Notification::make()
+            ->title($on ? 'Message alerts are on' : 'Message alerts are off')
+            ->success()
+            ->send();
+    }
+
     public function saveSettings(): void
     {
         abort_unless(static::canAccess(), 403);

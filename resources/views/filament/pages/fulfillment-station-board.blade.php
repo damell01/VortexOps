@@ -261,9 +261,7 @@
                                             <span class="vxf-btn vxf-btn--sm" aria-disabled="true" style="opacity:.55;cursor:not-allowed" title="This shipment's label has not synced from Whatnot yet. Refresh it on Shipping & Labels.">
                                                 <x-heroicon-o-printer /> No label yet</span>
                                         @endif
-                                        @if ($package->status !== 'packed' && $canWork && ! $paused)
-                                            <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})" aria-label="Mark package {{ $loop->iteration }} packed"><x-heroicon-o-check /> Pack</button>
-                                        @elseif ($package->status === 'packed')
+                                        @if ($package->status === 'packed')
                                             <span class="vxf-pill vxf-pill--packing">Packed{{ $package->packed_at ? ' ' . $package->packed_at->timezone($tz)->format('g:i A') : '' }}</span>
                                         @endif
                                     </li>
@@ -282,13 +280,9 @@
                     @if ($paused)
                         <button type="button" class="vxf-big vxf-big--go" wire:click="resume"><x-heroicon-o-play /> Resume Packing</button>
                     @else
-                        <button type="button" class="vxf-big vxf-big--go" wire:click="packNext" wire:loading.attr="disabled" @disabled(! $current || $current->status === 'packed' || $current->status === 'held')>
-                            @php $openPkgs = $this->currentPackages->where('status', '!=', 'packed')->count(); $allPkgs = $this->currentPackages->count(); @endphp
-                            <x-heroicon-o-check-circle /> <span>Packed · next buyer @if ($allPkgs > 1)<small style="display:block;font-size:12px;font-weight:600;opacity:.85">all {{ $allPkgs }} packages</small>@endif</span>
-                        </button>
                         <div class="vxf-pair">
                             <button type="button" class="vxf-big" wire:click="step(-1)" aria-label="Previous buyer"><x-heroicon-o-arrow-left /> Prev</button>
-                            <button type="button" class="vxf-big" wire:click="step(1)" aria-label="Next buyer (marks this buyer packed)" title="Next marks this buyer packed and moves on">Next <x-heroicon-o-arrow-right /></button>
+                            <button type="button" class="vxf-big" wire:click="step(1)" aria-label="Next buyer" title="View next buyer">Next <x-heroicon-o-arrow-right /></button>
                         </div>
                         <button type="button" class="vxf-big" x-on:click="focusScan()"><x-heroicon-o-qr-code /> Scan Item</button>
                     @endif
@@ -313,7 +307,7 @@
                             </div>
                             <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="blockStation" wire:confirm="Mark this station blocked, pause packing, and alert the fulfillment managers?"><x-heroicon-o-no-symbol /><span>Station Blocked</span></button>
                         @endunless
-                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="openReview"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
+                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="confirmDone" wire:confirm="Finish packing this show and record the completion time?" wire:loading.attr="disabled"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
                     </div>
                     @if ($this->isManager() && $current && $current->status === 'packed')
                         <button type="button" class="vxf-btn vxf-btn--sm" wire:click="reopenBuyer({{ $current->id }})" wire:confirm="Reopen {{ $current->letter }} so it can be packed again?">Reopen buyer</button>
@@ -329,11 +323,11 @@
                 <h2 id="vxf-help-title">How to pack a show</h2>
                 <ol>
                     <li><b>A</b><span><strong>Pack buyers in letter order.</strong> The big letter is the buyer you're on. It starts at A.</span></li>
-                    <li><b><x-heroicon-o-qr-code /></b><span><strong>Scan each item.</strong> The scan box is always ready. If scanning isn't set up for a buyer, check against the packing slip.</span></li>
-                    <li><b><x-heroicon-o-check /></b><span><strong>Packed, or just Next.</strong> Either one marks the whole buyer packed (every package) and brings up the next buyer. No tapping each item. Prev goes back without packing.</span></li>
+                    <li><b><x-heroicon-o-qr-code /></b><span><strong>Optional item scanning.</strong> The scan box is always ready. If scanning isn't set up for a buyer, check against the packing slip.</span></li>
+                    <li><b><x-heroicon-o-check /></b><span><strong>Browse buyers.</strong> Browse buyers and their orders as needed. Individual packing confirmations are not required.</span></li>
                     <li><b><x-heroicon-o-flag /></b><span><strong>Something wrong? Flag Issue.</strong> That buyer is put on hold and a manager is told. Keep packing the rest.</span></li>
                     <li><b><x-heroicon-o-pause /></b><span><strong>Taking a break? Pause.</strong> The timer stops until you resume.</span></li>
-                    <li><b><x-heroicon-o-check-badge /></b><span><strong>All done? Finish Show.</strong> Look over the review screen and confirm the show is done. The fulfillment admin then signs it off.</span></li>
+                    <li><b><x-heroicon-o-check-badge /></b><span><strong>All done? Finish Show.</strong> Confirm once to record the completion time. The fulfillment admin then signs it off.</span></li>
                 </ol>
                 <button type="button" class="vxf-btn vxf-btn--primary" @click="help = false">Got it</button>
             </div>
@@ -376,7 +370,7 @@
         </div>
 
         @if ($reviewing && ($r = $this->review))
-            @php $ready = $r['notPacked']->isEmpty() && ! $r['blockingIssues']; @endphp
+            @php $ready = $r['buyers'] > 0 && ! $r['blockingIssues']; @endphp
             <div class="vxf-drawer-backdrop" wire:click="$set('reviewing', false)"></div>
             <div class="vxf-review" role="dialog" aria-modal="true" aria-labelledby="vxf-review-title" x-data="{ sure: false }" @keydown.escape.window="$wire.set('reviewing', false)">
                 <div class="vxf-review__head">
@@ -401,11 +395,7 @@
                         <div class="vxf-sub">Missing labels are shown for review; packing sign-off remains governed by existing completion and blocking-issue rules. Printing verification is performed before each label print.</div>
                     </div>
                 </div>
-                @if ($r['notPacked']->isNotEmpty())
-                    <div class="vxf-alert" role="alert"><div><strong>{{ $r['notPacked']->count() }} {{ \Illuminate\Support\Str::plural('buyer', $r['notPacked']->count()) }} not packed yet</strong>
-                        <div class="vxf-review__left">@foreach ($r['notPacked']->take(12) as $b)<span><b>{{ $b->letter }}</b> {{ $b->buyer_username }}</span>@endforeach @if ($r['notPacked']->count() > 12)<span>+{{ $r['notPacked']->count() - 12 }} more</span>@endif</div>
-                        <span class="vxf-sub">Pack them, or flag the ones you can't, before the show can be done.</span></div></div>
-                @elseif ($r['blockingIssues'])
+                @if ($r['blockingIssues'])
                     <div class="vxf-alert" role="alert"><div><strong>{{ $r['blockingIssues'] }} open {{ \Illuminate\Support\Str::plural('issue', $r['blockingIssues']) }} must be resolved first</strong><span class="vxf-sub">Ask the fulfillment admin to resolve it.</span></div></div>
                 @else
                     @php $rc = $r['reconcile'] ?? null; $missing = $rc['missing_orders'] ?? []; @endphp
@@ -414,7 +404,7 @@
                             <div class="vxf-review__left">@foreach (array_slice($missing, 0, 10) as $m)<span><b>{{ $m['buyer'] ?: '—' }}</b> {{ $m['order'] ? '#' . $m['order'] : '' }}{{ $m['item'] ? ' · ' . \Illuminate\Support\Str::limit($m['item'], 30) : '' }}</span>@endforeach @if (count($missing) > 10)<span>+{{ count($missing) - 10 }} more</span>@endif</div>
                             <span class="vxf-sub">These are on Whatnot but were not packed here ({{ collect($missing)->contains('why', 'Buyer was not on the board') ? 'some buyers ordered after packing started' : 'not in a packed package' }}). Pack them or flag them; if they are handled, you can still confirm.</span></div></div>
                     @endif
-                    <label class="vxf-review__confirm"><input type="checkbox" x-model="sure"> <span>{{ $missing ? 'I checked the orders above, and every' : 'Every' }} package for this show is packed and the counts above are right.</span></label>
+                    <label class="vxf-review__confirm"><input type="checkbox" x-model="sure"> <span>I confirm packing for this show is complete.</span></label>
                 @endif
                 <div class="vxf-review__foot">
                     <button type="button" class="vxf-btn" wire:click="$set('reviewing', false)">Keep packing</button>

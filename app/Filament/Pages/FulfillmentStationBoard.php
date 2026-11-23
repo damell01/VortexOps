@@ -263,11 +263,6 @@ class FulfillmentStationBoard extends Page
     public function step(int $direction): void
     {
         $current = $this->current;
-        if ($direction > 0 && $current && in_array($current->status, ['waiting', 'packing'], true)) {
-            $this->packNext();
-
-            return;
-        }
         $list = $this->buyers->values();
         $index = $list->search(fn ($b) => $b->id === $this->current?->id);
         $next = $list->get(max(0, min($list->count() - 1, ($index === false ? 0 : $index) + $direction)));

@@ -315,9 +315,17 @@ class FulfillmentRunService
             if (! DB::table('fulfillment_run_buyers')->where('run_id', $runId)->exists()) {
                 throw ValidationException::withMessages(['buyers' => 'A run cannot finish without any buyers.']);
             }
-            if (DB::table('fulfillment_run_buyers')->where('run_id', $runId)->where('status', '!=', 'packed')->exists()) {
-                throw ValidationException::withMessages(['buyers' => 'Pack or flag every buyer before finishing.']);
-            }
+            // Show completion is a single attestation, not individual package scans.
+            // Preserve existing per-buyer audit records; do not invent packing timestamps.
+            $confirmedBuyers = DB::table('fulfillment_run_buyers')->where('run_id', $runId)
+                ->whereIn('status', ['waiting', 'packing'])->update(['status' => 'packed', 'updated_at' => now()]);
+            $confirmedPackages = DB::table('fulfillment_run_packages')->where('run_id', $runId)
+                ->where('status', 'waiting')->whereIn('buyer_id', DB::table('fulfillment_run_buyers')
+                    ->where('run_id', $runId)->where('status', 'packed')->select('id'))
+                ->update(['status' => 'packed', 'updated_at' => now()]);
+            FulfillmentLog::record('show_packing_confirmed', $runId, $actor->id, [
+                'buyers' => $confirmedBuyers, 'packages' => $confirmedPackages,
+            ]);
 
             $pausedExtra = $run->status === FulfillmentRun::PAUSED && $run->paused_at
                 ? (int) \Illuminate\Support\Carbon::parse($run->paused_at)->diffInSeconds(now()) : 0;

@@ -315,12 +315,9 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->call('openReview')
             ->assertSet('reviewing', true)
             ->assertSee('Is Big Giveys Top Hit Tuesday done?')
-            ->assertSee('2 buyers not packed yet')
-            ->call('confirmDone');
-        $this->assertSame(FulfillmentRun::PACKING, $run->fresh()->status, 'Unpacked buyers block the confirmation.');
-
-        foreach ($run->buyers()->where('status', '!=', 'packed')->get() as $buyer) app(FulfillmentRunService::class)->markPacked($run->id, $buyer->id, $this->packer);
-        $board->call('openReview')->assertSee('Every package for this show is packed')->call('confirmDone')->assertSet('reviewing', false);
+            ->assertSee('I confirm packing for this show is complete.')
+            ->call('confirmDone')->assertSet('reviewing', false);
+        $this->assertSame(0, $run->buyers()->where('status', '!=', 'packed')->count());
 
         $run->refresh();
         $this->assertSame(FulfillmentRun::COMPLETED, $run->status);

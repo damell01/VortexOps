@@ -403,9 +403,17 @@ class EndOfStreamForm extends Page implements HasForms
         $this->manualName = ''; $this->manualQuantity = 1; $this->manualDisposition = 'sold'; $this->showManualItemForm = false;
     }
 
-    public function setLineQuantity(int $lineId, int $quantity): void { $this->editableEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]); $this->syncProductCost(); $this->touchDraft(); }
-    public function setLineCost(int $lineId, ?float $unitCost): void
+    // Both take the box's raw value: a cleared box arrives as "" and a typed
+    // one as a string, and typed int/float parameters threw on either.
+    public function setLineQuantity(int $lineId, int|string|null $quantity): void
     {
+        $quantity = is_numeric($quantity) ? (int) $quantity : null;
+        if ($quantity === null) return; // left blank: keep what the line already has
+        $this->editableEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]); $this->syncProductCost(); $this->touchDraft();
+    }
+    public function setLineCost(int $lineId, float|int|string|null $unitCost): void
+    {
+        $unitCost = is_numeric($unitCost) ? round((float) $unitCost, 2) : null; // blank: back to the inventory cost
         $line = $this->editableEntry()?->items()->find($lineId); if (! $line) return;
         $line->update(['unit_cost' => ($unitCost !== null && $unitCost > 0) ? $unitCost : null]); $this->syncProductCost(); $this->touchDraft();
     }

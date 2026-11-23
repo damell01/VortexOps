@@ -7,6 +7,10 @@ use App\Services\ShowCoverImages;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -36,16 +40,8 @@ class StoreShowCover implements ShouldQueue, ShouldBeUnique
             $path = 'show-covers/'.$show->id.'-'.substr(hash('sha256', $this->source), 0, 24).'.webp';
             if (! $disk->exists($path)) {
                 $this->validateSource();
-                $response = Http::connectTimeout(5)->timeout(20)->withOptions([
-                    'allow_redirects' => false,
-                    'on_headers' => function ($response) {
-                        if ((int) $response->getHeaderLine('Content-Length') > 8 * 1024 * 1024) throw new \RuntimeException('Show cover exceeds download limit.');
-                    },
-                    'progress' => function ($total, $downloaded) {
-                        if ($downloaded > 8 * 1024 * 1024) throw new \RuntimeException('Show cover exceeds download limit.');
-                    },
-                ])->get($this->source);
-                $response->throw();
+                $response = $this->download();
+                if ($response === null) return;
                 if ($response->status() !== 200 || strlen($response->body()) > 8 * 1024 * 1024) throw new \RuntimeException('Invalid show cover response.');
                 $bytes = $images->encode($response->body());
                 if (! $disk->put($path, $bytes)) throw new \RuntimeException('Could not store show cover.');
@@ -57,6 +53,41 @@ class StoreShowCover implements ShouldQueue, ShouldBeUnique
                 $disk->delete($match[1]);
             }
         });
+    }
+
+    /**
+     * The cover is cosmetic and Whatnot's image CDN drops connections now and
+     * then. A dropped connection, 429 or 5xx is retried on the job's backoff
+     * without being reported; after the last try it is logged and the show
+     * keeps its current image. Anything else still fails loudly.
+     */
+    private function download(): ?Response
+    {
+        try {
+            $response = Http::connectTimeout(5)->timeout(20)->withOptions([
+                'allow_redirects' => false,
+                'on_headers' => function ($response) {
+                    if ((int) $response->getHeaderLine('Content-Length') > 8 * 1024 * 1024) throw new \RuntimeException('Show cover exceeds download limit.');
+                },
+                'progress' => function ($total, $downloaded) {
+                    if ($downloaded > 8 * 1024 * 1024) throw new \RuntimeException('Show cover exceeds download limit.');
+                },
+            ])->get($this->source);
+
+            return $response->throw();
+        } catch (ConnectionException|RequestException $e) {
+            if ($e instanceof RequestException && ! $e->response->serverError() && $e->response->status() !== 429) {
+                throw $e;
+            }
+
+            if ($this->attempts() < $this->tries) {
+                $this->release($this->backoff()[$this->attempts() - 1] ?? 900);
+                return null;
+            }
+
+            Log::warning('Show cover download gave up after retries', ['show_id' => $this->showId, 'error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     private function validateSource(): void

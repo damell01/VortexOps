@@ -171,6 +171,28 @@ class ShowCostAndHoursComeFromTheSystemTest extends TestCase
         $this->assertSame(179.00, $line->total_cost);
     }
 
+    public function test_a_cleared_or_typed_box_never_throws(): void
+    {
+        // The boxes send their raw value: "" when cleared, "3" when typed.
+        // Typed int/float parameters threw a TypeError on both in production.
+        $item = $this->item(['unit_cost' => 10.00]);
+        $page = $this->form();
+        $page->call('addLineItem', $item->id, 2);
+        $lineId = $this->entry()->items()->value('id');
+
+        $page->call('setLineQuantity', $lineId, '')->assertOk();
+        $this->assertSame(2, (int) $this->entry()->items()->firstOrFail()->fresh()->quantity, 'a blank quantity keeps the line as it was');
+
+        $page->call('setLineQuantity', $lineId, '3')->assertOk();
+        $this->assertSame(3, (int) $this->entry()->items()->firstOrFail()->fresh()->quantity);
+
+        $page->call('setLineCost', $lineId, '12.5')->assertOk();
+        $this->assertSame(37.50, $this->entry()->items()->firstOrFail()->fresh()->total_cost);
+
+        $page->call('setLineCost', $lineId, '')->assertOk();
+        $this->assertTrue($this->entry()->items()->firstOrFail()->fresh()->costIsFromInventory(), 'a blank cost goes back to inventory');
+    }
+
     public function test_submitting_freezes_the_cost_the_report_was_filed_on(): void
     {
         // Otherwise a receipt next week silently restates a show payroll has

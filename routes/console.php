@@ -79,7 +79,7 @@ Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflo
 Schedule::command('timekeeping:missed-clock-outs')->everyFifteenMinutes()->name('timekeeping-missed-clock-outs')->withoutOverlapping(10);
 Schedule::command('payroll:sync-pay-runs')->hourly()->name('payroll-sync-current-week')->withoutOverlapping(15);
 Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class]])->dailyAt('03:00')->name('prune-ai-interactions')->withoutOverlapping();
-Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activity-log')->withoutOverlapping();
+Schedule::command('activitylog:clean --force')->weeklyOn(7, '03:30')->name('clean-activity-log')->withoutOverlapping();
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 // The browser scraper (Scrapling / headless Chromium) is off by default: it

@@ -61,7 +61,7 @@ class FulfillmentLabelController
             // Preserve the existing assigned-show access for fulfillment packers.
             abort_unless(FulfillmentAccess::moduleEnabled(), 404);
             $row = Shipment::query()->findOrFail($shipment);
-            $show = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()->findOrFail($row->show_id);
+            $show = \App\Filament\Resources\FulfillmentResource::shippingQuery()->findOrFail($row->show_id);
             abort_unless(\App\Filament\Resources\FulfillmentResource::canView($show), 403);
         }
 

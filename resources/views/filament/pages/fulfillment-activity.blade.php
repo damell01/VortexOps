@@ -1,4 +1,16 @@
 <x-filament-panels::page>
+<style>
+.vxf .vxf-show-log-modal{position:fixed;inset: max(12px, 3dvh) max(12px, 3vw);width:auto;max-width:1600px;margin-inline:auto;height:auto;max-height:94dvh;min-height:0;border:1px solid var(--vxf-line);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.28);z-index:81}
+.vxf .vxf-show-log-modal .vxf-drawer__head,.vxf .vxf-show-log-modal .vxf-drawer__foot{flex:0 0 auto;padding:12px 20px}
+.vxf .vxf-show-log-modal .vxf-drawer__body{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:14px 20px;scrollbar-gutter:stable}
+.vxf .vxf-show-log-modal .vxf-drawer__body>*{flex-shrink:0}
+.vxf .vxf-show-log-modal .vxf-kv{grid-template-columns:repeat(auto-fit,minmax(175px,1fr));overflow:visible;border-radius:12px}
+.vxf .vxf-show-log-modal .vxf-kv>div{min-width:0;padding:10px 14px;overflow-wrap:anywhere}
+.vxf .vxf-show-log-modal .vxf-table-wrap{max-width:100%;overflow-x:auto}
+.vxf .vxf-show-log-modal .vxf-tabs{flex-wrap:wrap}
+.vxf .vxf-drawer-backdrop:has(+.vxf-show-log-modal){z-index:80}
+@media(max-width:700px){.vxf .vxf-show-log-modal{inset:0;max-height:100dvh;border-radius:0}.vxf .vxf-show-log-modal .vxf-drawer__body,.vxf .vxf-show-log-modal .vxf-drawer__head,.vxf .vxf-show-log-modal .vxf-drawer__foot{padding:10px}.vxf .vxf-show-log-modal .vxf-kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
 @php
     $manager = $this->isManager();
     $tz = \App\Support\BusinessTime::zone();
@@ -454,7 +466,7 @@
     @if ($this->logRun)
         @php $run = $this->logRun; $d = $this->logData; @endphp
         <div class="vxf-drawer-backdrop" wire:click="closeLog"></div>
-        <div class="vxf-drawer" style="width:min(820px,100vw)" role="dialog" aria-modal="true" aria-labelledby="vxf-log-title" @keydown.escape.window="$wire.closeLog()">
+        <div class="vxf-drawer vxf-show-log-modal" role="dialog" aria-modal="true" aria-labelledby="vxf-log-title" @keydown.escape.window="$wire.closeLog()">
             <div class="vxf-drawer__head">
                 <div style="min-width:0"><p class="vxf-sub" style="margin:0">Show log · digital tracking record</p><h2 id="vxf-log-title">{{ $run->show?->title }}</h2></div>
                 <div style="display:flex;gap:6px;align-items:center">

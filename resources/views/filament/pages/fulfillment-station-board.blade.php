@@ -1,4 +1,7 @@
 <x-filament-panels::page>
+<style>
+.vxf-compact-packing{padding:8px;border-radius:12px}.vxf-compact-packing .vxf-sbar{padding:8px;gap:8px;margin-bottom:8px}.vxf-compact-packing .vxf-sbar h1{font-size:16px}.vxf-compact-packing .vxf-sbar p{font-size:12px}.vxf-pack-clock{display:flex;flex-direction:column;white-space:nowrap;padding:5px 10px;border:1px solid var(--vxf-line);border-radius:10px;background:var(--vxf-card)}.vxf-pack-clock strong{font-size:23px;font-variant-numeric:tabular-nums;color:var(--vxf-ink);line-height:1.2}.vxf-compact-packing .vxf-current{padding:10px;gap:12px;border-radius:12px}.vxf-compact-packing .vxf-bigletter{min-width:52px;height:52px;padding:0 8px;font-size:32px;border-radius:12px;box-shadow:none}.vxf-compact-packing .vxf-current h2{font-size:19px;overflow-wrap:anywhere;word-break:normal;margin:2px 0}.vxf-compact-packing .vxf-current .vxf-chips{margin-top:4px;gap:4px}.vxf-compact-packing .vxf-card__head{padding:8px 10px}.vxf-compact-packing .vxf-buyer{min-height:40px;padding:4px 6px;gap:6px}.vxf-compact-packing .vxf-letter{width:30px;height:30px;font-size:15px}.vxf-compact-packing .vxf-big{min-height:38px;font-size:14px}.vxf-compact-packing .vxf-acttile{min-height:44px;padding:8px;font-size:13px}.vxf-compact-packing .vxf-acttile svg{width:18px;height:18px}.vxf-compact-packing .vxf-finish-primary{grid-column:1/-1;background:#15803d;color:white;border-color:#15803d;min-height:48px}.vxf-optional-scan summary{cursor:pointer;font-weight:600;font-size:13px}.vxf-optional-scan[open] summary{margin-bottom:8px}@media(min-width:1024px){.vxf-compact-packing .vxf-sb{grid-template-columns:minmax(210px,1fr) minmax(0,2fr) minmax(180px,.8fr);gap:8px;align-items:start}.vxf-compact-packing .vxf-buyers{max-height:clamp(160px,calc(100dvh - 390px),540px);overflow:auto}.vxf-compact-packing .vxf-sb>section:nth-child(2){max-height:clamp(220px,calc(100dvh - 300px),800px);overflow:auto;gap:6px!important}.vxf-compact-packing .vxf-big-actions{position:sticky;top:12px}.fi-page:has(.vxf-compact-packing) .fi-page-content{gap:8px}.fi-page:has(.vxf-compact-packing) .fi-header{margin-bottom:0}}@media(max-width:700px){.vxf-pack-clock{white-space:normal}.vxf-compact-packing .vxf-sbar{flex-wrap:wrap}}
+</style>
 @php
     $run = $this->run;
     $tz = \App\Support\BusinessTime::zone();
@@ -18,7 +21,7 @@
     $done = (int) ($run?->completed_packages ?? 0);
     $pct = $expected ? min(100, round($done / max(1, $expected) * 100)) : ($buyers->count() ? round($packedBuyers / $buyers->count() * 100) : 0);
 @endphp
-@include('fulfillment.dev-banner')
+@unless ($run?->isOnStation()) @include('fulfillment.dev-banner') @endunless
 @if ($show && $this->isManager())<x-fulfillment-show-tabs :show="$show" :run="$run" active="packing" style="margin-bottom:10px" />@endif
 <div class="vxf" data-vxf-pulse x-on:vxf-pulse.window="vxfPulseRefresh($el, $wire)" x-data="{
         theme: (() => { try { return localStorage.getItem('vxf-board-theme') || 'auto' } catch (e) { return 'auto' } })(),
@@ -125,9 +128,9 @@
 @elseif ($run->isOnStation())
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
-    <div class="vxf-board" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { this.$refs.scan?.focus() },
+    <div class="vxf-board vxf-compact-packing" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { if (this.$refs.scan) { const panel = this.$refs.scan.closest("details"); if (panel) panel.open = true; this.$refs.scan.focus() } },
             beep(ok) { try { const C = window.AudioContext || window.webkitAudioContext; if (!C) return; this.ac ??= new C(); const t = this.ac.currentTime; (ok ? [[880, 0]] : [[220, 0], [180, 0.18]]).forEach(([f, d]) => { const o = this.ac.createOscillator(), g = this.ac.createGain(); o.frequency.value = f; o.type = ok ? 'sine' : 'square'; g.gain.setValueAtTime(0.12, t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.16); o.connect(g).connect(this.ac.destination); o.start(t + d); o.stop(t + d + 0.17); }); } catch (e) {} try { navigator.vibrate?.(ok ? 40 : [90, 60, 90]); } catch (e) {} } }"
-        x-init="$nextTick(() => focusScan())" @vxf-scan-done.window="$nextTick(() => focusScan())" @vxf-scan-result.window="beep($event.detail.ok ?? $event.detail[0]?.ok)">
+         @vxf-scan-done.window="$nextTick(() => focusScan())" @vxf-scan-result.window="beep($event.detail.ok ?? $event.detail[0]?.ok)">
         <header class="vxf-sbar">
             <span class="vxf-sbar__station {{ $paused ? 'is-paused' : '' }}"><i aria-hidden="true"></i>{{ $run->station?->name }} · {{ $paused ? 'Paused · ' . \App\Models\FulfillmentRun::pauseReasonLabel($run->pause_reason) : 'Packing' }}</span>
             <x-show-cover :show="$show" :size="40" class="vxf-sbar__cover" />
@@ -137,9 +140,9 @@
                     · {{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}
                     · <strong>{{ $run->packers->pluck('name')->join(', ') }}</strong> since {{ $run->started_at?->timezone($tz)->format('g:i A') }}</p>
             </div>
-            <div class="vxf-sbar__progress">
-                @include('fulfillment.ring', ['pct' => $pct, 'label' => ($expected !== null ? $done . '/' . $expected : $packedBuyers . '/' . $buyers->count()), 'tone' => $paused ? 'paused' : 'packing', 'size' => 58])
-                <small>{{ $expected !== null ? 'packages' : 'buyers' }}<br>packed</small>
+            <div class="vxf-pack-clock" wire:key="packing-clock-{{ $run->id }}-{{ $run->status }}-{{ $run->paused_seconds }}" x-data="{ base: {{ $run->activeSeconds() }}, anchor: Date.now(), seconds: {{ $run->activeSeconds() }}, running: @js(! $paused), tick: null, init() { this.tick = setInterval(() => { this.seconds = this.base + (this.running ? Math.max(0, Math.floor((Date.now() - this.anchor) / 1000)) : 0) }, 1000) }, destroy() { clearInterval(this.tick) }, format() { return [Math.floor(this.seconds / 3600), Math.floor(this.seconds / 60) % 60, this.seconds % 60].map(n => String(n).padStart(2, '0')).join(':') } }">
+                <span class="vxf-sub">{{ $paused ? 'Paused · active time' : 'Active packing time' }}</span>
+                <strong x-text="format()">{{ sprintf('%02d:%02d:%02d', intdiv($run->activeSeconds(), 3600), intdiv($run->activeSeconds(), 60) % 60, $run->activeSeconds() % 60) }}</strong>
             </div>
             <div class="vxf-sbar__tools">
                 <button type="button" class="vxf-iconbtn" @click="help = true" aria-label="How to pack" title="How to pack"><x-heroicon-o-question-mark-circle /></button>
@@ -159,7 +162,7 @@
         <div class="vxf-sb">
             {{-- Buyers A–Z --}}
             <section class="vxf-card" aria-labelledby="vxf-buyers" style="min-width:0">
-                <div class="vxf-card__head"><h2 id="vxf-buyers" style="color:var(--vxf-ink)">Buyers A–Z</h2><span class="vxf-sub vxf-num">{{ $packedBuyers }}/{{ $buyers->count() }}</span></div>
+                <div class="vxf-card__head"><h2 id="vxf-buyers" style="color:var(--vxf-ink)">Buyers A–Z</h2><span class="vxf-sub vxf-num">{{ $buyers->count() }} buyers</span></div>
                 <div style="padding:8px 8px 0"><label class="sr-only" for="vxf-buyer-search">Search buyer</label>
                     <input id="vxf-buyer-search" class="vxf-input" type="search" placeholder="Search buyer or letter…" wire:model.live.debounce.250ms="buyerSearch"></div>
                 <div class="vxf-buyers" role="list">
@@ -171,7 +174,7 @@
                                 <span class="vxf-letter">{{ $b->letter }}</span>
                                 <span style="flex:1;min-width:0">
                                     <span class="vxf-buyer__name">{{ $b->buyer_username }}</span>
-                                    <span class="vxf-sub">{{ $b->packages_count ? $b->packed_packages_count . '/' . $b->packages_count . ' pkg' : $b->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $b->item_count) }} · {{ ['packed' => 'Packed', 'held' => 'On hold', 'packing' => 'Packing'][$b->status] ?? 'Waiting' }}</span>
+                                    <span class="vxf-sub">{{ $b->packages_count }} pkg · {{ $b->item_count }} items{{ $b->status === 'held' ? ' · On hold' : '' }}</span>
                                 </span>
                                 @if ($b->status === 'packed')<x-heroicon-o-check-circle style="width:20px;height:20px;color:#16a34a" aria-label="Packed" />@endif
                                 @if ($b->status === 'held')<x-heroicon-o-exclamation-triangle style="width:20px;height:20px;color:#d97706" aria-label="On hold" />@endif
@@ -209,7 +212,7 @@
                         </div>
                     </div>
 
-                    <div class="vxf-card" style="padding:12px 14px">
+                    <details class="vxf-card vxf-optional-scan" style="padding:8px 10px"><summary>Optional item verification</summary>
                         <form wire:submit="scan" class="vxf-scan" aria-label="Scan an item to verify">
                             <x-heroicon-o-qr-code aria-hidden="true" />
                             <label for="vxf-scan-input" class="sr-only">Scan item barcode</label>
@@ -243,7 +246,7 @@
                         @else
                             <p class="vxf-sub" style="margin:8px 0 0">Item verification is not available for this buyer: their orders are not mapped to inventory items. Check the items against the packing slip.</p>
                         @endif
-                    </div>
+                    </details>
 
                     @if ($this->currentPackages->isNotEmpty())
                         <div class="vxf-card" style="padding:4px 14px">
@@ -307,7 +310,7 @@
                             </div>
                             <button type="button" class="vxf-acttile vxf-acttile--bad" wire:click="blockStation" wire:confirm="Mark this station blocked, pause packing, and alert the fulfillment managers?"><x-heroicon-o-no-symbol /><span>Station Blocked</span></button>
                         @endunless
-                        <button type="button" class="vxf-acttile vxf-acttile--brand" wire:click="confirmDone" wire:confirm="Finish packing this show and record the completion time?" wire:loading.attr="disabled"><x-heroicon-o-check-badge /><span>Finish Show</span></button>
+                        <button type="button" class="vxf-acttile vxf-acttile--brand vxf-finish-primary" wire:click="confirmDone" wire:confirm="Finish packing this show and record the completion time?" wire:loading.attr="disabled"><x-heroicon-o-check-badge /><span>Finish Packing</span></button>
                     </div>
                     @if ($this->isManager() && $current && $current->status === 'packed')
                         <button type="button" class="vxf-btn vxf-btn--sm" wire:click="reopenBuyer({{ $current->id }})" wire:confirm="Reopen {{ $current->letter }} so it can be packed again?">Reopen buyer</button>

@@ -33,7 +33,7 @@ class ShippingDesk extends Page
 
     public function mount(int|string $record): void
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $this->record = (int) $show->id;
     }
@@ -46,7 +46,7 @@ class ShippingDesk extends Page
 
     public function refreshShipments(): void
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $actor = auth()->user();
         abort_unless($actor && ($actor->isOwner() || $actor->isAdmin() || $actor->isFulfillmentAdmin()), 403);
@@ -70,7 +70,7 @@ class ShippingDesk extends Page
     /** Select printable shipments in this show, capped at 100 for manageable batches. */
     public function selectPrintableLabels(): void
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $this->selectedShipmentIds = Shipment::query()->where('show_id', $show->id)
             ->orderBy('buyer_username')->orderBy('id')->get(['id', 'raw_payload'])
@@ -82,7 +82,7 @@ class ShippingDesk extends Page
 
     public function preparePrintBatch(): void
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $ids = collect($this->selectedShipmentIds)->filter(fn ($id) => ctype_digit((string) $id))
             ->map(fn ($id) => (int) $id)->unique()->values()->all();
@@ -127,7 +127,7 @@ class ShippingDesk extends Page
     /** Record an explicit print attempt, never claim physical printer success. */
     public function recordPrintAttempt(int $shipmentId): void
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $shipment = Shipment::query()->where('show_id', $show->id)->findOrFail($shipmentId);
         $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
@@ -144,7 +144,7 @@ class ShippingDesk extends Page
     /** Recent label, packing and exception events for this authorized show. */
     public function shippingAudit(): \Illuminate\Support\Collection
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
 
         return \App\Models\FulfillmentEvent::query()
@@ -161,7 +161,7 @@ class ShippingDesk extends Page
 
     public function shippingData(): array
     {
-        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        $show = FulfillmentResource::shippingQuery()->findOrFail($this->record);
         abort_unless(FulfillmentResource::canView($show), 403);
         // Only what this page shows: an order's raw Whatnot copy is large and is
         // never read here, and the page re-renders every 30 seconds.

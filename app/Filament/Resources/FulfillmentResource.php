@@ -69,6 +69,28 @@ class FulfillmentResource extends Resource
         return $query;
     }
 
+    /** Labels remain accessible for authorized shows already in the packing workflow. */
+    public static function shippingQuery(): Builder
+    {
+        $user = auth()->user();
+        $eligible = static::getEloquentQuery()->select('shows.id');
+        $shipping = parent::getEloquentQuery()->where('is_operational', true)
+            ->whereNotIn('status', ['cancelled'])
+            ->where(function (Builder $q) use ($eligible) {
+                $q->whereIn('shows.id', $eligible)
+                    ->orWhereHas('fulfillmentRuns', fn (Builder $run) => $run->whereIn('status', \App\Models\FulfillmentRun::ON_STATION));
+            });
+        if (! $user || ! static::canAccess()) return $shipping->whereRaw('1 = 0');
+        if (! \App\Support\FulfillmentAccess::isManager($user)) {
+            $shipping->whereHas('fulfillmentUsers', fn (Builder $q) => $q->where('users.id', $user->id));
+        }
+        if (ChannelContext::isScoped()) {
+            $shipping->where('whatnot_channel_id', ChannelContext::currentId());
+        }
+
+        return $shipping;
+    }
+
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
         if (\App\Support\RoleAccess::grants(static::class)) return true;

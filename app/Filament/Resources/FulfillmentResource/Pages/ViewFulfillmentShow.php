@@ -158,23 +158,6 @@ class ViewFulfillmentShow extends ViewRecord
                     Notification::make()->title('Counts updated')->success()->send();
                 }),
 
-            Action::make('mark_fulfillment_reviewed')
-                ->label('Verify for Payroll')
-                ->icon('heroicon-o-check-badge')
-                ->color('success')
-                ->visible(fn () => $this->needsCountVerification() && ! $this->readOnly())
-                ->requiresConfirmation()
-                ->modalHeading('Verify fulfillment counts for payroll')
-                ->modalDescription('Confirms the PWE and label counts are correct. The show can then move forward into payroll readiness once the logged-item review is complete.')
-                ->action(function () use ($log): void {
-                    $log?->update([
-                        'fulfillment_reviewed_by' => auth()->id(),
-                        'fulfillment_reviewed_at' => now(),
-                    ]);
-
-                    Notification::make()->title('Fulfillment verified for payroll')->success()->send();
-                    $this->redirect(FulfillmentResource::getUrl('view', ['record' => $this->record]));
-                }),
         ];
     }
 }

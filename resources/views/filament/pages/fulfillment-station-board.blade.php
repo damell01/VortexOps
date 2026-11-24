@@ -128,7 +128,7 @@
 @elseif ($run->isOnStation())
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
-    <div class="vxf-board vxf-compact-packing" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { if (this.$refs.scan) { const panel = this.$refs.scan.closest("details"); if (panel) panel.open = true; this.$refs.scan.focus() } },
+    <div class="vxf-board vxf-compact-packing" wire:key="board-packing-{{ $run->id }}" x-data="{ focusScan() { if (this.$refs.scan) { const panel = this.$refs.scan.closest('details'); if (panel) panel.open = true; this.$refs.scan.focus() } },
             beep(ok) { try { const C = window.AudioContext || window.webkitAudioContext; if (!C) return; this.ac ??= new C(); const t = this.ac.currentTime; (ok ? [[880, 0]] : [[220, 0], [180, 0.18]]).forEach(([f, d]) => { const o = this.ac.createOscillator(), g = this.ac.createGain(); o.frequency.value = f; o.type = ok ? 'sine' : 'square'; g.gain.setValueAtTime(0.12, t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.16); o.connect(g).connect(this.ac.destination); o.start(t + d); o.stop(t + d + 0.17); }); } catch (e) {} try { navigator.vibrate?.(ok ? 40 : [90, 60, 90]); } catch (e) {} } }"
          @vxf-scan-done.window="$nextTick(() => focusScan())" @vxf-scan-result.window="beep($event.detail.ok ?? $event.detail[0]?.ok)">
         <header class="vxf-sbar">
